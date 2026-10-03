@@ -1,52 +1,36 @@
 # Jarvis — Implementation Tasks
 
-Source of truth: `REQ_V2.MD` (cited as §n). This file lists the open spec
-issues and the tasks, in dependency order. Mark a task `[x]` only when every
+Source of truth: `REQ_V2.MD` v2.1 (cited as §n, requirement IDs as `AREA-NN`).
+Regenerated from §17 (milestones M0–M9). It replaces the earlier task list
+written for the customer-portal design. Mark a task `[x]` only when every
 acceptance check passes.
 
-Stack (§10, unchanged): React + Vite + Tailwind (pnpm) · Node LTS + TypeScript +
-Fastify + Drizzle · Postgres 16 + pgvector · worker as a separate entrypoint ·
-`pdfjs-dist` · `@google/genai` · Docker Compose.
+Stack (§14): React + Vite + Tailwind (pnpm) · Node LTS + TypeScript + Fastify +
+Drizzle + zod · Postgres 16 + pgvector · worker as a separate entrypoint ·
+`pdfjs-dist` · `@google/genai` · Vitest · Docker Compose.
+
+**Starting point.** The clickable prototype (`TASKS_PROTOTYPE.md`, branch
+`prototype`) already has every §12 screen, driven by simulated data:
+`frontend/src/hooks/useJarvis.js`, `frontend/src/data/jarvis.js` and the rule
+functions in `frontend/src/lib/model.js`. These tasks keep its components,
+replace its data source with the API, and port its rules to the server.
 
 ---
 
 ## 0. Spec issues to resolve before coding
 
-Status: **proposed, needs approval**. Each correction is the smallest change
-that unblocks coding. None of them adds scope. Once a correction is approved,
-add it to REQ_V2 (T00).
+Status: **proposed, needs approval**. Each one is the smallest change that
+unblocks coding and adds no scope. Once approved, T00 adds them to REQ_V2.
 
-### Blocking
-
-| # | Issue | Where | Proposed correction |
+| # | Issue | Where | Proposed resolution |
 |---|---|---|---|
-| C1 | In the refund-timing case, the conflicting FAQ passage is reported in `conflicts` but not cited in `answer`. Because "citations are read from markers only", it gets no evidence card (yet the banner says "both passages are shown"), and the stale check never sees it. | §4.3, §5.3, §6 `draft_sources`, §11 | When normalising, give each conflict source that isn't already cited the next citation number (after the text markers). It then gets an evidence card, counts toward staleness and goes into the snapshot. Map `conflicts[].sources/followed` to those numbers. |
-| C2 | **Retry** on an old failed version can activate it over a newer active version (v3 fails → v4 becomes active → retry v3 → v3 replaces v4). | §4.4, §5.1.6 | Allow Retry only on the document's latest version. The activation transaction also sets `active_version_id` only if `version_number` is greater than the current active version's number. |
-| C3 | The model is told to compare customer dates with effective dates and to reason about "20 days since first payment", but the prompt doesn't contain today's date or the question date. | §5.2.6, §5.3, §11 refund cases | Add `today` (UTC date) and `question_received_at` to the customer-context block. |
-| C4 | Decision #5 says "Jarvis" is internal only, but §13 renames "the header" to Jarvis, and the portal is customer-facing. | §12 #5, §13 | Use "Jarvis" only in `/console`. The portal is titled "SubPilot Support". |
-| C5 | The CSP `default-src 'self'` blocks the Google Fonts import in `frontend/src/index.css`. | §9, decision #4 | Self-host Nunito Sans: copy the woff2 files already embedded in the mock bundle into `frontend/src/assets/fonts`. No new dependency. |
-| C6 | The approval `sources` snapshot has no document or version ids. The "historical record" note (§4.3) and "Cited in answers" (§4.4) can't tell whether a source changed, especially after a delete. | §6 `answer_reviews` | Add `document_id` and `version_id` to each snapshot entry. These are plain values, not FKs, so they survive a delete. |
-| C7 | The test runner and test database aren't specified. | §11 | Use Vitest for frontend and server. Server tests run against a `jarvis_test` database in the compose Postgres, truncated between files. No testcontainers. |
-| C8 | §10 says pnpm, but `frontend/` uses npm (`package-lock.json`). The repo layout isn't defined. | §10 | Use a pnpm workspace with `frontend/` and `server/`. `server/` holds the API (`src/api.ts`) and worker (`src/worker.ts`) entrypoints. Remove `package-lock.json`. |
-| C9 | Seeding (§11) needs real embeddings, so there's no way to run the app without a Gemini key, although tests already need a stub provider. | §10, §11, CLAUDE.md | `LLM_PROVIDER=stub\|gemini` reuses the test stub. In stub mode the console shows a **SIMULATED AI** banner (CLAUDE.md: simulated behaviour must be labelled). `pnpm eval` refuses to run in stub mode. |
-| C10 | The embedding text formats (`title: … \| text: …`, `task: search result \| query: …`) and the claim that "768-d vectors are normalised" are unverified for `gemini-embedding-2`. Earlier Gemini embedding models used a `taskType` parameter instead. | §5.1.5, §5.2.3, §7 | Keep the spec as is, but put the formatting behind one function and verify it in the T11 spike. Normalisation doesn't change cosine (`<=>`) ranking, so it doesn't block. Update §7 only if the docs disagree. |
-
-### Clarifications (default applied unless you object)
-
-| # | Issue | Default |
-|---|---|---|
-| C11 | The "20 questions per day" period isn't defined. | UTC day, the same as the agent quota (§8). |
-| C12 | When the budget is reached during indexing, a queued version would wait forever. | The worker marks it `failed` with "Daily budget reached — retry later". |
-| C13 | The mock's customer context includes "Account manager: R. Haddad" (an employee name, which §4.3 forbids sending) and "Days since" (a derived value). | Drop the account manager from the seed. "Days since" isn't stored; the model gets `first_payment_at` plus `today` (C3). |
-| C14 | The mock shows the status as "Approved"; the spec status is `answered`. | The badge and filter say "Answered". The button says "Approve & publish". |
-| C15 | An agent can remove a citation marker, but the stale SQL (§6) checks every cited source. | Keep the spec SQL (conservative): removing a stale marker doesn't unblock approval, so the hint says "Regenerate". The snapshot lists only the markers that remain in the final text. |
-| C16 | After a delete, `draft_sources.chunk_id` becomes null, and the evidence card has no data. | Show the card as "Source deleted". The draft is stale. |
-| C17 | No routes are given for auth or the current user. | `POST /api/auth/login` (the only public route), `POST /api/auth/logout`, `GET /api/me` (any role; returns the role and the `simulated` flag). |
-| C18 | `Secure` cookies may be dropped on `http://localhost` in some browsers. | `COOKIE_SECURE` defaults to `true`. Set `false` only for local http. |
-| C19 | `documents.active_version_id` ↔ `document_versions.document_id` is a circular FK. | `active_version_id … ON DELETE SET NULL`, added after both tables exist. |
-| C20 | REQ_V2 says it supersedes `REQUIREMENTS.md`, but that file isn't in the repo (only `docs/old_notes.md`). | Cosmetic. Point the reference at `docs/old_notes.md`. |
-
-**Risk, no spec change:** under §4.3, *any* unknown means `missing_evidence`. If the model adds a minor unknown to the refund-timing or webhooks case, those golden cases fail. T27 measures this. If it fails, tighten the prompt (unknowns only for what the question asks), not the rule.
+| I1 | The state table doesn't say which state wins when an `insufficient_evidence` answer also has review reasons. | §4.2 | `needs_review` wins (precedence: generating, saved, failed, awaiting_clarification, out_of_scope, needs_review, insufficient_evidence, answer_ready). The prototype already does this. |
+| I2 | §9.3 rule 7 converts a third clarification into `insufficient_evidence` but gives it no text. ANS-04 rule 3 then blocks saving an outcome that DEC-6 says can be saved. | §9.3, ANS-04, DEC-6 | The server sets a fixed text: "Essential information is still missing after two clarification rounds, so this can't be answered from the available sources." |
+| I3 | The schema doesn't say whether `clarification_questions` may carry `[F#]`/`[S#]` markers. The S2b clarification needs to name both payments. | §7.4, §9.3 | Allowed. They are resolved and validated like `answer`, and S-ids in questions share the answer's numbering. |
+| I4 | Stub mode (§14) has no defined behaviour, so the UI can't be demonstrated without a Gemini key. | §14, CLAUDE.md | The stub provider returns the prototype's scripted results (moved to `server/fixtures/scripts.ts`), with deterministic embeddings. The UI shows **SIMULATED AI**. `pnpm eval` refuses stub mode. |
+| I5 | §12.3 names `useSubPilot.js` / `data/demo.js` as the mock files to delete, but the prototype replaced them with `useJarvis.js` / `data/jarvis.js`. | §12.3 | Update the table. Both are deleted once the API is wired (T26). |
+| I6 | `navigator.clipboard` works only in a secure context (HTTPS or localhost). Copy answer fails if the demo is opened over plain HTTP from another host. | ANS-03, §14 | The demo is served on `localhost`. If the clipboard is unavailable, Copy selects the text and says "Press ⌘C / Ctrl+C". |
+| I7 | `CLAUDE.md` and `AGENTS.md` still say employees "approve publication to customers"; `docs/DESIGN.md` describes the portal. | repo docs | Update all three in T00. |
 
 ---
 
@@ -54,393 +38,464 @@ add it to REQ_V2 (T00).
 
 - Scripts (defined in T01): `pnpm dev`, `pnpm test`, `pnpm --filter server test <pattern>`,
   `pnpm db:migrate`, `pnpm seed`, `pnpm worker`, `pnpm eval`, `pnpm build`.
-- Server tests use the stub provider and never call Gemini.
-- Each task ends with a working slice: migration, API, UI and test together where they apply.
+- Server tests use the stub provider and the `jarvis_test` database, truncated between files. They never call Gemini.
+- Each task ends with a working slice (migration, API, UI and test together where they apply) and one commit.
+- Rules already proven in the prototype are ported to TypeScript, together with their tests, rather than rewritten.
 
 ---
 
-## Phase 0 — Foundations
+## Phase 0 — Foundations (M0)
 
-### [ ] T00 · Apply approved spec corrections
-- **Goal:** REQ_V2 reflects the approved C1–C20 decisions, so later tasks cite one source.
-- **Refs:** §0 of this file.
+### [ ] T00 · Approve spec issues and update repo docs
+- **Goal:** one consistent source before coding.
+- **Refs:** §0 of this file, §2.
 - **Depends:** your approval.
-- **Acceptance:** each approved correction is added to the relevant REQ_V2 section, or to a new §14 "Corrections". Rejected ones are struck through here.
-- **Verify:** `grep -n "C1\|C2\|C3" REQ_V2.MD`, then review the diff.
+- **Acceptance:**
+  - Each approved I-item is folded into the relevant REQ_V2 section. Rejected ones are struck through here.
+  - `CLAUDE.md`, `AGENTS.md` and `docs/DESIGN.md` describe the internal-copilot flow (I7).
+  - The `prototype` branch is merged into `main`.
+- **Verify:** `grep -rn "publication to customers\|portal" CLAUDE.md AGENTS.md docs/DESIGN.md` returns nothing.
 
 ### [ ] T01 · pnpm workspace and server skeleton
-- **Goal:** one repo with `frontend/` (existing, JS) and `server/` (TS), both on pnpm and Vitest.
-- **Refs:** §10, C7, C8.
+- **Goal:** one repo with `frontend/` (JS) and `server/` (TS), both on pnpm and Vitest.
+- **Refs:** §14, DEC-1, DEC-2.
 - **Depends:** T00.
 - **Acceptance:**
-  - Root `package.json` and `pnpm-workspace.yaml` exist; `frontend/package-lock.json` is removed.
-  - `server/` has `tsconfig`, `src/api.ts` and `src/worker.ts` stubs, and Vitest.
-  - The root scripts from Conventions exist; unimplemented ones exit with a clear message.
-- **Verify:** `pnpm install && pnpm build && pnpm test` all pass (an empty placeholder test is fine).
+  - Root `package.json` and `pnpm-workspace.yaml`; `frontend/package-lock.json` removed; `.claude/launch.json` uses pnpm.
+  - `server/` has `tsconfig`, `src/api.ts` and `src/worker.ts` stubs, Fastify, Drizzle, zod, `fastify-type-provider-zod` and Vitest.
+  - `frontend/src/lib/model.test.js` runs under Vitest (import change only).
+  - Root scripts from Conventions exist; unimplemented ones exit with a clear message.
+- **Verify:** `pnpm install && pnpm build && pnpm test` pass.
 
 ### [ ] T02 · Compose database and config
-- **Goal:** local Postgres with pgvector, and a validated config module.
-- **Refs:** §10, §7, §8, C9, C18.
+- **Goal:** local Postgres with pgvector and a fail-fast config module.
+- **Refs:** §14, §10, SEC-01, SEC-09, I4.
 - **Depends:** T01.
 - **Acceptance:**
-  - `docker-compose.yml` has a `db` service (`pgvector/pgvector:pg16`) with a healthcheck, and `jarvis` and `jarvis_test` databases.
-  - `server/src/config.ts` reads `DATABASE_URL`, `LLM_PROVIDER`, `GEMINI_API_KEY` (required only for gemini), model ids, the price table, `RETRIEVAL_MIN_SCORE`, `DAILY_BUDGET_USD` and `COOKIE_SECURE`, and fails fast on missing or invalid values.
-  - `.env.example` is committed.
-- **Verify:** `docker compose up -d db`, then `docker compose exec db psql -U postgres -d jarvis -c "create extension if not exists vector; select extversion from pg_extension where extname='vector'"` shows ≥ 0.8; a config unit test covers a missing key.
+  - `docker-compose.yml` `db` service (`pgvector/pgvector:pg16`) with a healthcheck and the `jarvis` and `jarvis_test` databases.
+  - `server/src/config.ts` (zod) reads: `DATABASE_URL`, `LLM_PROVIDER` (`stub`/`gemini`), `GEMINI_API_KEY` (required only for gemini), model ids, the price table, `RETRIEVAL_MIN_SCORE`, `DAILY_BUDGET_USD`, `COOKIE_SECURE` and `APP_ORIGIN`.
+  - `.env.example` committed; `.env` git-ignored.
+- **Verify:** `docker compose up -d db`; `select extversion from pg_extension where extname='vector'` ≥ 0.8; a config test covers a missing key with `LLM_PROVIDER=gemini`.
 
-### [ ] T03 · Database schema and migration
-- **Goal:** every §6 table with its constraints.
-- **Refs:** §6, §4.4 categories, C6, C19.
+## Phase 1 — Schema and seed (M1)
+
+### [ ] T03 · Schema and migrations
+- **Goal:** every table with its constraints.
+- **Refs:** §5.1, §6.3, §17a, KB-02, AUTH-03, ANS-04 (unique `conversation_id`).
 - **Depends:** T02.
 - **Acceptance:**
-  - Drizzle schema plus generated migration for: `users`, `sessions`, `documents`, `document_versions`, `document_files`, `document_chunks` (`vector(768)`, no ANN index), `questions`, `answer_drafts`, `draft_sources`, `answer_reviews` and `provider_calls`.
-  - Enum `CHECK`s, uniques, cascades, `ON DELETE SET NULL` for `draft_sources.chunk_id` and `documents.active_version_id`, and the (`status`, `created_at`) index.
-- **Verify:** `pnpm db:migrate` works on an empty DB and is a no-op on a second run. The schema test checks that an invalid category, a duplicate `answer_reviews.question_id`, and deleting a document (cascading to versions, files and chunks) behave as specified.
+  - Drizzle schema plus generated migration for: `employees`, `sessions`, `accounts`, `account_features`, `payments`, `webhook_endpoints`, `webhook_deliveries`, `documents`, `document_versions`, `document_files`, `document_chunks` (`vector(768)`, no ANN index), `conversations`, `turns`, `answers`, `answer_sources`, `reviewed_answers`, `provider_calls`, `budget_days`.
+  - Constraints:
+    - enum `CHECK`s and unique keys;
+    - cascades, plus `ON DELETE SET NULL` for `answer_sources.chunk_id` and `documents.active_version_id` (added after `document_versions`);
+    - indexes on (`account_id`, `occurred_at desc`), (`endpoint_id`, `attempted_at desc`) and (`account_id`, `created_at desc`).
+  - `accounts` has no credential columns.
+- **Verify:** `pnpm db:migrate` works on an empty DB and is a no-op on a second run. The schema test checks:
+  - an invalid category is rejected;
+  - a duplicate `reviewed_answers.conversation_id` is rejected;
+  - deleting a document cascades to versions, files and chunks.
 
-### [ ] T04 · Fastify app baseline
-- **Goal:** a hardened HTTP shell that every route builds on.
-- **Refs:** §9 (CSP, CSRF, logging).
-- **Depends:** T02.
-- **Acceptance:**
-  - `buildApp()` factory with request ids, a log allow-list (request id, route, user id, status, latency; no bodies) and a uniform error shape.
-  - `@fastify/helmet` with CSP `default-src 'self'`.
-  - Mutating requests whose `Origin` isn't the app origin get 403.
-  - A test helper builds the app against `jarvis_test` and truncates tables.
-- **Verify:** `pnpm --filter server test baseline`: a POST with a foreign `Origin` returns 403, the CSP header is present, and the captured log output contains no request body.
-
-### [ ] T05 · Authentication and roles
-- **Goal:** agents and customers can log in; routes are guarded by role.
-- **Refs:** §2, §9 Authentication/Authorization, C17, C18, C9.
-- **Depends:** T03, T04.
-- **Acceptance:**
-  - argon2id hashes; sessions store only a token hash.
-  - The cookie is `HttpOnly`, `SameSite=Lax`, `Secure` (per config) and expires after 12 h; logout deletes the session.
-  - Login is limited to 5 attempts per minute per email + IP.
-  - `/api/agent/*` is for agents only and `/api/portal/*` for customers only.
-  - `GET /api/me` returns the role and the `simulated` flag.
-  - The user seed creates 2 agents and the 6 mock customers, with plan and profile but no employee names (C13).
-- **Verify:** `pnpm --filter server test auth`. The test covers:
-  - a wrong password returns 401;
-  - the 6th attempt within a minute returns 429;
-  - a customer calling an agent route gets 403, and vice versa;
-  - an expired session returns 401;
-  - the `sessions` row doesn't contain the raw token.
-
-### [ ] T06 · Frontend shell, routing and mock cleanup
-- **Goal:** the real app shell: login, two route trees, and the mock pruned per §13.
-- **Refs:** §10, §13 Remove and Fix (rename), C4, C5, C9, C14.
-- **Depends:** T05.
-- **Acceptance:**
-  - React Router with `/login`, `/console/*` (agents) and `/portal/*` (customers); wrong-role users are redirected.
-  - A `fetch` helper sends credentials and surfaces API errors; the Vite dev proxy forwards `/api` to the API.
-  - The console header says "Jarvis" and the portal says "SubPilot Support".
-  - Fonts are self-hosted and the Google Fonts import is gone.
-  - Removed: Evaluations nav, speed and failure simulation, Load demo data, Request review, re-approval and Earlier approvals, the 3-step progress, and the indexing sub-step bars.
-  - The "DEMO DATA" bar appears only when `simulated` is true, labelled **SIMULATED AI**.
-- **Verify:** `pnpm --filter frontend build` passes. Manually: log in as an agent and land on `/console`; log in as a customer and land on `/portal`; logout returns to `/login`. `grep -ri "fonts.googleapis\|Evaluations\|Load demo" frontend/src` returns nothing.
-
-## Phase 1 — Questions without AI
-
-### [ ] T07 · Portal questions API
-- **Goal:** customers submit and read their own questions.
-- **Refs:** §4.1, §8 customer limits, §9 IDOR, C11.
-- **Depends:** T05.
-- **Acceptance:**
-  - `POST /api/portal/questions` validates subject ≤ 120 and body ≤ 2,000 characters (Fastify schema), allows 20 per UTC day, and creates the question as `new`.
-  - `GET /api/portal/questions` and `GET /api/portal/questions/:id` return the session user's questions only, with status Received/Answered.
-  - The answer is included only when the question is answered, with markers stripped.
-  - The seed adds the 6 mock questions.
-- **Verify:** `pnpm --filter server test portal`. The test covers:
-  - customer A reading customer B's question gets 404;
-  - the 21st question in a day gets 429;
-  - a 2,001-character body gets 400;
-  - the answer text contains no `[n]` markers.
-
-### [ ] T08 · Portal UI
-- **Goal:** a responsive customer portal.
-- **Refs:** §4.1, §1 assumptions (responsive), C4.
-- **Depends:** T06, T07.
-- **Acceptance:**
-  - Ask form with character counters and server error display.
-  - List of own questions with Received/Answered; the answer is shown as plain text.
-  - No Jarvis branding, and no drafts or evidence.
-  - Works at 375 px with no horizontal scroll.
-- **Verify:** manual check at 375 px and 1280 px; submit a question and see it listed as Received.
-
-### [ ] T09 · Inbox API
-- **Goal:** agents list and open questions.
-- **Refs:** §4.2, §4.3 customer context, §6 stale SQL.
-- **Depends:** T05, T07.
-- **Acceptance:**
-  - `GET /api/agent/questions?status=` returns rows newest first, each with customer, company, subject/body, plan, received time, status and `stale` (latest draft, using the §6 SQL).
-  - The response includes the unanswered count.
-  - `GET /api/agent/questions/:id` returns the question and the customer record.
-- **Verify:** `pnpm --filter server test inbox`: ordering, the status filter and the count are correct; `stale` is false when no draft exists.
-
-### [ ] T10 · Inbox and question pane UI
-- **Goal:** the mock inbox and the workspace's left pane, on real data.
-- **Refs:** §4.2, §4.3 customer context, §13 Fix (context note), C14.
-- **Depends:** T06, T09.
-- **Acceptance:**
-  - Status filters (New / Draft ready / Needs review / Answered), the "Source updated" flag and the nav badge come from the API.
-  - The question pane shows the customer record, and the note says only plan and profile attributes are sent.
-  - Prev/next navigation works. The draft and evidence panes show a placeholder.
-- **Verify:** manual: a question submitted in the portal appears at the top of the inbox and the badge count goes up by one.
-
-## Phase 2 — Knowledge base and indexing
-
-### [ ] T11 · Provider module (Gemini and stub)
-- **Goal:** one interface for embeddings and generation, with cost tracking.
-- **Refs:** §5.1.5, §5.2.3, §5.2.7, §5.3, §7, §8 (retries, budget), C9, C10.
+### [ ] T04 · Account and employee seed
+- **Goal:** the §5.2 dataset, deterministic for a given D.
+- **Refs:** §5.2, ACC-01.
 - **Depends:** T03.
 - **Acceptance:**
-  - `embedDocuments` (one `Content` per chunk), `embedQuery` and `generate` (response schema, lowest thinking level, `maxOutputTokens` 2048, 20 s timeout, ≤ 2 retries on 429/5xx/timeout with backoff and jitter; a truncated response counts as a failure).
-  - Each call writes a `provider_calls` row with tokens, cost from the price table, latency and an error code, and never stores text.
-  - `budgetRemaining()` sums today's cost.
-  - The stub returns deterministic embeddings and scripted generations.
-  - **Spike:** confirm the current model ids, the 768-dim setting, the task-format input and the thinking config against the `@google/genai` docs, and record the findings in REQ_V2 §7 (C10).
-- **Verify:** `pnpm --filter server test provider`:
-  - a 500 → 500 → 200 sequence makes 3 attempts;
+  - `server/fixtures/accounts.ts` holds the five accounts (moved from `frontend/src/data/jarvis.js`).
+  - `pnpm seed [--date=YYYY-MM-DD]` resets the DB and inserts 2 employees (argon2id hashes; passwords from `.env`) and the accounts, payments, endpoints and deliveries, all relative to D.
+- **Verify:** `pnpm --filter server test seed`: two runs with the same D give identical rows (ignoring ids); A-1004 WH-1 has 12 trailing 401 deliveries.
+
+## Phase 2 — Server baseline, auth and shell (M2)
+
+### [ ] T05 · Fastify baseline
+- **Goal:** the hardened HTTP shell every route builds on.
+- **Refs:** SEC-03, SEC-04, SEC-11, DEC-2.
+- **Depends:** T02.
+- **Acceptance:**
+  - `buildApp()` with the zod type provider, request ids and a uniform error shape `{ error: { code, message } }`.
+  - Log allow-list: request id, route, employee id, status, latency, model, token counts and error codes; no bodies.
+  - `@fastify/helmet` with CSP `default-src 'self'`.
+  - Mutating requests from a foreign `Origin` → 403.
+  - A test helper builds the app against `jarvis_test`.
+- **Verify:** `pnpm --filter server test baseline`: a foreign Origin returns 403, the CSP header is present, and captured logs contain no request body.
+
+### [ ] T06 · Authentication
+- **Goal:** employees log in; every other route needs a session.
+- **Refs:** AUTH-01, AUTH-02, SEC-01, SEC-02.
+- **Depends:** T04, T05.
+- **Acceptance:**
+  - `POST /api/auth/login` (the only public route), `POST /api/auth/logout` and `GET /api/me` (returns the employee and `simulated: LLM_PROVIDER === 'stub'`).
+  - Sessions store only a token hash.
+  - The cookie is `HttpOnly`, `SameSite=Lax`, `Secure` (per config) and expires after 12 h.
+  - Login is limited to 5 attempts per minute per email + IP.
+- **Verify:** `pnpm --filter server test auth`. The test covers:
+  - a wrong password returns 401;
+  - the 6th attempt returns 429;
+  - an expired session returns 401;
+  - an unauthenticated `GET /api/accounts` returns 401;
+  - the `sessions` table contains no raw token.
+
+### [ ] T07 · Frontend shell on real auth
+- **Goal:** the prototype shell runs against the API.
+- **Refs:** §12.1, §14, SEC-04, I4.
+- **Depends:** T06.
+- **Acceptance:**
+  - `src/lib/api.js`: `fetch` with credentials and the error shape surfaced. The Vite dev proxy forwards `/api`.
+  - React Router routes `/login`, `/ask`, `/history`, `/kb` and `/kb/:id`. Unauthenticated users are redirected to `/login`.
+  - `LoginView` posts real credentials, and its "any input" note is removed.
+  - The banner shows **SIMULATED AI** only when `/api/me` says `simulated`. The "Next generation fails" control is removed.
+  - Fonts are self-hosted (the woff2 files from the mock bundle) and the Google Fonts import is removed.
+- **Verify:** `pnpm --filter frontend build`. Manually: a wrong password shows the error; login lands on `/ask`; logout returns to `/login`. `grep -r "fonts.googleapis\|Next generation fails" frontend/src` returns nothing.
+
+## Phase 3 — Account context (M3)
+
+### [ ] T08 · Account context functions and snapshot
+- **Goal:** read-only account facts with derived values computed in code.
+- **Refs:** §5.3, §5.4, CTX-01–05.
+- **Depends:** T04.
+- **Acceptance:**
+  - `getAccountDetails`, `getRecentPayments` (limit ≤ 20, default 10) and `getWebhookStatus` run parameterised `SELECT`s in a `READ ONLY` transaction and take a zod-validated `accountId`.
+  - `buildAccountSnapshot(accountId, asOf)` returns `F1…Fn` in fixed order, explicit `empty` sections, and private `record` refs. Logic is ported from `factsFor` in the prototype.
+  - Any query error raises `account_data_unavailable`.
+- **Verify:** `pnpm --filter server test context`. The test covers:
+  - `days_since` across a UTC midnight;
+  - `consecutive_failures` = 12 for A-1004 WH-1;
+  - EUR/GBP/USD formatting;
+  - A-1005 has an empty webhook section;
+  - a forced payments-query error raises `account_data_unavailable`.
+
+### [ ] T09 · Accounts API and facts panel
+- **Goal:** the left pane on real data.
+- **Refs:** §17b, CTX-02, §12.2 left pane.
+- **Depends:** T07, T08.
+- **Acceptance:**
+  - `GET /api/accounts` and `GET /api/accounts/:id/facts` (snapshot without `record` refs).
+  - Unknown id → 404; non-numeric id → 400.
+  - `AccountPanel` reads these instead of `data/jarvis.js`.
+- **Verify:** `pnpm --filter server test accounts` covers the 404 and 400 cases. Manually: A-1004 shows 12 consecutive failures; A-1005 shows "No webhook endpoints configured".
+
+## Phase 4 — Provider and cost (M4)
+
+### [ ] T10 · Provider module (Gemini and stub)
+- **Goal:** one interface for embeddings and generation.
+- **Refs:** §7.1 steps 4 and 7, §7.4, §14 LLM configuration, DEC-5, I4.
+- **Depends:** T02.
+- **Acceptance:**
+  - `embedDocuments` (one `Content` per chunk), `embedQuery` and `generate`:
+    - structured output with the §7.4 schema, validated by zod;
+    - lowest thinking level, `maxOutputTokens` 2,048, 20 s timeout;
+    - ≤ 2 retries on 429/5xx/timeout, with backoff and jitter;
+    - a truncated response counts as a failure.
+  - Text formats live only in `formatDocumentForEmbedding` and `formatQueryForEmbedding`.
+  - The stub returns deterministic embeddings and the scripted results from `server/fixtures/scripts.ts` (moved from the prototype).
+  - **Spike:** confirm the model ids, the 768-dim setting, the task-format input and the thinking config against the `@google/genai` docs. Record the findings in REQ_V2 §14 (DEC-5).
+- **Verify:** `pnpm --filter server test provider`. The test covers:
+  - 500 → 500 → 200 makes 3 attempts;
   - a 400 makes 1 attempt;
   - a truncated response throws;
-  - cost is computed from the price table.
+  - a malformed JSON response throws.
 
-  Spike, manual: `LLM_PROVIDER=gemini pnpm --filter server exec tsx scripts/smoke-embed.ts` prints dimension 768.
+  Spike, manual: `LLM_PROVIDER=gemini pnpm --filter server exec tsx scripts/smoke-embed.ts` prints 768.
+
+### [ ] T11 · Budget reservation, reconciliation and quota
+- **Goal:** every paid call is reserved atomically and then reconciled.
+- **Refs:** §10, COST-01–03.
+- **Depends:** T03, T10.
+- **Acceptance:**
+  - Reservation: the `budget_days` conditional upsert plus a `provider_calls` row (`reserved`, `estimated_cost_usd`), in one short transaction, before each attempt.
+  - Estimate: input ⌈chars ÷ 3⌉ tokens; output = `maxOutputTokens`.
+  - Reconciliation: actual tokens and `cost_usd` come from usage metadata; `budget_days` is adjusted by actual − estimate. When usage is unknown, the estimate stays charged.
+  - `purpose` is `app`, `indexing` or `eval`. No prompt or response text is stored.
+  - Quota: 50 first-attempt `generate` rows per employee per UTC day → 429.
+- **Verify:** `pnpm --filter server test budget`. The test covers:
+  - $0.01 left and two concurrent $0.008 reservations → exactly one succeeds;
+  - a retry sequence creates one row per attempt;
+  - a timeout keeps the estimate;
+  - the 51st generation returns 429.
+
+## Phase 5 — Knowledge base (M5)
 
 ### [ ] T12 · Upload and replace API
-- **Goal:** agents can upload documents and new versions; versions are queued.
-- **Refs:** §4.4 Upload/Replace/Effective date, §5.1.1, §8 uploads, §9 Uploads, §12 #6.
-- **Depends:** T05, T03.
+- **Goal:** queue new documents and versions.
+- **Refs:** KB-03, KB-04, IDX-01, §6.2 step 1.
+- **Depends:** T06, T03.
 - **Acceptance:**
-  - `POST /api/agent/documents` (multipart: file, title, category, effective date, note) and `POST /api/agent/documents/:id/versions`.
-  - Checks: extension plus magic bytes (PDF or Markdown only), ≤ 10 MB, effective date ≤ today.
-  - Replace is rejected while another version is queued or processing, and when the hash matches the active version.
-  - The file is stored in `document_files` and the version created as `queued`.
+  - `POST /api/documents` (multipart: file, title, category, effective date, note) and `POST /api/documents/:id/versions`.
+  - Validation:
+    - ≤ 10 MB;
+    - `.pdf` must start with `%PDF-`;
+    - `.md`/`.markdown` must be strict UTF-8 with no NUL bytes and ≤ 300,000 characters (no magic-byte check);
+    - the effective date must be ≤ today.
+  - Replace → 409 while another version of the document is queued or processing, and 409 on a hash identical to the active version.
+  - The file goes into `document_files` and the version is created as `queued`.
 - **Verify:** `pnpm --filter server test upload`. The test covers:
-  - a `.pdf` with PNG bytes returns 400;
-  - an 11 MB file returns 413;
-  - a future effective date returns 400;
-  - a duplicate hash returns 409;
-  - a replace while another version is queued returns 409.
+  - a `.pdf` with PNG bytes → 400;
+  - an 11 MB file → 413;
+  - a `.md` with invalid UTF-8 → 400;
+  - a valid `.md` with no signature → 201;
+  - a future date → 400;
+  - a duplicate hash → 409;
+  - a replace while another version is queued → 409.
 
 ### [ ] T13 · Sandboxed extractors
-- **Goal:** text extraction that is isolated and fails safely.
-- **Refs:** §5.1.3, §9 Uploads.
+- **Goal:** isolated extraction that tolerates blank pages.
+- **Refs:** §6.2 step 3, IDX-02, IDX-03.
 - **Depends:** T01.
 - **Acceptance:**
-  - One child process per file, with a 60 s timeout, a memory cap and `env: {}`.
-  - **PDF:** per-page text with page numbers, using `pdfjs-dist` with `isEvalSupported: false`. Encrypted files, files over 100 pages and pages without text are rejected with messages like "Page 3 has no text layer. OCR isn't supported."
-  - **Markdown:** UTF-8 only, ≤ 300,000 characters, headings from `#`–`###` lines, ignoring lines inside code fences.
-  - Small handwritten fixtures in `server/test/fixtures/`.
+  - One child process per file: 60 s timeout, memory cap, `env: {}`.
+  - **PDF** (`pdfjs-dist`, `isEvalSupported: false`):
+    - per-page text with page numbers;
+    - encrypted files and files over 100 pages are rejected;
+    - pages without text are skipped and listed in warnings;
+    - the file fails only when no page has text.
+  - **Markdown:** headings from `#`–`###`, ignoring lines inside code fences.
 - **Verify:** `pnpm --filter server test extract`. The test covers:
-  - a text PDF returns its pages;
-  - a PDF with an empty page 3 gives that exact message;
-  - a hanging extractor is killed at the timeout;
+  - a 3-page PDF with blank page 2 → pages 1 and 3 plus a warning naming page 2;
+  - an image-only PDF → "No page has a text layer. OCR isn't supported.";
+  - a hanging extractor is killed;
   - the child's `process.env` is empty;
-  - a `#` inside a code fence isn't treated as a heading.
+  - a `#` inside a fence isn't a heading.
 
 ### [ ] T14 · Chunker
 - **Goal:** passages sized for retrieval.
-- **Refs:** §5.1.4.
+- **Refs:** §6.2 step 4.
 - **Depends:** T13.
-- **Acceptance:**
-  - One chunk per Markdown section or PDF page.
-  - Chunks over ~500 tokens (characters ÷ 4) are split at paragraph boundaries.
-  - Each chunk keeps its heading path and page number.
-- **Verify:** `pnpm --filter server test chunk`: a 3,000-character section splits on a blank line, and nested headings produce "A > B".
+- **Acceptance:** one chunk per Markdown section or PDF page; chunks over ~500 estimated tokens (chars ÷ 4) are split at paragraph boundaries; each chunk keeps its heading path ("A > B") and page.
+- **Verify:** `pnpm --filter server test chunk`: a 3,000-char section splits on a blank line; nested headings give "A > B".
 
 ### [ ] T15 · Indexing worker
 - **Goal:** queued versions become active, or fail without side effects.
-- **Refs:** §5.1.2, §5.1.6–7, §4.4 Activation/Retry, §8 budget, §11 indexing test, C2, C12.
-- **Depends:** T11, T12, T14.
+- **Refs:** §6.2 steps 2 and 5–7, KB-05, KB-06, IDX-04, §7.5.
+- **Depends:** T10, T11, T12, T14.
 - **Acceptance:**
-  - `pnpm worker` claims versions with `FOR UPDATE SKIP LOCKED`, then runs extract → chunk → embed.
-  - Activation is one transaction (chunks + `ready` + `active_version_id`, only if the version number is higher; C2).
-  - Errors set `failed` with a short message that contains no document text.
+  - `pnpm worker` claims versions with `FOR UPDATE SKIP LOCKED`, then runs extract → chunk → embed (one reservation per batch).
+  - Activation is one transaction:
+    1. lock the document row with `FOR UPDATE`;
+    2. insert the chunks and set the version to `ready`, storing any warnings;
+    3. set `active_version_id` only if the new version number is higher.
+  - Errors → `failed` with a short message that contains no document text.
   - A retry deletes partial chunks first.
-  - Versions stuck in `processing` for more than 10 minutes become `failed`.
-  - Budget reached → `failed` (C12).
+  - Versions in `processing` for more than 10 minutes → `failed`.
+  - Budget reached → `failed` with "Daily budget reached — retry later".
 - **Verify:** `pnpm --filter server test worker`. The test covers:
   - a failed v3 leaves v2 active;
+  - activating v2 over an active v3 is a no-op;
   - two workers never claim the same version;
-  - after a retry, chunk count = new chunks only;
+  - after a retry, the chunk count equals the new chunks only;
   - a stale `processing` version becomes `failed`.
 
 ### [ ] T16 · KB management API
-- **Goal:** list, inspect, archive, delete and download documents.
-- **Refs:** §4.4 List/Archive/Delete/Document page/Retry, §9 Files and deletion, C2.
+- **Goal:** list, inspect, archive, delete, download and retry.
+- **Refs:** KB-01, KB-06–09, §7.5, §17b.
 - **Depends:** T15.
 - **Acceptance:**
-  - `GET /api/agent/documents` supports `ILIKE` search over titles and active-version chunk text, a category filter and `archived=1`.
-  - `GET /api/agent/documents/:id` returns the version history and each version's content built from its chunks.
+  - `GET /api/documents` supports `ILIKE` search over titles and active-version chunk text, a category filter and `archived=1`.
+  - `GET /api/documents/:id` returns each version's content from its chunks, plus its error and warnings.
   - `POST …/archive` and `…/restore`.
-  - `POST …/versions/:vid/retry` works only for the latest version when it has failed.
-  - `GET …/impact` returns counts of open drafts and published answers.
-  - `DELETE` removes everything in one transaction.
-  - `GET …/versions/:vid/file` sends `Content-Disposition: attachment` and `nosniff`.
+  - `POST …/versions/:vid/retry` works only on the latest failed version (otherwise 409).
+  - `GET …/impact` returns counts of unsaved answers and reviewed answers citing the document.
+  - `DELETE` runs in one transaction under `FOR UPDATE`.
+  - `GET …/versions/:vid/file` sends `attachment` and `nosniff`.
 - **Verify:** `pnpm --filter server test kb`. The test covers:
-  - search matches chunk text from the active version only;
-  - retry on a non-latest version returns 409;
-  - after delete, files, chunks and versions are gone and published answers are unchanged;
-  - download as a customer returns 403.
+  - search matches active-version text only;
+  - retry on a non-latest version → 409;
+  - after delete, no versions, files or chunks remain and reviewed answers are unchanged;
+  - an unauthenticated download → 401.
 
-### [ ] T17 · Knowledge base UI
-- **Goal:** the mock KB list, on the real API.
-- **Refs:** §4.4, §10 polling, §13 Add (upload form, delete, download) / Remove (progress bars).
-- **Depends:** T06, T16.
+### [ ] T17 · KB fixtures and seed indexing
+- **Goal:** `pnpm seed` reproduces the §6.4 knowledge base.
+- **Refs:** §6.4.
+- **Depends:** T15, T04.
 - **Acceptance:**
-  - Search, category tags, Show archived.
-  - Real upload and replace forms (file, title, category, effective date, note) with server errors shown inline.
-  - Status badges only; polls every 3 s while any version is queued or processing.
-  - Retry, Archive/Restore, and Delete with a confirmation that shows the impact count.
-- **Verify:** manual with the stub provider and `pnpm worker` running: upload a `.md`, watch Queued → Processing → Ready without reloading; delete it and the confirmation shows the counts.
+  - `server/fixtures/kb/` holds:
+    - the five Markdown documents, with text moved from the prototype;
+    - `sso-setup-guide.pdf` (text PDF, 3 pages, page 2 blank);
+    - `failed-payment-retries.pdf` (image only);
+    - `refund-policy-v3.md` (not seeded; used for S6 and the eval).
+  - Effective dates are relative to D. The seed queues every version.
+- **Verify:** `pnpm seed && pnpm worker --once` → 6 documents Ready (SSO guide with one warning) and 1 Failed with "No page has a text layer". Running it twice gives the same result.
 
-### [ ] T18 · Document page UI
-- **Goal:** inspect any version.
-- **Refs:** §4.4 Document page, §13 Add (download).
-- **Depends:** T17.
+### [ ] T18 · KB UI on the API
+- **Goal:** the prototype KB views on real data.
+- **Refs:** KB-01–09, §14 (3 s polling).
+- **Depends:** T07, T16, T17.
 - **Acceptance:**
-  - Version content shown as plain text, with page numbers for PDFs.
-  - History marks active / previous / indexing / failed (with error).
-  - Download link for the original; "View current" when viewing an older version.
-- **Verify:** manual: open the failed seed document; the error text is visible and Retry is offered.
+  - `KnowledgeBaseView`, `DocRow`, `UploadDialog` and `DocumentView` call the API.
+  - Upload and Replace use a real file input; server errors are shown inline.
+  - Polls every 3 s while any version is queued or processing.
+  - Delete shows the `/impact` counts.
+  - Download links to the file endpoint.
+- **Verify:** manual with the stub provider and `pnpm worker` running: upload a `.md`, watch Queued → Processing → Ready without reloading, then delete it and see the counts in the confirmation.
 
-### [ ] T19 · KB fixtures and seed
-- **Goal:** `pnpm seed` reproduces the mock's knowledge base.
-- **Refs:** §11 Seed, §13 Remove (Load demo data), §13 Fix (Brazil, refund), C13.
-- **Depends:** T15, T05, T07.
-- **Acceptance:**
-  - `fixtures/kb/` has the 6 mock documents as Markdown, the scanned "Failed payment retries" PDF, and `refund-policy-v3.md` (not seeded; used by the replace demo and eval).
-  - `pnpm seed` resets the DB and seeds users, questions and queued versions.
-- **Verify:** `pnpm seed && pnpm worker --once` gives 6 documents Ready and 1 Failed with "Page … has no text layer"; running it twice gives the same result.
+## Phase 6 — Generation (M6)
 
-## Phase 3 — Draft generation and approval
-
-### [ ] T20 · Retrieval
+### [ ] T19 · Retrieval
 - **Goal:** the access filter lives in SQL.
-- **Refs:** §5.2.4, §6 Retrieval, §9 Authorization.
+- **Refs:** §7.2, RET-01, RET-02.
 - **Depends:** T15.
-- **Acceptance:**
-  - Top 8 by exact cosine distance; active versions of non-archived documents only, with a matching `embedding_model`.
-  - Drop rows below `RETRIEVAL_MIN_SCORE`.
-- **Verify:** `pnpm --filter server test retrieval`: passages from a superseded version, an archived document or another `embedding_model` are never returned, and the threshold removes low scores.
+- **Acceptance:** top 8 by exact cosine distance; active versions of non-archived documents with the configured `embedding_model` only; rows below `RETRIEVAL_MIN_SCORE` dropped. Zero rows is a valid result.
+- **Verify:** `pnpm --filter server test retrieval`: passages from a superseded version, an archived document or another embedding model are never returned; the threshold drops low scores.
 
-### [ ] T21 · Prompt builder and normaliser
-- **Goal:** pure functions for the model input and output.
-- **Refs:** §4.3 label table and conflict precedence, §5.2.6, §5.2.8, §5.3, §8 input context, C1, C3.
-- **Depends:** T01.
+### [ ] T20 · Prompt builder and normaliser
+- **Goal:** pure functions for model input and output.
+- **Refs:** §7.3, §7.4, §9.3, PRM-01, NRM-01, I1–I3.
+- **Depends:** T08.
 - **Acceptance:**
-  - Versioned system instructions (§5.3 rules).
-  - Passages labelled `S1…Sk` with their metadata.
-  - Context contains only plan, profile, `today` and `question_received_at`.
-  - The question is delimited as untrusted text.
-  - Lowest-ranked passages are dropped to stay within 6,000 tokens (characters ÷ 4).
-  - Normaliser: drop unknown `S` ids, renumber `[1]…[n]`, number conflict sources (C1), compute the label.
+  - **Prompt:**
+    - in order: versioned instructions, facts `F#` with `as_of` and empty sections, passages `S#` with metadata, prior clarification turns, then the delimited untrusted question;
+    - stays within 6,000 estimated tokens by dropping the lowest-ranked passages; facts are never dropped;
+    - never contains company name, refs, webhook URL hosts, or employee names or emails.
+  - **Normaliser:** ported from `normalise` in the prototype, with its tests:
+    - unknown ids removed, with `invalid_citation_removed`;
+    - uncited conflict sources get the next numbers;
+    - `S` ids renumbered;
+    - model review reasons filtered to the allowed values;
+    - `answer` without a citation becomes `insufficient_evidence` with `no_valid_citation`;
+    - clarification rules, including I2's fixed text.
 - **Verify:** `pnpm --filter server test prompt normalise`. The test covers:
-  - the prompt never contains name, email or company;
-  - over budget drops the last passage;
-  - `[S9]` with 3 passages is removed and gives `needs_review`;
-  - no valid citations gives `missing_evidence`;
-  - an uncited conflict source gets number n+1.
+  - PRM-01 for all five accounts;
+  - an over-budget prompt drops the last passage;
+  - `[S9]` with 3 passages is removed and flagged;
+  - an uncited conflict source gets n+1;
+  - a third clarification becomes `insufficient_evidence` with text.
 
-### [ ] T22 · Generate endpoint
-- **Goal:** `POST /api/agent/questions/:id/drafts` produces a saved draft or changes nothing.
-- **Refs:** §5.2, §8 quotas and budget, §3 flow, §11 generation tests.
-- **Depends:** T11, T20, T21, T09.
+### [ ] T21 · Conversations API and generation flow
+- **Goal:** `POST /api/conversations` produces a saved answer or changes nothing.
+- **Refs:** §7.1, WF-01, GEN-01–03, CTX-05, §17b.
+- **Depends:** T09, T11, T19, T20.
 - **Acceptance:**
-  - Checks: unanswered, quota of 30 per UTC day, budget.
-  - Lock via `generation_started_at` (409 if held).
-  - Embed the query and retrieve.
-  - No passages → empty `missing_evidence` draft without calling the model.
-  - Otherwise generate, then save the draft, `draft_sources` (cited and uncited) and the `customer_context` the model saw.
-  - Set the status, clear the lock and return the draft.
-  - On failure: no draft, status unchanged, lock cleared, error recorded.
+  - **T1:** quota check, lock with a `generation_token` (409 if held), and insert the turn.
+  - **Outside any transaction:** snapshot (abort on `account_data_unavailable` → 503), embed, retrieve, prompt, generate, normalise.
+  - **T2:** the token must still match (else 409 and discard), then insert the answer and `answer_sources` and clear the lock.
+  - Failure: no answer saved, lock cleared only if the token matches, error recorded.
+  - `POST /api/conversations/:id/regenerate` re-runs the latest turn.
+  - `GET /api/conversations/:id` returns turns, the latest answer per turn, facts, evidence cards with status badges, flags and the derived state (I1).
 - **Verify:** `pnpm --filter server test generate`. The test covers:
-  - an off-topic question gives a draft with no `generate` row in `provider_calls`;
-  - a concurrent second call gets 409;
-  - a stub failure leaves status and draft count unchanged;
-  - the 31st draft of the day gets 429.
+  - a concurrent second request → 409;
+  - an expired, taken-over lock can't save or clear the new owner's lock;
+  - a stub failure leaves the answer count unchanged and the state `failed`;
+  - zero passages still calls the model;
+  - while a stubbed generate call is blocked, archiving a cited document completes immediately (GEN-01).
 
-### [ ] T23 · Draft read and edit API
-- **Goal:** the workspace's data for the draft and evidence panes.
-- **Refs:** §4.3 Evidence cards, Banners, Actions (Edit), C1, C15, C16.
-- **Depends:** T22.
+### [ ] T22 · Ask workspace on the API
+- **Goal:** the prototype's three panes driven by the API.
+- **Refs:** §12.2, ANS-01, ANS-07, UI-01.
+- **Depends:** T09, T21.
 - **Acceptance:**
-  - `GET …/drafts/latest` returns the text, label, unknowns and conflicts (as citation numbers), `stale`, `generating`, and evidence cards with title, category, version, effective date, heading, page, text and a Superseded/Archived/Deleted badge.
-  - `PATCH …/drafts/:did` saves `edited_text` and rejects any `[n]` without a citation. `answer_text` never changes.
-- **Verify:** `pnpm --filter server test draft`. The test covers:
-  - an edit with `[7]` returns 400;
-  - `answer_text` is unchanged after an edit;
-  - archiving the cited document makes `stale` true and the badge "Archived";
-  - deleting it gives the badge "Deleted".
+  - `ConversationPanel`, `EvidencePanel` and `WorkspaceView` read the conversation from the API; "Generating…" shows while the request is pending; Retry appears on failure.
+  - Suggested questions appear only in stub mode.
+  - No confidence percentages or "verified" labels.
+- **Verify:** manual with the stub: S1, S3, S4 and S5 render as in §13.1. `grep -rn "confidence\|verified" frontend/src` finds no UI text.
 
-### [ ] T24 · Approve and publish API
-- **Goal:** the API enforces every approval rule.
-- **Refs:** §4.3 Approve 1–4, §3 step 5, §1 success criterion, §11 approval tests, C6, C15.
-- **Depends:** T23.
+## Phase 7 — Review flow (M7)
+
+### [ ] T23 · Clarification replies
+- **Goal:** the S2b round trip on the API.
+- **Refs:** CLR-01–03, §7.1 step 2.
+- **Depends:** T21.
 - **Acceptance:**
-  - `POST …/approve {draftId, conflictsAcknowledged}` returns 409 for: generating, not the latest draft, already answered, empty text, stale, or conflicts not acknowledged.
-  - One transaction inserts `answer_reviews` (final text and snapshot with document and version ids) and sets the question to `answered` with `answered_at`.
-- **Verify:** `pnpm --filter server test approve`. The test covers:
-  - a superseded source, an archived document and a deleted document each give 409;
-  - a conflict without acknowledgement gives 409, and with acknowledgement gives 200;
-  - two concurrent approvals give one 200 and one 409;
-  - the portal then shows the answer without markers.
+  - `POST /api/conversations/:id/replies {text}` (1–1,000 chars) is allowed only when the latest outcome is `clarification_required` (otherwise 409).
+  - The reply is a new turn, so the account and prior turns are kept.
+  - The next prompt includes the conversation so far, and the retrieval query is turn 1 plus the latest reply.
+- **Verify:** `pnpm --filter server test clarify`: a reply on an `answer_ready` conversation → 409. Manually: S2b ends in Needs review with Exception unclear, and the account is unchanged.
 
-### [ ] T25 · Workspace UI on the real API
-- **Goal:** the mock's draft and evidence panes, end to end.
-- **Refs:** §4.3 (all), §13 Add (regenerate confirmation, empty missing-evidence state, page and Archived badges) / Fix (archived counts as stale), C14, C16.
-- **Depends:** T10, T24.
+### [ ] T24 · Edit and copy
+- **Goal:** edits validated on the server; copy without markers.
+- **Refs:** ANS-02, ANS-03, I6.
+- **Depends:** T21.
 - **Acceptance:**
-  - Generate and Regenerate, with a confirmation when an edit would be lost ("Your edit won't carry over").
-  - "Generating…" while the call runs; on failure, Retry.
-  - Label badge; conflict banner (topic, which source was followed); unknowns banner; Source updated banner.
-  - An empty draft shows "No documented answer — write the reply" and opens the editor.
-  - Edit errors are shown from the API.
-  - The Approve button is disabled with the same hints as the API rules; acknowledgement checkbox for conflicts.
-  - Approval record and historical note.
-  - The mock hook `useSubPilot` is deleted.
-- **Verify:** manual with the stub. In the browser: generate → edit → approve → see the answer in the portal; archive the cited document and Approve becomes disabled with a hint. `grep -r useSubPilot frontend/src` returns nothing.
+  - `PATCH /api/answers/:id {editedText}`:
+    - only on the latest answer of an unsaved conversation;
+    - every `[n]` and `[F#]` must exist in the answer (else 400);
+    - `answer_text` never changes.
+  - Copy strips markers on the client and falls back to selecting the text (I6).
+- **Verify:** `pnpm --filter server test edit`: `[7]` → 400; `[F99]` → 400; `answer_text` is unchanged after an edit; editing a saved conversation → 409.
 
-### [ ] T26 · Should items
-- **Goal:** "Cited in answers", and the toast after activation.
-- **Refs:** §4.4 Should items, C6.
-- **Depends:** T18, T25.
+### [ ] T25 · Save reviewed answer, locking and staleness
+- **Goal:** the API enforces every save rule, under document-lifecycle locks.
+- **Refs:** ANS-04, ANS-05, ANS-06, LCK-01, STL-01, §7.5, §7.6, SC-3.
+- **Depends:** T16, T24.
 - **Acceptance:**
-  - The document page lists drafts and published answers that cite it (published answers come from snapshot ids).
-  - When polling sees a version become ready, a toast says "N drafts cite the previous version" and links to the first one.
-- **Verify:** manual: replace the Refund policy with `fixtures/kb/refund-policy-v3.md`; the toast appears and links to the refund-request question.
+  - `POST /api/conversations/:id/review {answerId, reviewAcknowledged}` returns 409 for:
+    - generating, not the latest answer, or already saved;
+    - a `clarification_required` or `out_of_scope` outcome;
+    - empty text;
+    - a stale source;
+    - review reasons without acknowledgement.
+  - One transaction takes `FOR SHARE` on the cited documents (ordered by id), runs the stale check, and inserts `reviewed_answers` with the source snapshot (`document_id`, `version_id`, …) for the markers left in the text, plus the facts snapshot.
+  - Staleness flags use the two §7.6 queries and are included in conversation reads.
+- **Verify:** `pnpm --filter server test review`. The test covers:
+  - each 409 case;
+  - two concurrent saves → one 200 and one 409;
+  - a save racing an activation of a cited document never commits a stale save;
+  - delete after save keeps the snapshot, and the flag shows "Source changed — recheck";
+  - restore clears an archive flag.
 
-## Phase 4 — Evaluation and delivery
+### [ ] T26 · History on the API and prototype removal
+- **Goal:** History on real data; no simulated data left in the client.
+- **Refs:** WF-02, WF-03, §12.3, I5.
+- **Depends:** T22, T23, T25.
+- **Acceptance:**
+  - `GET /api/conversations?accountId&state` returns rows newest first, with derived state, flags and creator.
+  - `HistoryView` and the Save/Edit/Copy actions use the API.
+  - `frontend/src/hooks/useJarvis.js` and `frontend/src/data/jarvis.js` are deleted. Rule helpers left in `lib/model.js` are only display helpers (labels, tones); the server owns the rules.
+- **Verify:** manual with the stub: S2a, S2b and S6 end to end (save → replace Refund policy → "Source changed — recheck" → new answer cites v3 with Policy applicability). `grep -rn "useJarvis\|data/jarvis" frontend/src` returns nothing.
+
+## Phase 8 — Evaluation (M8)
 
 ### [ ] T27 · Golden set and `pnpm eval`
-- **Goal:** measure the §1 success criteria and pick the model and threshold.
-- **Refs:** §1 success criteria, §11 Golden set, §12 #3, §7, C1, C3, C9, the unknowns risk.
-- **Depends:** T22, T19.
+- **Goal:** measure SC-1, SC-2 and SC-4 and calibrate.
+- **Refs:** §13.2, EVAL-01, §14 generation model.
+- **Depends:** T26, T17.
 - **Acceptance:**
-  - `eval/golden.json` holds the 9 §11 cases.
-  - `pnpm eval` seeds an eval DB, indexes it with Gemini, applies refund v3 for the "after v3" case, and reports the retrieval hit rate, label accuracy, invalid citations, cost and p95 latency.
-  - It refuses to run with `LLM_PROVIDER=stub`.
+  - `eval/golden.json` holds E01–E15 (account, question, replies, expected outcome, review reasons, expected documents, cited fact sections, forbidden patterns).
+  - `pnpm eval`:
+    1. seeds an eval DB with D = 2026-10-02 and indexes it with Gemini;
+    2. applies v3 before E13;
+    3. prints the estimated cost first, and refuses if it's over the remaining budget or `LLM_PROVIDER=stub`;
+    4. reports the hit rate, outcome accuracy, review-reason matches, removed citations, forbidden-pattern hits, cost and p95;
+    5. lists the answers for a manual read.
   - `RETRIEVAL_MIN_SCORE` and the model id are calibrated and committed.
-- **Verify:** `LLM_PROVIDER=gemini pnpm eval` reports hit rate ≥ 90%, label accuracy ≥ 80% and p95 ≤ 15 s. Results are pasted into this task.
+- **Verify:** `LLM_PROVIDER=gemini pnpm eval` reports a hit rate ≥ 90%, outcome accuracy ≥ 80%, 0 forbidden hits and p95 ≤ 15 s. Paste the results into this task.
+
+## Phase 9 — Delivery (M9)
 
 ### [ ] T28 · Docker delivery
 - **Goal:** `docker compose up` runs the full demo.
-- **Refs:** §10 Deploy, §9 CSP.
-- **Depends:** T25, T19.
+- **Refs:** §14 deploy, SEC-04.
+- **Depends:** T26.
 - **Acceptance:**
   - A multi-stage Dockerfile; compose runs `db`, `api` and `worker`.
-  - `api` serves the built frontend, with an SPA fallback for `/login`, `/console/*` and `/portal/*`.
+  - `api` serves the built frontend with an SPA fallback for `/login`, `/ask`, `/history` and `/kb/*`.
   - Migrations run on start.
-- **Verify:** `docker compose up --build -d && docker compose exec api pnpm seed`. Then `curl -sI localhost:8080/console | grep -i content-security-policy` matches; log in through the browser at `localhost:8080`.
+  - The app is served on `localhost` (I6).
+- **Verify:** `docker compose up --build -d && docker compose exec api pnpm seed`; `curl -sI localhost:8080/ask | grep -i content-security-policy` matches; log in through the browser.
 
 ### [ ] T29 · Release check
-- **Goal:** confirm v1 is done.
-- **Refs:** §1, §9 Logging, §11 Automated tests.
-- **Depends:** T26, T27, T28.
+- **Goal:** confirm the MVP is done.
+- **Refs:** §1 SC-1–4, SEC-11, §13.3, §16.
+- **Depends:** T27, T28.
 - **Acceptance:**
-  - All §11 automated tests pass.
-  - The §1 criteria are met (from T27).
-  - A log sample from a full flow contains no question text, draft text or document text.
-  - Every §13 item is ticked.
-- **Verify:** `pnpm test`; `docker compose logs api worker | grep -c "Hi, we are on Pro"` returns 0; review the §13 checklist.
+  - All §13.3 automated tests pass.
+  - SC-1, SC-2 and SC-4 are met (from T27); SC-3 is covered by the T25 test.
+  - A log sample from a full flow contains no question, answer, document or fact text.
+  - Every §16 item is ticked.
+- **Verify:** `pnpm test`; `docker compose logs api worker | grep -c "eligible for a refund"` returns 0; review the §16 checklist.
+
+---
+
+## Dependency order
+
+```text
+T00 → T01 → T02 ─┬→ T03 → T04 ─┬→ T06 → T07 ──────────────┬→ T09 ─┐
+                 │             └→ T08 ─────────────────────┘       │
+                 ├→ T05 → T06                                       │
+                 └→ T10 → T11 ─┐                                    │
+T01 → T13 → T14 ───────────────┴→ T12 → T15 → T16 → T17 → T18       │
+                                       T15 → T19 ─┐                 │
+                                       T08 → T20 ─┴→ T21 ←──────────┘
+T21 → T22, T23, T24 → T25 (+T16) → T26 → T27 → T28 → T29
+```
+
+**Optional (§15), not scheduled:** OPT-1 tool calling, OPT-2 streaming,
+OPT-3 LLM-judge eval, OPT-4 "Cited in answers", OPT-5 activation toast,
+OPT-6 follow-up questions, OPT-7 HNSW, OPT-8 fact staleness.
