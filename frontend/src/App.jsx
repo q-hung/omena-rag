@@ -1,33 +1,33 @@
-import { ClipboardCheck, Inbox, Library } from 'lucide-react';
-import { useSubPilot } from './hooks/useSubPilot';
+import { History, Library, MessageSquare } from 'lucide-react';
+import { useJarvis } from './hooks/useJarvis';
 import Sidebar from './components/Sidebar';
 import DemoBanner from './components/DemoBanner';
 import Toast from './components/ui/Toast';
-import InboxView from './features/inbox/InboxView';
-import WorkspaceView from './features/workspace/WorkspaceView';
+import { Page, PageHeader } from './components/ui/Page';
+import LoginView from './features/login/LoginView';
 import KnowledgeBaseView from './features/kb/KnowledgeBaseView';
 import DocumentView from './features/kb/DocumentView';
 import UploadDialog from './features/kb/UploadDialog';
 
-// Demo knobs: simulateFailure (first generation fails), emptyLibrary, simSpeed ('Slow' | 'Normal' | 'Fast').
-export default function App(props) {
-  const app = useSubPilot(props);
+export default function App() {
+  const app = useJarvis();
   const { state: s, set } = app;
+  if (!s.signedIn) return <LoginView onSignIn={app.signIn} />;
   const doc = s.docs.find((d) => d.id === s.selDoc);
 
   const nav = [
-    { label: 'Inbox', icon: Inbox, count: s.qs.filter((q) => q.status !== 'Approved').length, active: ['inbox', 'workspace'].includes(s.view), onClick: () => set({ view: 'inbox' }) },
-    { label: 'Knowledge base', icon: Library, count: s.docs.filter((d) => !d.archived).length, active: ['kb', 'doc'].includes(s.view), onClick: () => set({ view: 'kb' }) },
-    { label: 'Evaluations', icon: ClipboardCheck, count: 'Next', disabled: true },
+    { label: 'Ask', icon: MessageSquare, count: '', active: s.view === 'ask', onClick: () => app.go('ask') },
+    { label: 'History', icon: History, count: s.conversations.length, active: s.view === 'history', onClick: () => app.go('history') },
+    { label: 'Knowledge base', icon: Library, count: s.docs.filter((d) => !d.archived).length, active: ['kb', 'doc'].includes(s.view), onClick: () => app.go('kb') },
   ];
 
   return (
     <div className="grid h-screen min-w-[1280px] grid-cols-[224px_minmax(0,1fr)] bg-almost-white font-sans text-black">
-      <Sidebar items={nav} user={{ name: app.reviewer, role: 'Support agent · Reviewer' }} />
+      <Sidebar items={nav} user={{ name: app.employee, role: 'Employee' }} onSignOut={app.signOut} />
       <main className="flex min-h-0 min-w-0 flex-col">
-        <DemoBanner />
-        {s.view === 'inbox' && <InboxView app={app} />}
-        {s.view === 'workspace' && <WorkspaceView app={app} />}
+        <DemoBanner failNext={s.failNext} onToggleFail={() => set((st) => ({ failNext: !st.failNext }))} />
+        {s.view === 'ask' && <Page><PageHeader title="Ask" subtitle="Built in P05–P09." /></Page>}
+        {s.view === 'history' && <Page><PageHeader title="History" subtitle="Built in P10." /></Page>}
         {s.view === 'kb' && <KnowledgeBaseView app={app} />}
         {s.view === 'doc' && doc && <DocumentView app={app} doc={doc} />}
       </main>

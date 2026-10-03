@@ -28,23 +28,6 @@ export default function DocumentView({ app, doc: dd }) {
     };
   });
 
-  // Questions whose draft or approved answer cites any version of this document.
-  const citedBy = [];
-  s.qs.forEach((qq) => {
-    const isApproved = !!qq.approval;
-    const c = isApproved ? qq.approval.cites : qq.draft?.cites;
-    const kind = isApproved ? 'Approved answer' : 'Draft';
-    Object.values(c || {}).forEach((id) => {
-      if (!id || !id.startsWith(dd.id + '-') || citedBy.find((x) => x.qid === qq.id && x.kind === kind)) return;
-      const v = +id.split('-')[1];
-      citedBy.push({
-        qid: qq.id, customer: qq.customer, kind, v,
-        label: isApproved ? 'Historical' : v < dd.current ? 'Outdated' : 'Current',
-        tone: isApproved ? 'outline' : v < dd.current ? 'alert' : 'positive',
-      });
-    });
-  });
-
   return (
     <Page>
       <BackButton onClick={() => set({ view: 'kb' })} className="h-8 self-start">Knowledge base</BackButton>
@@ -128,23 +111,6 @@ export default function DocumentView({ app, doc: dd }) {
                 onClick={() => set({ selDocV: v.v })}
               />
             ))}
-          </Panel>
-          <Panel title="CITED IN ANSWERS">
-            {citedBy.map((c) => (
-              <button
-                key={c.qid + c.kind}
-                type="button"
-                onClick={() => app.openQ(c.qid)}
-                className="flex w-full items-center gap-[10px] border-b border-hairline bg-white px-5 py-3 text-left text-black hover:bg-almost-white"
-              >
-                <span className="flex flex-1 flex-col gap-0.5">
-                  <span className="text-sm font-semibold">{c.customer}</span>
-                  <span className="text-xs text-secondary">{c.kind} · cites v{c.v}</span>
-                </span>
-                <Badge tone={c.tone}>{c.label}</Badge>
-              </button>
-            ))}
-            {citedBy.length === 0 && <div className="px-5 py-[14px] text-sm text-secondary">Not cited yet.</div>}
           </Panel>
         </div>
       </div>

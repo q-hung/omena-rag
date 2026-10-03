@@ -99,7 +99,8 @@ these components (§12.3), so nothing is thrown away.
 
 ## Phase B — Screens
 
-### [ ] P04 · Shell, login and navigation
+### [x] P04 · Shell, login and navigation
+- **Note:** Ask and History show placeholders until P05/P10. The document page's "Cited in" panel was removed here (it read the old state); `index.html` title is now "Jarvis — Prototype".
 - **Goal:** the v2.1 app frame.
 - **Refs:** §12.1, AUTH-01 (simulated), §16 Remove/Fix.
 - **Depends:** P03.
