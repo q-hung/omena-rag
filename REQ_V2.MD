@@ -183,23 +183,23 @@ Server-side, read-only functions. Each takes a validated `accountId` (and an opt
   *AC:* unknown id → 404; non-numeric → 400; unauthenticated → 401.
 - **CTX-03 (Must)** Dates, elapsed days, amounts, counts and failure streaks are computed in code. The model receives them as values and is told not to recompute them.
   *AC:* unit tests for `days_since` across a UTC midnight, `consecutive_failures`, and minor-unit formatting for EUR/GBP/USD.
-- **CTX-04 (Must)** An empty result is reported as an explicit empty section (`"webhook_endpoints": "none configured (0 rows)"`), never omitted.
+- **CTX-04 (Must)** An empty result is reported as an explicit empty section (`{ "section": "webhooks", "note": "No webhook endpoints configured (0 rows)" }`), never omitted.
   *AC:* A-1005's snapshot contains the empty webhook section.
 - **CTX-05 (Must)** A database error while building the snapshot aborts generation (no model call, no answer saved, state `failed`, error code `account_data_unavailable`). It is never treated as an empty result.
   *AC:* with the payments query forced to throw, no `generate` call is made and the API returns 503 with that code.
 
 ### 5.4 Snapshot format
 
-Each fact gets an id `F1…Fn`, assigned in a fixed order (account, features, payments, webhooks). The snapshot stored with the answer keeps a private `record` reference (table + id) for the UI; that reference is not sent to the model.
+Each fact gets an id `F1…Fn`, assigned in a fixed order (account, features, payments, webhooks). The snapshot stored with the answer keeps a private `record` reference (table + id) for the UI; that reference is not sent to the model. Empty sections use the same section names as facts. Values are display-ready: enum values capitalised, dates as `30 Sep 2026`, elapsed days as `n days before <as_of date>`.
 
 ```json
 {
   "as_of": "2026-10-02",
   "facts": [
-    { "id": "F1", "section": "account", "label": "Plan", "value": "basic", "record": { "table": "accounts", "id": 1 } },
-    { "id": "F7", "section": "payments", "label": "Payment", "value": "2026-09-12 · EUR 99.00 · succeeded · Pro monthly · 20 days before as_of", "record": { "table": "payments", "id": 4 } }
+    { "id": "F1", "section": "account", "label": "Plan", "value": "Basic", "record": { "table": "accounts", "id": 1 } },
+    { "id": "F10", "section": "payments", "label": "Payment", "value": "30 Sep 2026 · EUR 29.00 · succeeded · Basic monthly · 2 days before 2 Oct 2026", "record": { "table": "payments", "id": 3 } }
   ],
-  "empty": [{ "section": "webhook_endpoints", "note": "none configured (0 rows)" }]
+  "empty": [{ "section": "webhooks", "note": "No webhook endpoints configured (0 rows)" }]
 }
 ```
 
@@ -799,6 +799,7 @@ Each milestone ends with a working slice and its tests. Regenerate `TASKS.md` fr
 - Open decisions #1 (approve vs send) and #2 (customer logins); C4, C11, C14 from TASKS.md.
 
 **Changed**
+- Snapshot format (3 Oct 2026, T08): §5.4 example and CTX-04 match the implementation (prototype `factsFor`): empty sections reuse fact section names (`webhooks`, not `webhook_endpoints`) with the note "No webhook endpoints configured (0 rows)"; values are display-ready (capitalised enums, `30 Sep 2026` dates, "n days before <as_of date>").
 - Stub mode, reuse table, Copy fallback and repo docs (3 Oct 2026, TASKS I4–I7): stub behaviour defined in §14; §12.3 lists the prototype files; ANS-03 falls back to selecting text; `CLAUDE.md` / `AGENTS.md` updated.
 - Clarifications (3 Oct 2026, TASKS I3): `clarification_questions: string[]` → `clarifications[]` with `choose_record` (fact-id options, labels rendered by the server) and `free_text` (markers validated like `answer`); replies carry `selections` and/or `text` (§7.4, §9.3 rule 6, §9.5, CLR-04).
 - Clarification limit text (3 Oct 2026, TASKS I2): §9.3 rule 7 sets a fixed answer text, so the resulting `insufficient_evidence` answer can be saved.
