@@ -1,0 +1,62 @@
+/* Avenir is the brand font; Nunito Sans is the Brand Book's named substitute. */
+@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,wght@0,300..900;1,400;1,700&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Avenir', 'Avenir Next', 'Nunito Sans', 'Helvetica Neue', Helvetica, Tahoma, Verdana, Arial, sans-serif;
+  --font-mono: 'Roboto Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  --color-almost-white: #fafafa;
+  --color-light-grey: #eeeeee;
+  --color-secondary: #4a4a4a;
+  --color-muted: #767671;
+  --color-hairline: #e2e2df;
+  --color-rule: #c9c9c4;
+  --color-disabled: #9a9a96;
+
+  --color-night: #222328;
+  --color-night-hover: #242424;
+  --color-night-line: #32333a;
+  --color-night-muted: #b9b9b4;
+  --color-night-disabled: #6c6d74;
+
+  --color-interactive: #1900ff;
+  --color-interactive-dark: #509aff;
+  --color-positive: #00ad00;
+  --color-negative: #ff2e00;
+  --color-alert: #ffde00;
+
+  --color-supply-green: #007262;
+  --color-supply-green-tint: #e5f0ee;
+
+  --tracking-caps: 0.09em;
+  --shadow-overlay: 0 2px 24px rgba(0, 0, 0, 0.18);
+  --shadow-dialog: 0 8px 48px rgba(0, 0, 0, 0.32);
+  --shadow-focus: 0 0 0 3px rgba(25, 0, 255, 0.35);
+  --ease-voima: cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+@layer base {
+  body {
+    background: var(--color-almost-white);
+    color: var(--color-black);
+    font-family: var(--font-sans);
+    line-height: 1.45;
+    text-wrap: pretty;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, h4 { letter-spacing: -0.01em; }
+  a { color: var(--color-interactive); text-decoration: underline; text-underline-offset: 2px; }
+  a:hover { opacity: 0.7; }
+  a:active { opacity: 0.55; }
+  button:not(:disabled) { cursor: pointer; }
+  textarea:focus { outline: 3px solid var(--color-interactive); outline-offset: 0; border-color: var(--color-interactive); }
+}
+
+/* Small caps section label used across panels and table headers. */
+@utility eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: var(--tracking-caps);
+  color: var(--color-secondary);
+}
