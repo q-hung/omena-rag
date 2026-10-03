@@ -54,7 +54,8 @@ these components (§12.3), so nothing is thrown away.
 
 ## Phase A — Data and rules
 
-### [ ] P01 · Prototype data fixtures
+### [x] P01 · Prototype data fixtures
+- **Note:** written as a new `src/data/jarvis.js` (+ `src/lib/format.js`) so the old mock keeps building; `demo.js` is deleted with the old hook in P04.
 - **Goal:** replace `src/data/demo.js` with v2.1 data shaped like the §5 and §17a tables, so swapping in the API later is mechanical.
 - **Refs:** §5.1, §5.2, §5.4, §6.4, §17a.
 - **Depends:** —
@@ -64,7 +65,7 @@ these components (§12.3), so nothing is thrown away.
   - `docs`: the §6.4 KB: Plan comparison, Refund policy v2 (exceptions clause, silent on add-ons) with a staged v3, Billing FAQ (3-day conflict), Payment methods and regions, SSO setup guide (PDF, 3 pages, warning for blank page 2, passages carry page numbers), Webhooks developer guide with Troubleshooting, Failed payment retries (failed: "No page has a text layer. OCR isn't supported.").
   - `scripts`: scripted results in the §7.4 response shape for E01–E15, keyed by account plus question id, each with `match` keywords. S2b has two steps (clarification, then the reply result). E13 is selected automatically when Refund policy v3 is active.
   - No person names in account data (§16 Remove). Employee: one seeded display name for the sidebar only.
-- **Verify:** `node -e "import('./frontend/src/data/demo.js').then(m => console.log(m.factsFor(5).empty))"` prints the empty webhook section for A-1005.
+- **Verify:** `node -e "import('./frontend/src/data/jarvis.js').then(m => console.log(m.factsFor(m.accountById(5)).empty))"` prints the empty webhook section for A-1005.
 
 ### [ ] P02 · Rule functions and their check
 - **Goal:** the state rules the UI depends on, as pure functions.
