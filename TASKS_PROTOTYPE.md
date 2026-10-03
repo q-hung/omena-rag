@@ -158,7 +158,7 @@ these components (§12.3), so nothing is thrown away.
   - Empty states: "No document passages cited" for facts-only answers (E12) and out-of-scope answers.
 - **Verify:** E06 (A-1003 refund timing) shows Refund policy and Billing FAQ side by side, without a winner.
 
-### [ ] P09 · Edit, copy, save
+### [x] P09 · Edit, copy, save
 - **Goal:** the review actions and the saved record.
 - **Refs:** ANS-02–06, WF-02, §7.6.
 - **Depends:** P07, P08.

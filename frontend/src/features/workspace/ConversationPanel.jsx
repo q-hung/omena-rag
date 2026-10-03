@@ -3,7 +3,8 @@ import Button from '../../components/ui/Button';
 import Notice from '../../components/ui/Notice';
 import Tag from '../../components/ui/Tag';
 import { SCRIPTS } from '../../data/jarvis';
-import { GAP_LABEL, OUTCOME_LABEL, REASON_TEXT, sourcesChanged } from '../../lib/model';
+import Checkbox from '../../components/ui/Checkbox';
+import { GAP_LABEL, OUTCOME_LABEL, REASON_TEXT, finalText, saveBlockers, sourcesChanged } from '../../lib/model';
 import DraftText from './DraftText';
 
 const CARD = 'border border-hairline bg-white';
@@ -109,10 +110,12 @@ function Answer({ app, conv, a, full }) {
   }
 
   const changed = !conv.reviewed && sourcesChanged(a.cites, s.docs);
+  // ANS-05: an edit doesn't carry over to a regenerated answer.
+  const regenerate = () => (a.edited == null || window.confirm('Your edit won\'t carry over. Regenerate anyway?')) && app.regenerate(conv.id);
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
-        <h2 className="text-lg font-bold">Answer</h2>
+        <h2 className="text-lg font-bold">{conv.reviewed ? 'Saved reviewed answer' : 'Answer'}</h2>
         <Badge tone={OUTCOME_TONE[a.outcome]}>{OUTCOME_LABEL[a.outcome]}</Badge>
         {a.edited != null && <span className="text-xs text-secondary">Edited</span>}
         <span className="ml-auto font-mono text-xs text-muted">Generated {a.at}</span>
@@ -120,7 +123,7 @@ function Answer({ app, conv, a, full }) {
 
       {changed && (
         <Notice tag="SOURCE UPDATED" title="A cited document changed after this answer was generated"
-          action={<Button size="sm" onClick={() => app.regenerate(conv.id)}>Regenerate</Button>}>
+          action={<Button size="sm" onClick={regenerate}>Regenerate</Button>}>
           A cited version was superseded, archived or deleted. Regenerate to answer from the current documents.
         </Notice>
       )}
@@ -139,7 +142,7 @@ function Answer({ app, conv, a, full }) {
         <div className="max-w-[72ch] bg-light-grey px-4 py-3 text-sm">This question has no script in the prototype.</div>
       )}
 
-      {a.text && <DraftText text={a.text} {...textProps} />}
+      {s.editing && !conv.reviewed ? <Editor app={app} conv={conv} /> : finalText(a) && <DraftText text={finalText(a)} {...textProps} />}
 
       {a.outcome === 'clarification_required' && (
         <div className={`flex max-w-[72ch] flex-col gap-3 px-6 py-5 ${CARD}`}>
@@ -162,17 +165,20 @@ function Answer({ app, conv, a, full }) {
         );
       })}
 
+      {conv.reviewed && <SavedRecord app={app} conv={conv} />}
+
       {a.outcome === 'out_of_scope' ? (
         <div className="flex max-w-[72ch] items-center gap-3 border-t border-hairline pt-3">
           <span className="flex-1 text-sm text-secondary">Jarvis answers questions about SubPilot only.</span>
           <Button size="sm" onClick={app.newQuestion}>New question</Button>
         </div>
+      ) : conv.reviewed ? (
+        <div className="flex max-w-[72ch] items-center gap-2 border-t border-hairline pt-3">
+          <Button size="sm" variant="secondary" onClick={() => app.copy(conv.id)}>Copy answer</Button>
+          <span className="ml-auto text-xs text-secondary">Saved conversations are read-only. Start a new question to ask again.</span>
+        </div>
       ) : (
-        !conv.reviewed && (
-          <div className="flex max-w-[72ch] flex-wrap items-center gap-2 border-t border-hairline pt-3">
-            <Button size="sm" variant="secondary" onClick={() => app.regenerate(conv.id)}>Regenerate</Button>
-          </div>
-        )
+        !s.editing && <Actions app={app} conv={conv} a={a} regenerate={regenerate} />
       )}
     </div>
   );
@@ -196,6 +202,88 @@ function Reply({ app, conv, a }) {
         {chips.map((c) => <Tag key={c} onClick={() => app.reply(conv.id, c)}>{c}</Tag>)}
         <span className="ml-auto text-xs text-muted">Your reply will be used to try again.</span>
         <Button size="sm" disabled={!text.trim()} onClick={() => app.reply(conv.id, text.trim())}>Send reply</Button>
+      </div>
+    </div>
+  );
+}
+
+// ANS-02: edits are validated; markers can be removed but not added.
+function Editor({ app, conv }) {
+  const { state: s, set } = app;
+  return (
+    <div className="flex max-w-[72ch] flex-col gap-2">
+      <textarea
+        aria-label="Edit answer"
+        value={s.editText}
+        onChange={(e) => set({ editText: e.target.value, editError: null })}
+        className="min-h-[220px] resize-y border-2 border-black bg-white px-6 py-5 text-base leading-[1.6]"
+      />
+      {s.editError
+        ? <div role="alert" className="text-sm font-semibold text-negative">{s.editError}</div>
+        : <div className="text-xs text-muted">Markers like [1] and [F3] can be removed but not added.</div>}
+      <div className="flex gap-2">
+        <Button size="sm" onClick={() => app.saveEdit(conv.id)}>Save edit</Button>
+        <Button size="sm" variant="ghost" onClick={app.cancelEdit}>Cancel</Button>
+      </div>
+    </div>
+  );
+}
+
+// ANS-03/04: the API's save rules shown as a disabled button with a hint.
+function Actions({ app, conv, a, regenerate }) {
+  const { state: s } = app;
+  const acknowledged = !!s.ack[conv.id];
+  const hint = saveBlockers({ conv, docs: s.docs, editing: s.editing, acknowledged });
+  const editable = ['answer', 'insufficient_evidence'].includes(a.outcome);
+  return (
+    <div className="flex max-w-[72ch] flex-col gap-3 border-t border-hairline pt-3">
+      {a.reviewReasons.length > 0 && (
+        <Checkbox checked={acknowledged} boxSize={18} onChange={() => app.toggleAck(conv.id)} className="min-h-10 text-sm font-semibold">
+          I&apos;ve checked the flagged items
+        </Checkbox>
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" variant="secondary" onClick={regenerate}>Regenerate</Button>
+        {editable && <Button size="sm" variant="ghost" onClick={() => app.startEdit(conv.id)}>Edit</Button>}
+        {editable && <Button size="sm" variant="ghost" onClick={() => app.copy(conv.id)}>Copy answer</Button>}
+        <span className="ml-auto max-w-[32ch] text-right text-xs text-secondary">{hint}</span>
+        <Button size="sm" variant="accent" disabled={!!hint} onClick={() => app.save(conv.id)}>Save reviewed answer</Button>
+      </div>
+    </div>
+  );
+}
+
+// The immutable internal record (ANS-04) and its recheck flag (STL-01).
+function SavedRecord({ app, conv }) {
+  const { state: s } = app;
+  const r = conv.reviewed;
+  const changed = sourcesChanged(r.sources, s.docs);
+  const versions = [...new Set(r.sources.map((x) => `${x.title} v${x.v}`))].join(', ') || 'None';
+  const rows = [
+    ['Reviewer', r.reviewer],
+    ['Saved', r.at],
+    ['Source versions', versions],
+    ['Facts cited', r.facts.map((f) => f.id).join(', ') || 'None'],
+    ['Flags checked', r.acknowledged ? 'Yes' : 'No flags'],
+  ];
+  return (
+    <div className="flex max-w-[72ch] flex-col gap-3">
+      {changed && (
+        <Notice tag="SOURCE CHANGED — RECHECK" title="A source of this saved answer has changed">
+          A cited version was superseded, archived or deleted after saving. The record is kept as saved; recheck before reusing it.
+        </Notice>
+      )}
+      <div className={CARD}>
+        <div className="flex items-center gap-[10px] border-b border-hairline px-6 py-[14px]">
+          <Badge tone="positive">Saved</Badge>
+          <span className="text-sm font-bold">Internal record · not sent to the customer</span>
+        </div>
+        {rows.map(([k, v]) => (
+          <div key={k} className="grid grid-cols-[140px_minmax(0,1fr)] gap-3 border-b border-hairline px-6 py-3 text-sm last:border-b-0">
+            <span className="text-muted">{k}</span>
+            <span className="font-semibold">{v}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
