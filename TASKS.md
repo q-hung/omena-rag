@@ -172,7 +172,7 @@ limit) is folded in too (IDX-01, T12, T18).
   - a forced payments-query error raises `account_data_unavailable`;
   - signals: A-1004 → Webhook failing; A-1005 → Payment failed, Past due; A-1003 → Enterprise; A-1001/A-1002 → none; an endpoint with 2 consecutive failures → none.
 
-### [ ] T09 · Accounts API and facts panel
+### [x] T09 · Accounts API and facts panel
 - **Goal:** the left pane on real data.
 - **Refs:** §17b, CTX-02, SIG-02, §12.2 left pane.
 - **Depends:** T07, T08.

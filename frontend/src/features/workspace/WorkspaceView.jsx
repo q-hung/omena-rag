@@ -1,6 +1,5 @@
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
-import { accountById } from '../../data/jarvis';
 import { STATE_LABEL, STATE_TONE, deriveState } from '../../lib/model';
 import AccountPanel from './AccountPanel';
 import ConversationPanel from './ConversationPanel';
@@ -10,15 +9,17 @@ import EvidencePanel from './EvidencePanel';
 export default function WorkspaceView({ app }) {
   const { state: s } = app;
   const conv = s.conversations.find((c) => c.id === s.convId) || null;
-  const account = accountById(s.accountId);
+  const account = s.accounts.find((a) => a.id === s.accountId);
   const st = conv && deriveState(conv, !!s.generating[conv.id]);
+
+  if (!account) return null;
 
   return (
     <>
       <div className="flex h-[60px] flex-none items-center gap-4 border-b border-hairline bg-white px-8">
         <h1 className="text-base font-bold">Ask</h1>
         <span className="h-5 w-px bg-rule" />
-        <span className="whitespace-nowrap text-sm font-semibold">{account.company}</span>
+        <span className="whitespace-nowrap text-sm font-semibold">{account.companyName}</span>
         <span className="font-mono text-xs text-muted">{account.ref}</span>
         <span className="ml-auto" />
         {st && <Badge tone={STATE_TONE[st]}>{STATE_LABEL[st]}</Badge>}

@@ -9,6 +9,7 @@ import {
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
 import { config as loadConfig, type Config } from './config.ts';
+import { registerAccounts } from './accounts.ts';
 import { registerAuth } from './auth.ts';
 import { AppError } from './errors.ts';
 
@@ -53,6 +54,7 @@ export async function buildApp(options: BuildOptions = {}) {
   });
 
   registerAuth(app, config);
+  registerAccounts(app);
 
   app.addHook('onResponse', async (request, reply) => {
     // `reqId` is already bound on the request logger.

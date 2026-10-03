@@ -62,7 +62,7 @@ function Composer({ app, account }) {
   const text = s.questionText;
   return (
     <section className="flex min-w-0 flex-col gap-4 overflow-auto px-8 py-6">
-      <h2 className="text-lg font-bold">Ask about {account.company}</h2>
+      <h2 className="text-lg font-bold">Ask about {account.companyName}</h2>
       <div className="flex max-w-[72ch] flex-col gap-2">
         <textarea
           aria-label="Support question"

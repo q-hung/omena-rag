@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { accountById, demoDocs } from '../data/jarvis';
+import { api } from '../lib/api';
 import { D, now } from '../lib/format';
 import { buildReviewed, finalText, latestAnswer, saveBlockers, simulateAnswer, stripMarkers, validateEdit } from '../lib/model';
 
@@ -32,6 +33,7 @@ function initState() {
   const docs = demoDocs();
   return {
     accountId: 1, convId: null,
+    accounts: [], accountFacts: null, accountsError: null,
     conversations: seedConversations(docs), docs, generating: {},
     questionText: '', replyText: '',
     editing: false, editText: '', editError: null, activeCite: null, activeFact: null, ack: {},
@@ -60,6 +62,33 @@ export function useJarvis() {
   const updConv = (id, fn) => set((s) => ({ conversations: s.conversations.map((c) => (c.id === id ? fn(c) : c)) }));
   const updDoc = (id, fn) => set((s) => ({ docs: s.docs.map((d) => (d.id === id ? fn(d) : d)) }));
 
+  useEffect(() => {
+    let active = true;
+    api('/accounts').then(({ accounts }) => {
+      if (!active) return;
+      set((s) => ({
+        accounts,
+        accountId: accounts.some((a) => a.id === s.accountId) ? s.accountId : accounts[0]?.id,
+        accountsError: null,
+      }));
+    }).catch((error) => {
+      if (active) set({ accountsError: error.message });
+    });
+    return () => { active = false; };
+  }, [set]);
+
+  useEffect(() => {
+    if (!state.accountId) return undefined;
+    let active = true;
+    set({ accountFacts: null });
+    api(`/accounts/${state.accountId}/facts`).then((accountFacts) => {
+      if (active) set({ accountFacts, accountsError: null });
+    }).catch((error) => {
+      if (active) set({ accountsError: error.message });
+    });
+    return () => { active = false; };
+  }, [state.accountId, set]);
+
   const toast = (text, action, onAction) => {
     set({ toast: { text, action, onAction } });
     clearTimeout(toastTimer.current);
@@ -68,7 +97,7 @@ export function useJarvis() {
 
   // ---------- Selection (routing lives in App) ----------
   const clear = () => set(CLEAR);
-  const selectAccount = (accountId) => set({ accountId, convId: null, ...CLEAR });
+  const selectAccount = (accountId) => set({ accountId, accountFacts: null, convId: null, ...CLEAR });
   const newQuestion = () => set({ convId: null, ...CLEAR });
   const openConv = (id) => set({ convId: id, accountId: conv(id).accountId, ...CLEAR });
 
