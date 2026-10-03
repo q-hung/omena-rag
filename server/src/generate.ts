@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { and, desc, eq, sql } from 'drizzle-orm';
+import type { FastifyBaseLogger } from 'fastify';
 import type { Config } from './config.ts';
 import { buildAccountSnapshot, type AccountSnapshot } from './context.ts';
 import { db } from './db/index.ts';
@@ -53,6 +54,7 @@ export async function createConversation(input: {
   employeeId: number;
   config: Config;
   deps?: GenerateDeps;
+  log?: FastifyBaseLogger;
 }) {
   const token = randomUUID();
   const [account] = await db()
@@ -90,6 +92,7 @@ export async function regenerateConversation(input: {
   employeeId: number;
   config: Config;
   deps?: GenerateDeps;
+  log?: FastifyBaseLogger;
 }) {
   const token = randomUUID();
   const started = await db().transaction(async (tx) => {
@@ -117,13 +120,23 @@ export async function regenerateConversation(input: {
 
 async function finish(
   started: { conversationId: number; turnId: number; token: string },
-  input: { employeeId: number; config: Config; deps?: GenerateDeps },
+  input: { employeeId: number; config: Config; deps?: GenerateDeps; log?: FastifyBaseLogger },
 ): Promise<number> {
   const now = input.deps?.now ?? Date.now;
   const deadline = now() + (input.deps?.requestDeadlineMs ?? REQUEST_DEADLINE_MS);
   try {
     await runOutsideTxn(started, input, deadline);
   } catch (error) {
+    // Provider and app errors are expected outcomes; anything else is a bug that would
+    // otherwise surface only as state `failed`.
+    if (!(error instanceof AppError) && !(error instanceof ProviderError)) {
+      const err = error as Error;
+      // SEC-11: message and stack only, never the error object (pg errors carry row data).
+      input.log?.error(
+        { code: 'ERROR', conversationId: started.conversationId, err: err?.message, stack: err?.stack },
+        'generation failed unexpectedly',
+      );
+    }
     await clearLock(started.conversationId, started.token);
     await recordFailure(started.conversationId, input.employeeId, input.config, error);
     if (error instanceof AppError && error.code === 'account_data_unavailable') {
@@ -380,10 +393,12 @@ async function recordFailure(conversationId: number, employeeId: number, cfg: Co
       : error instanceof AppError
         ? error.code
         : 'ERROR';
+  // GEN-03 failure marker. attempt 0 keeps it out of the quota, which counts attempt 1
+  // only; a failed provider attempt already has its own row from paidAttempt.
   await db().insert(providerCalls).values({
     kind: 'generate',
     purpose: 'app',
-    attempt: 1,
+    attempt: 0,
     model: cfg.GENERATION_MODEL,
     employeeId,
     conversationId,

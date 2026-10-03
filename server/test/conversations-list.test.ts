@@ -121,6 +121,21 @@ describe('conversations list', () => {
     expect(ids).toContain(adaOn1004.json().id);
     expect(ids).not.toContain(reiOn1004.json().id);
 
+    // The batched list matches the per-conversation detail.
+    const all1001 = await app.inject({
+      method: 'GET',
+      url: `/api/conversations?accountId=${account['A-1001']}&mine=1`,
+      cookies: adaCookie,
+    });
+    const rows = new Map(all1001.json().conversations.map((c: { id: number }) => [c.id, c]));
+    for (const detail of [e01, e11]) {
+      expect(rows.get(detail.json().id)).toMatchObject({
+        question: detail.json().turns[0].text,
+        state: detail.json().state,
+        topics: detail.json().topics,
+      });
+    }
+
     expect(e01.json().topics).toEqual(['Plans', 'Security']);
     expect(e06.json().topics).toEqual(['Policies', 'FAQ']);
     expect(e12.json().topics).toEqual(['Account data']);

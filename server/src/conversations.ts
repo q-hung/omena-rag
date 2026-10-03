@@ -1,12 +1,16 @@
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { App } from './app.ts';
 import type { Config } from './config.ts';
 import { getAccountSignals } from './context.ts';
 import { db } from './db/index.ts';
 import {
+  answerSources,
   answers,
   conversations,
+  documentChunks,
+  documentVersions,
+  documents,
   employees,
   reviewedAnswers,
   turns,
@@ -36,6 +40,7 @@ export function registerConversations(app: App, config: Config, deps: GenerateDe
       employeeId: request.employeeId!,
       config,
       deps,
+      log: request.log,
     });
     return reply.status(201).send(await presentConversation(id, request.employeeId!));
   });
@@ -46,6 +51,7 @@ export function registerConversations(app: App, config: Config, deps: GenerateDe
       employeeId: request.employeeId!,
       config,
       deps,
+      log: request.log,
     });
     return presentConversation(id, request.employeeId!);
   });
@@ -72,9 +78,7 @@ export function registerConversations(app: App, config: Config, deps: GenerateDe
           : eq(conversations.accountId, accountId);
       const rows = await db().select().from(conversations).where(where).orderBy(desc(conversations.createdAt));
       const signals = await getAccountSignals(accountId);
-      return {
-        conversations: await Promise.all(rows.map((row) => presentSummary(row, request.employeeId!, signals))),
-      };
+      return { conversations: await presentSummaries(rows, request.employeeId!, signals) };
     },
   );
 }
@@ -92,9 +96,10 @@ export async function presentConversation(id: number, employeeId: number) {
   const latestByTurn = new Map<number, (typeof answerRows)[number]>();
   for (const a of answerRows) latestByTurn.set(a.turnId, a);
 
+  const seqById = new Map(turnRows.map((t) => [t.id, t.seq]));
   const presented = [];
   for (const a of latestByTurn.values()) {
-    presented.push(await presentAnswer(a));
+    presented.push(await presentAnswer(a, seqById.get(a.turnId)));
   }
 
   const lastTurn = turnRows[turnRows.length - 1];
@@ -133,51 +138,81 @@ export async function presentConversation(id: number, employeeId: number) {
   };
 }
 
-async function presentSummary(
-  conv: typeof conversations.$inferSelect,
+// One query per table for the whole list, not per row.
+async function presentSummaries(
+  rows: (typeof conversations.$inferSelect)[],
   employeeId: number,
   signals: Awaited<ReturnType<typeof getAccountSignals>>,
 ) {
-  const [question] = await db()
-    .select()
-    .from(turns)
-    .where(and(eq(turns.conversationId, conv.id), eq(turns.kind, 'question')))
-    .orderBy(turns.seq)
-    .limit(1);
-  const [latest] = await db()
-    .select()
-    .from(answers)
-    .where(eq(answers.conversationId, conv.id))
-    .orderBy(desc(answers.id))
-    .limit(1);
-  const [reviewed] = await db().select({ id: reviewedAnswers.id }).from(reviewedAnswers).where(eq(reviewedAnswers.conversationId, conv.id));
-  const presented = latest ? await presentAnswer(latest) : null;
-  const lastTurn = await db()
-    .select({ id: turns.id })
-    .from(turns)
-    .where(eq(turns.conversationId, conv.id))
-    .orderBy(desc(turns.seq))
-    .limit(1);
-  const hasAnswer = !!(latest && lastTurn[0] && latest.turnId === lastTurn[0].id);
-  return {
-    id: conv.id,
-    accountId: conv.accountId,
-    question: question?.text ?? '',
-    createdAt: conv.createdAt.toISOString(),
-    ownedByMe: conv.createdBy === employeeId,
-    state: deriveState({
-      generating: generationLockHeld(conv),
-      saved: !!reviewed,
-      hasAnswer,
-      outcome: latest?.outcome,
-      reviewReasons: (latest?.reviewReasons as string[]) ?? [],
-    }),
-    topics: presented?.topics ?? [],
-    signals,
-  };
+  if (!rows.length) return [];
+  const ids = rows.map((r) => r.id);
+  const [questions, lastTurns, latestAnswers, reviewed] = await Promise.all([
+    db()
+      .selectDistinctOn([turns.conversationId], { conversationId: turns.conversationId, text: turns.text })
+      .from(turns)
+      .where(and(inArray(turns.conversationId, ids), eq(turns.kind, 'question')))
+      .orderBy(turns.conversationId, turns.seq),
+    db()
+      .selectDistinctOn([turns.conversationId], { conversationId: turns.conversationId, id: turns.id })
+      .from(turns)
+      .where(inArray(turns.conversationId, ids))
+      .orderBy(turns.conversationId, desc(turns.seq)),
+    db()
+      .selectDistinctOn([answers.conversationId])
+      .from(answers)
+      .where(inArray(answers.conversationId, ids))
+      .orderBy(answers.conversationId, desc(answers.id)),
+    db()
+      .select({ conversationId: reviewedAnswers.conversationId })
+      .from(reviewedAnswers)
+      .where(inArray(reviewedAnswers.conversationId, ids)),
+  ]);
+
+  const answerIds = latestAnswers.map((a) => a.id);
+  const cited = answerIds.length
+    ? await db()
+        .select({ answerId: answerSources.answerId, category: documents.category })
+        .from(answerSources)
+        .innerJoin(documentChunks, eq(documentChunks.id, answerSources.chunkId))
+        .innerJoin(documentVersions, eq(documentVersions.id, documentChunks.versionId))
+        .innerJoin(documents, eq(documents.id, documentVersions.documentId))
+        .where(and(inArray(answerSources.answerId, answerIds), isNotNull(answerSources.citationNumber)))
+    : [];
+
+  const questionBy = new Map(questions.map((q) => [q.conversationId, q.text]));
+  const lastTurnBy = new Map(lastTurns.map((t) => [t.conversationId, t.id]));
+  const latestBy = new Map(latestAnswers.map((a) => [a.conversationId, a]));
+  const savedIds = new Set(reviewed.map((r) => r.conversationId));
+  const categoriesBy = new Map<number, string[]>();
+  for (const c of cited) categoriesBy.set(c.answerId, [...(categoriesBy.get(c.answerId) ?? []), c.category]);
+
+  return rows.map((conv) => {
+    const latest = latestBy.get(conv.id);
+    return {
+      id: conv.id,
+      accountId: conv.accountId,
+      question: questionBy.get(conv.id) ?? '',
+      createdAt: conv.createdAt.toISOString(),
+      ownedByMe: conv.createdBy === employeeId,
+      state: deriveState({
+        generating: generationLockHeld(conv),
+        saved: savedIds.has(conv.id),
+        hasAnswer: !!latest && latest.turnId === lastTurnBy.get(conv.id),
+        outcome: latest?.outcome,
+        reviewReasons: (latest?.reviewReasons as string[]) ?? [],
+      }),
+      topics: latest ? answerTopics(latest, categoriesBy.get(latest.id) ?? []) : [],
+      signals,
+    };
+  });
 }
 
-async function presentAnswer(answer: typeof answers.$inferSelect) {
+function answerTopics(answer: typeof answers.$inferSelect, citedCategories: string[]): string[] {
+  const citedFacts = /\[F\d+\]/.test(answer.editedText ?? answer.answerText);
+  return topicsOf({ outcome: answer.outcome, citedCategories, citedFacts });
+}
+
+async function presentAnswer(answer: typeof answers.$inferSelect, turnSeq: number | undefined) {
   const snapshot = answer.factsSnapshot as { as_of: string; facts: { id: string; record?: unknown }[]; empty: unknown[] };
   const facts = (snapshot.facts ?? []).map(({ record: _r, ...fact }) => fact);
   const sources = await db().execute(sql`
@@ -203,8 +238,6 @@ async function presentAnswer(answer: typeof answers.$inferSelect) {
     if (card.status) sourceUpdated = true;
     if (card.cat) categories.push(card.cat);
   }
-  const text = answer.editedText ?? answer.answerText;
-  const citedFacts = /\[F\d+\]/.test(text);
   const clarifications = (answer.clarifications ?? []) as {
     kind: string;
     prompt?: string;
@@ -214,7 +247,7 @@ async function presentAnswer(answer: typeof answers.$inferSelect) {
   return {
     id: answer.id,
     turnId: answer.turnId,
-    turnSeq: (await db().select({ seq: turns.seq }).from(turns).where(eq(turns.id, answer.turnId)))[0]?.seq,
+    turnSeq,
     outcome: answer.outcome,
     text: answer.answerText,
     edited: answer.editedText,
@@ -231,7 +264,7 @@ async function presentAnswer(answer: typeof answers.$inferSelect) {
     asOf: snapshot.as_of ?? answer.asOf,
     cites,
     sourceUpdated,
-    topics: topicsOf({ outcome: answer.outcome, citedCategories: categories, citedFacts }),
+    topics: answerTopics(answer, categories),
     fallback: answer.model === 'stub-fallback',
     model: answer.model,
   };

@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SESSION_COOKIE } from '../src/auth.ts';
 import { db } from '../src/db/index.ts';
@@ -21,7 +21,7 @@ import { utcToday } from '../src/lib/format.ts';
 import type { Passage } from '../src/retrieve.ts';
 import { seed } from '../src/seed.ts';
 import { queueDocument } from '../src/upload.ts';
-import { asBrowser, buildTestApp } from './helpers/app.ts';
+import { asBrowser, buildTestApp, LogCapture } from './helpers/app.ts';
 
 const PASSWORD = 'test-password';
 const unit = () => {
@@ -161,6 +161,15 @@ const ask = (cookie: Record<string, string>, question = 'What plan is this accou
 const regen = (cookie: Record<string, string>, id: number) =>
   app.inject(asBrowser({ method: 'POST', url: `/api/conversations/${id}/regenerate`, cookies: cookie }));
 
+/** Rows the daily quota counts (REQ §10): first-attempt generate rows. */
+const quotaRows = async (employeeId: number) =>
+  (
+    await db()
+      .select()
+      .from(providerCalls)
+      .where(and(eq(providerCalls.employeeId, employeeId), eq(providerCalls.kind, 'generate'), eq(providerCalls.attempt, 1)))
+  ).length;
+
 async function waitForLock() {
   for (let i = 0; i < 50; i++) {
     const rows = await db().select().from(conversations);
@@ -222,6 +231,44 @@ describe.sequential('generation', () => {
     expect(conv!.generationToken).toBeNull();
     const errors = await db().select().from(providerCalls).where(eq(providerCalls.status, 'error'));
     expect(errors.some((r) => r.errorCode === 'STUB_FAIL' || r.conversationId === res.json().id)).toBe(true);
+  });
+
+  it('counts a failed generation once against the quota', async () => {
+    const before = await quotaRows(ada.id);
+    failNext = true;
+    const res = await ask(ada.cookie, 'Fails once');
+    expect(res.json().state).toBe('failed');
+    expect(await quotaRows(ada.id)).toBe(before + 1);
+  });
+
+  it('does not count a failure before any generate call, and logs it without question text', async () => {
+    const logs = new LogCapture();
+    const isolated = await buildTestApp(logs, undefined, {
+      provider,
+      retrieve: async () => {
+        throw new TypeError('retrieval bug');
+      },
+    });
+    const login = await isolated.inject(
+      asBrowser({ method: 'POST', url: '/api/auth/login', payload: { email: 'ada@omena.example', password: PASSWORD } }),
+    );
+    const cookie = { [SESSION_COOKIE]: login.cookies.find((c) => c.name === SESSION_COOKIE)!.value };
+    const before = await quotaRows(ada.id);
+    const res = await isolated.inject(
+      asBrowser({
+        method: 'POST',
+        url: '/api/conversations',
+        cookies: cookie,
+        payload: { accountId, question: 'Secret question text' },
+      }),
+    );
+    expect(res.statusCode).toBe(201);
+    expect(res.json().state).toBe('failed');
+    expect(await quotaRows(ada.id)).toBe(before);
+    const line = logs.lines.find((l) => l.msg === 'generation failed unexpectedly');
+    expect(line).toMatchObject({ err: 'retrieval bug', conversationId: res.json().id });
+    expect(logs.text).not.toContain('Secret question text');
+    await isolated.close();
   });
 
   it('still calls the model when retrieval returns no passages', async () => {
