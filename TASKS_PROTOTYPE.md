@@ -202,7 +202,8 @@ these components (§12.3), so nothing is thrown away.
 
 ## Phase C — Walkthrough
 
-### [ ] P12 · Scenario walkthrough and cleanup
+### [x] P12 · Scenario walkthrough and cleanup
+- **Result (3 Oct 2026):** S1–S6, failure → Retry and archive/restore verified in the browser; 9/9 rule tests pass; build passes; no console errors in a fresh session. Copy answer shows its failure toast when triggered by script (no user gesture for the clipboard); stripping is covered by the rule test.
 - **Goal:** prove the prototype covers §13.1.
 - **Refs:** §13.1 S1–S6, §16, UI-01.
 - **Depends:** P10, P11.
