@@ -137,7 +137,7 @@ these components (§12.3), so nothing is thrown away.
   - No "Generated with N% confidence", "Supported" or "verified" wording; the 3-step progress is removed.
 - **Verify:** S1 (A-1001 SSO), S3 (A-1004 webhook: observed facts and possible causes as separate labelled parts), S4 (A-1005 Brazil → Insufficient evidence), S5 (motorcycle → Out of scope) all render as specified in §13.1.
 
-### [ ] P07 · Clarification
+### [x] P07 · Clarification
 - **Goal:** the S2b round trip.
 - **Refs:** CLR-01–03, §9.3 rule 7.
 - **Depends:** P06.

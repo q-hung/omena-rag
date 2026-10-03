@@ -145,6 +145,7 @@ function Answer({ app, conv, a, full }) {
         <div className={`flex max-w-[72ch] flex-col gap-3 px-6 py-5 ${CARD}`}>
           <div className="eyebrow">JARVIS NEEDS MORE INFORMATION</div>
           {a.questions.map((q) => <DraftText key={q} text={q} boxed={false} {...textProps} />)}
+          {!conv.reviewed && <Reply app={app} conv={conv} a={a} />}
         </div>
       )}
 
@@ -173,6 +174,29 @@ function Answer({ app, conv, a, full }) {
           </div>
         )
       )}
+    </div>
+  );
+}
+
+// CLR-02: the reply is a new turn in the same conversation; the account stays fixed.
+function Reply({ app, conv, a }) {
+  const { state: s, set } = app;
+  const text = s.replyText;
+  const chips = SCRIPTS.find((x) => x.id === a.scriptId)?.suggestedReplies || [];
+  return (
+    <div className="flex flex-col gap-2 border-t border-hairline pt-3">
+      <textarea
+        aria-label="Clarification reply"
+        value={text}
+        maxLength={1000}
+        onChange={(e) => set({ replyText: e.target.value })}
+        className="min-h-[72px] resize-y border-2 border-rule bg-white px-4 py-3 text-base leading-[1.5] focus:border-interactive focus:outline-none"
+      />
+      <div className="flex flex-wrap items-center gap-2">
+        {chips.map((c) => <Tag key={c} onClick={() => app.reply(conv.id, c)}>{c}</Tag>)}
+        <span className="ml-auto text-xs text-muted">Your reply will be used to try again.</span>
+        <Button size="sm" disabled={!text.trim()} onClick={() => app.reply(conv.id, text.trim())}>Send reply</Button>
+      </div>
     </div>
   );
 }

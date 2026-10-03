@@ -100,6 +100,7 @@ export function useJarvis() {
 
   const reply = (id, text) => {
     updConv(id, (c) => ({ ...c, turns: [...c.turns, { seq: c.turns.length + 1, kind: 'clarification_reply', text, at: now() }] }));
+    set({ replyText: '' });
     generate(id);
   };
 
