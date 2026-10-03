@@ -85,7 +85,7 @@ limit) is folded in too (IDX-01, T12, T18).
 
 ## Phase 1 — Schema and seed (M1)
 
-### [ ] T03 · Schema and migrations
+### [x] T03 · Schema and migrations
 - **Goal:** every table with its constraints.
 - **Refs:** §5.1, §6.3, §17a, KB-02, AUTH-03, ANS-04 (unique `conversation_id`).
 - **Depends:** T02.
