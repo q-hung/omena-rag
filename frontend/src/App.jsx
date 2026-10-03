@@ -3,12 +3,12 @@ import { useJarvis } from './hooks/useJarvis';
 import Sidebar from './components/Sidebar';
 import DemoBanner from './components/DemoBanner';
 import Toast from './components/ui/Toast';
-import { Page, PageHeader } from './components/ui/Page';
 import LoginView from './features/login/LoginView';
 import KnowledgeBaseView from './features/kb/KnowledgeBaseView';
 import DocumentView from './features/kb/DocumentView';
 import UploadDialog from './features/kb/UploadDialog';
 import WorkspaceView from './features/workspace/WorkspaceView';
+import HistoryView from './features/history/HistoryView';
 
 export default function App() {
   const app = useJarvis();
@@ -28,7 +28,7 @@ export default function App() {
       <main className="flex min-h-0 min-w-0 flex-col">
         <DemoBanner failNext={s.failNext} onToggleFail={() => set((st) => ({ failNext: !st.failNext }))} />
         {s.view === 'ask' && <WorkspaceView app={app} />}
-        {s.view === 'history' && <Page><PageHeader title="History" subtitle="Built in P10." /></Page>}
+        {s.view === 'history' && <HistoryView app={app} />}
         {s.view === 'kb' && <KnowledgeBaseView app={app} />}
         {s.view === 'doc' && doc && <DocumentView app={app} doc={doc} />}
       </main>

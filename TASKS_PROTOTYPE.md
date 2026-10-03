@@ -171,7 +171,7 @@ these components (§12.3), so nothing is thrown away.
   - No "Approve", "Publish" or "Send" wording anywhere.
 - **Verify:** S2a → Copy, then paste: no markers. Save → Saved. Edit with `[9]` → inline error. `grep -riE "approve|publish" frontend/src` finds only comments, if any.
 
-### [ ] P10 · History
+### [x] P10 · History
 - **Goal:** the conversation list.
 - **Refs:** WF-03, §4.2.
 - **Depends:** P09.
