@@ -125,7 +125,7 @@ limit) is folded in too (IDX-01, T12, T18).
   - A test helper builds the app against `jarvis_test`.
 - **Verify:** `pnpm --filter server test baseline`: a foreign Origin returns 403, the CSP header is present, and captured logs contain no request body.
 
-### [ ] T06 · Authentication
+### [x] T06 · Authentication
 - **Goal:** employees log in; every other route needs a session.
 - **Refs:** AUTH-01, AUTH-02, SEC-01, SEC-02.
 - **Depends:** T04, T05.

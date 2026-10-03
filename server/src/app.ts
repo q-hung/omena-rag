@@ -9,6 +9,7 @@ import {
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
 import { config as loadConfig, type Config } from './config.ts';
+import { registerAuth } from './auth.ts';
 import { AppError } from './errors.ts';
 
 export type App = Awaited<ReturnType<typeof buildApp>>;
@@ -50,6 +51,8 @@ export async function buildApp(options: BuildOptions = {}) {
       throw new AppError(403, 'FORBIDDEN_ORIGIN', 'This request did not come from the app.');
     }
   });
+
+  registerAuth(app, config);
 
   app.addHook('onResponse', async (request, reply) => {
     // `reqId` is already bound on the request logger.

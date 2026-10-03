@@ -11,14 +11,14 @@ let app: Awaited<ReturnType<typeof buildTestApp>>;
 beforeAll(async () => {
   app = await buildTestApp(logs, (instance) => {
     instance.post(
-      '/api/echo',
+      '/test/echo',
       { schema: { body: z.object({ question: z.string().min(1) }) } },
       async (request) => ({ length: request.body.question.length }),
     );
-    instance.get('/api/boom', async () => {
+    instance.get('/test/boom', async () => {
       throw new AppError(409, 'ALREADY_SAVED', 'This conversation is already saved.');
     });
-    instance.get('/api/crash', async () => {
+    instance.get('/test/crash', async () => {
       throw new Error('unexpected');
     });
   });
@@ -28,21 +28,22 @@ afterAll(async () => {
   await app.close();
 });
 
+// Routes live outside /api/ so these checks run without a session (T06).
 describe('fastify baseline', () => {
   it('sets a strict CSP (SEC-04)', async () => {
-    const response = await app.inject({ method: 'GET', url: '/api/boom' });
+    const response = await app.inject({ method: 'GET', url: '/test/boom' });
     expect(response.headers['content-security-policy']).toBe("default-src 'self'");
   });
 
   it('returns a request id on every response', async () => {
-    const response = await app.inject({ method: 'GET', url: '/api/boom' });
+    const response = await app.inject({ method: 'GET', url: '/test/boom' });
     expect(response.headers['x-request-id']).toMatch(/^[0-9a-f-]{36}$/);
   });
 
   it('rejects a mutating request from a foreign origin (SEC-03)', async () => {
     const response = await app.inject({
       method: 'POST',
-      url: '/api/echo',
+      url: '/test/echo',
       headers: { origin: 'https://evil.example' },
       payload: { question: SECRET },
     });
@@ -53,50 +54,50 @@ describe('fastify baseline', () => {
   });
 
   it('rejects a mutating request with no origin at all', async () => {
-    const response = await app.inject({ method: 'POST', url: '/api/echo', payload: { question: 'x' } });
+    const response = await app.inject({ method: 'POST', url: '/test/echo', payload: { question: 'x' } });
     expect(response.statusCode).toBe(403);
   });
 
   it('accepts a mutating request from the app origin', async () => {
     const response = await app.inject(
-      asBrowser({ method: 'POST', url: '/api/echo', payload: { question: SECRET } }),
+      asBrowser({ method: 'POST', url: '/test/echo', payload: { question: SECRET } }),
     );
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ length: SECRET.length });
   });
 
   it('does not require an origin for reads', async () => {
-    const response = await app.inject({ method: 'GET', url: '/api/boom' });
+    const response = await app.inject({ method: 'GET', url: '/test/boom' });
     expect(response.statusCode).toBe(409);
   });
 
   it('uses one error shape for expected, validation and unexpected failures', async () => {
-    expect((await app.inject({ method: 'GET', url: '/api/boom' })).json()).toEqual({
+    expect((await app.inject({ method: 'GET', url: '/test/boom' })).json()).toEqual({
       error: { code: 'ALREADY_SAVED', message: 'This conversation is already saved.' },
     });
 
     const invalid = await app.inject(
-      asBrowser({ method: 'POST', url: '/api/echo', payload: { question: '' } }),
+      asBrowser({ method: 'POST', url: '/test/echo', payload: { question: '' } }),
     );
     expect(invalid.statusCode).toBe(400);
     expect(invalid.json().error.code).toBe('VALIDATION_FAILED');
 
-    const crashed = await app.inject({ method: 'GET', url: '/api/crash' });
+    const crashed = await app.inject({ method: 'GET', url: '/test/crash' });
     expect(crashed.statusCode).toBe(500);
     expect(crashed.json()).toEqual({ error: { code: 'INTERNAL', message: 'Something went wrong.' } });
     expect(crashed.json().error.message).not.toContain('unexpected');
 
-    const missing = await app.inject({ method: 'GET', url: '/api/nowhere' });
+    const missing = await app.inject({ method: 'GET', url: '/test/nowhere' });
     expect(missing.statusCode).toBe(404);
     expect(missing.json().error.code).toBe('NOT_FOUND');
   });
 
   it('logs only allow-listed fields, never a request body (SEC-11)', async () => {
     logs.lines.length = 0;
-    await app.inject(asBrowser({ method: 'POST', url: '/api/echo', payload: { question: SECRET } }));
+    await app.inject(asBrowser({ method: 'POST', url: '/test/echo', payload: { question: SECRET } }));
 
     expect(logs.text).not.toContain(SECRET);
-    const line = logs.lines.find((l) => l.route === '/api/echo');
+    const line = logs.lines.find((l) => l.route === '/test/echo');
     expect(line).toBeDefined();
     expect(Object.keys(line!).sort()).toEqual(
       ['hostname', 'latencyMs', 'level', 'method', 'pid', 'reqId', 'route', 'status', 'time'].sort(),
