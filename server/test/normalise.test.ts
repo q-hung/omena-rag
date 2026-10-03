@@ -150,4 +150,17 @@ describe('normalise', () => {
     expect(result.outcome).toBe('insufficient_evidence');
     expect(result.reviewReasons).toEqual(expect.arrayContaining(['policy_applicability', 'no_valid_citation']));
   });
+
+  it('drops unusable clarifications on any outcome, never storing null', () => {
+    const result = normalise(
+      {
+        ...base,
+        answer: 'Pro plan [S1].',
+        clarifications: [{ kind: 'choose_record', prompt: ' ', options: ['F999'] }],
+      },
+      { facts, passages: [passage(1)] },
+    );
+    expect(result.outcome).toBe('answer');
+    expect(result.clarifications).toEqual([]);
+  });
 });

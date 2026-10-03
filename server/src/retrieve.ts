@@ -34,7 +34,7 @@ export async function retrieve(queryEmbedding: number[], opts: RetrieveOpts): Pr
     ? await loadEligible(opts.model)
     : await loadByVector(queryEmbedding, opts.model, limit);
 
-  const scored = opts.lexicalQuery
+  const scored: Record<string, unknown>[] = opts.lexicalQuery
     ? rows
         .map((row) => ({ ...row, score: tokenOverlap(opts.lexicalQuery!, chunkText(row)) }))
         .sort((a, b) => Number(b.score) - Number(a.score))

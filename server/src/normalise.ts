@@ -40,7 +40,7 @@ export function normalise(
   raw: ModelOutput,
   opts: { facts: Fact[]; passages: Passage[]; clarificationRounds?: number },
 ): Normalised {
-  const reasons = new Set((raw.review_reasons ?? []).filter((r) => MODEL_REASONS.has(r)));
+  const reasons = new Set<string>((raw.review_reasons ?? []).filter((r) => MODEL_REASONS.has(r)));
   const facts = opts.facts;
   const passages = opts.passages;
   const factById = new Map(facts.map((f) => [f.id, f]));
@@ -107,7 +107,9 @@ export function normalise(
 
   const gaps = [...(raw.gaps ?? [])];
   let outcome = raw.outcome;
-  let clarifications = (raw.clarifications ?? []).map((c) => shapeClarification(c, facts, resolve));
+  let clarifications = (raw.clarifications ?? [])
+    .map((c) => shapeClarification(c, facts, resolve))
+    .filter((c): c is Clarification => c != null);
 
   if (outcome === 'answer' && (!text.trim() || !/\[(?:F\d+|\d+)\]/.test(text))) {
     outcome = 'insufficient_evidence';
@@ -115,7 +117,6 @@ export function normalise(
   }
 
   if (outcome === 'clarification_required') {
-    clarifications = clarifications.filter(Boolean) as Clarification[];
     if (!clarifications.length) outcome = 'insufficient_evidence';
     else if ((opts.clarificationRounds ?? 0) >= 2) {
       outcome = 'insufficient_evidence';
