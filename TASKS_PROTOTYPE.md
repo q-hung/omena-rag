@@ -183,7 +183,7 @@ these components (§12.3), so nothing is thrown away.
   - Clicking a row opens it in Ask.
 - **Verify:** filter by A-1002 shows only its conversations; the state filter counts add up to the total.
 
-### [ ] P11 · Knowledge base and document page
+### [x] P11 · Knowledge base and document page
 - **Goal:** KB views aligned with §6.1.
 - **Refs:** KB-01–09, IDX-02, §16.
 - **Depends:** P03, P04.

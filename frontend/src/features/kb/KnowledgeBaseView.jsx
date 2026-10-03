@@ -10,7 +10,7 @@ const CATS = ['All', 'Plans', 'Policies', 'FAQ', 'Billing', 'Security', 'Develop
 
 export default function KnowledgeBaseView({ app }) {
   const { state: s, set } = app;
-  const openUpload = () => set({ dialog: { type: 'upload' }, failSim: false });
+  const openUpload = () => set({ dialog: { type: 'upload' } });
   const hasDocs = s.docs.length > 0;
   const term = s.kbSearch.trim().toLowerCase();
   const rows = s.docs.filter((d) =>
@@ -23,7 +23,7 @@ export default function KnowledgeBaseView({ app }) {
     <Page>
       <PageHeader
         title="Knowledge base"
-        subtitle="Answers search current, indexed versions only. Archived documents are never retrieved."
+        subtitle="Answers use active, indexed versions only. Archived documents are never retrieved."
         action={hasDocs && <Button onClick={openUpload}>Upload document</Button>}
       />
 
@@ -33,10 +33,7 @@ export default function KnowledgeBaseView({ app }) {
           <div className="max-w-[56ch] text-base leading-normal text-secondary">
             Upload plan sheets, policies and FAQs. The assistant can only answer from documents that have finished indexing.
           </div>
-          <div className="flex gap-2">
-            <Button onClick={openUpload}>Upload document</Button>
-            <Button variant="secondary" onClick={app.loadDemo}>Load demo data</Button>
-          </div>
+          <Button onClick={openUpload}>Upload document</Button>
         </div>
       )}
 
