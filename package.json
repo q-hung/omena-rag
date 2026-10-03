@@ -1,0 +1,14 @@
+{
+  "name": "jarvis",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "db:migrate": "pnpm --filter server db:migrate",
+    "seed": "pnpm --filter server seed",
+    "worker": "pnpm --filter server worker",
+    "eval": "pnpm --filter server eval"
+  }
+}

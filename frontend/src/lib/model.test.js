@@ -1,5 +1,5 @@
-// Run: node --test frontend/src/lib/model.test.js
-import test from 'node:test';
+// Run: pnpm --filter frontend test
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { accountById, demoDocs } from '../data/jarvis.js';
 import {

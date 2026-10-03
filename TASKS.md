@@ -62,7 +62,7 @@ limit) is folded in too (IDX-01, T12, T18).
   - The `prototype` branch is merged into `main`.
 - **Verify:** `grep -rn "publication to customers\|portal" CLAUDE.md AGENTS.md docs/DESIGN.md` returns nothing.
 
-### [ ] T01 · pnpm workspace and server skeleton
+### [x] T01 · pnpm workspace and server skeleton
 - **Goal:** one repo with `frontend/` (JS) and `server/` (TS), both on pnpm and Vitest.
 - **Refs:** §14, DEC-1, DEC-2.
 - **Depends:** T00.
