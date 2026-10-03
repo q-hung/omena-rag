@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { db } from '../src/db/index.js';
+import { db } from '../src/db/index.ts';
 import {
   accounts,
   answers,
@@ -12,7 +12,7 @@ import {
   employees,
   reviewedAnswers,
   turns,
-} from '../src/db/schema.js';
+} from '../src/db/schema.ts';
 
 let n = 0;
 

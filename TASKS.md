@@ -102,7 +102,7 @@ limit) is folded in too (IDX-01, T12, T18).
   - a duplicate `reviewed_answers.conversation_id` is rejected;
   - deleting a document cascades to versions, files and chunks.
 
-### [ ] T04 · Account and employee seed
+### [x] T04 · Account and employee seed
 - **Goal:** the §5.2 dataset, deterministic for a given D.
 - **Refs:** §5.2, ACC-01.
 - **Depends:** T03.

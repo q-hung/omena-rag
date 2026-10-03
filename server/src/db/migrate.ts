@@ -1,9 +1,9 @@
-import '../env.js';
+import '../env.ts';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { sql } from 'drizzle-orm';
-import { makeDb } from './index.js';
+import { makeDb } from './index.ts';
 
 const migrationsFolder = resolve(import.meta.dirname, '../../drizzle');
 

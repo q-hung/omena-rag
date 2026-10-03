@@ -1,3 +1,3 @@
-import { notImplemented } from './notImplemented.js';
+import { notImplemented } from './notImplemented.ts';
 
 notImplemented('The API server', 'T05');

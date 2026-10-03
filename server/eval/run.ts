@@ -1,3 +1,3 @@
-import { notImplemented } from '../src/notImplemented.js';
+import { notImplemented } from '../src/notImplemented.ts';
 
 notImplemented('The golden-set evaluation', 'T27');

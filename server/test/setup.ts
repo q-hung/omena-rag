@@ -1,7 +1,7 @@
 import { afterAll, beforeAll } from 'vitest';
 import { sql } from 'drizzle-orm';
-import './env.js';
-import { closeDb, db } from '../src/db/index.js';
+import './env.ts';
+import { closeDb, db } from '../src/db/index.ts';
 
 // Test files run one at a time (vitest.config.ts) and start from an empty database.
 beforeAll(async () => {
