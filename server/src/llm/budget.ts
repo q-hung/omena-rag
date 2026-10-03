@@ -1,7 +1,7 @@
 import { and, eq, lt, sql } from 'drizzle-orm';
 import { config as loadCached, type Config } from '../config.ts';
 import { db } from '../db/index.ts';
-import { CALL_KINDS, CALL_PURPOSES, providerCalls } from '../db/schema.ts';
+import { budgetDays, CALL_KINDS, CALL_PURPOSES, providerCalls } from '../db/schema.ts';
 import { budgetReached, generationQuota } from '../errors.ts';
 import { utcToday } from '../lib/format.ts';
 import { MAX_OUTPUT_TOKENS } from './gemini.ts';
@@ -9,6 +9,11 @@ import { ProviderError } from './errors.ts';
 
 export const GENERATE_QUOTA = 50;
 export const ABANDON_AFTER_MS = 10 * 60 * 1000;
+
+export async function remainingBudgetUsd(cfg: Config = loadCached(), day = utcToday()): Promise<number> {
+  const [row] = await db().select({ spent: budgetDays.spentUsd }).from(budgetDays).where(eq(budgetDays.day, day));
+  return Math.max(0, cfg.DAILY_BUDGET_USD - Number(row?.spent ?? 0));
+}
 
 export type CallKind = (typeof CALL_KINDS)[number];
 export type CallPurpose = (typeof CALL_PURPOSES)[number];

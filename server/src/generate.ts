@@ -21,7 +21,7 @@ import {
   notFound,
   notOwner,
 } from './errors.ts';
-import { GENERATE_QUOTA, money, paidAttempt } from './llm/budget.ts';
+import { GENERATE_QUOTA, money, paidAttempt, type CallPurpose } from './llm/budget.ts';
 import { ProviderError, isRetryable } from './llm/errors.ts';
 import { formatQueryForEmbedding } from './llm/format.ts';
 import { createProvider } from './llm/provider.ts';
@@ -44,6 +44,8 @@ export type GenerateDeps = {
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
   requestDeadlineMs?: number;
+  purpose?: CallPurpose;
+  asOf?: string;
 };
 
 export function requireOwner(conversation: { createdBy: number }, employeeId: number): void {
@@ -198,7 +200,7 @@ async function finish(
       );
     }
     await clearLock(started.conversationId, started.token);
-    await recordFailure(started.conversationId, input.employeeId, input.config, error);
+    await recordFailure(started.conversationId, input.employeeId, input.config, error, input.deps?.purpose ?? 'app');
     if (error instanceof AppError && error.code === 'account_data_unavailable') {
       throw new AppError(503, error.code, error.message, { conversationId: started.conversationId, cause: error });
     }
@@ -215,6 +217,7 @@ async function runOutsideTxn(
   const cfg = input.config;
   const deps = input.deps ?? {};
   const now = deps.now ?? Date.now;
+  const purpose = deps.purpose ?? 'app';
   const provider = deps.provider ?? createProvider(cfg);
   const search = deps.retrieve ?? retrieve;
 
@@ -232,7 +235,7 @@ async function runOutsideTxn(
 
   let snapshot: AccountSnapshot;
   try {
-    snapshot = await buildAccountSnapshot(conv!.accountId, utcToday());
+    snapshot = await buildAccountSnapshot(conv!.accountId, deps.asOf ?? utcToday());
   } catch (error) {
     if (error instanceof AppError) throw error;
     throw new AppError(503, 'account_data_unavailable', 'Account data could not be loaded. Try again.', {
@@ -246,7 +249,7 @@ async function runOutsideTxn(
   const vector = await paidAttempt(
     {
       kind: 'embed_query',
-      purpose: 'app',
+      purpose,
       attempt: 1,
       model: cfg.EMBEDDING_MODEL,
       inputChars: formatted.length,
@@ -292,7 +295,7 @@ async function runOutsideTxn(
       once: true,
     },
     deadline,
-    { employeeId: input.employeeId, conversationId: started.conversationId, now, sleep: deps.sleep },
+    { employeeId: input.employeeId, conversationId: started.conversationId, now, sleep: deps.sleep, purpose },
     cfg,
   );
 
@@ -318,7 +321,13 @@ async function paidGenerate(
   provider: Provider,
   input: GenerateInput,
   deadline: number,
-  opts: { employeeId: number; conversationId: number; now: () => number; sleep?: (ms: number) => Promise<void> },
+  opts: {
+    employeeId: number;
+    conversationId: number;
+    now: () => number;
+    sleep?: (ms: number) => Promise<void>;
+    purpose: CallPurpose;
+  },
   cfg: Config,
 ) {
   const sleep = opts.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
@@ -333,7 +342,7 @@ async function paidGenerate(
       return await paidAttempt(
         {
           kind: 'generate',
-          purpose: 'app',
+          purpose: opts.purpose,
           attempt,
           model: cfg.GENERATION_MODEL,
           inputChars: input.prompt.length,
@@ -448,7 +457,13 @@ async function assertQuota(tx: { execute: (q: ReturnType<typeof sql>) => Promise
   if (n >= GENERATE_QUOTA) throw generationQuota();
 }
 
-async function recordFailure(conversationId: number, employeeId: number, cfg: Config, error: unknown): Promise<void> {
+async function recordFailure(
+  conversationId: number,
+  employeeId: number,
+  cfg: Config,
+  error: unknown,
+  purpose: CallPurpose = 'app',
+): Promise<void> {
   if (error instanceof AppError && error.code === 'LOCK_TAKEN') return;
   const code =
     error instanceof ProviderError
@@ -460,7 +475,7 @@ async function recordFailure(conversationId: number, employeeId: number, cfg: Co
   // only; a failed provider attempt already has its own row from paidAttempt.
   await db().insert(providerCalls).values({
     kind: 'generate',
-    purpose: 'app',
+    purpose,
     attempt: 0,
     model: cfg.GENERATION_MODEL,
     employeeId,

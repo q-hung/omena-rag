@@ -1,0 +1,154 @@
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
+import {
+  budgetGuard,
+  generateCallCount,
+  liveEvalGuard,
+  loadGolden,
+  matchesForbidden,
+  p95,
+  scoreCase,
+  summarize,
+  targetsMet,
+} from '../eval/score.ts';
+
+describe('eval', () => {
+  it('golden.json holds E01–E15', async () => {
+    const cases = await loadGolden();
+    expect(cases.map((c) => c.id)).toEqual(Array.from({ length: 15 }, (_, i) => `E${String(i + 1).padStart(2, '0')}`));
+    expect(cases.find((c) => c.id === 'E04')?.chooseRecordOptions).toEqual(['F10', 'F11']);
+    expect(cases.find((c) => c.id === 'E13')?.applyV3).toBe(true);
+    expect(generateCallCount(cases)).toBe(16);
+  });
+
+  it('scores a hit, subset reasons, and forbidden patterns', () => {
+    const spec = {
+      id: 'E08',
+      account: 'A-1005',
+      question: 'webhooks',
+      expectedOutcome: 'answer',
+      reviewReasons: ['conflict'],
+      expectedDocuments: ['Webhooks developer guide'],
+      citedFactSections: ['account'],
+      forbiddenPatterns: ['not supported', 'yes'],
+    };
+    const ok = scoreCase(spec, {
+      outcome: 'answer',
+      text: 'No endpoints are configured. Add one under Developers.',
+      reviewReasons: ['conflict', 'policy_applicability'],
+      retrievedTitles: ['Webhooks developer guide', 'Plan comparison'],
+      citedSections: ['account', 'features'],
+    });
+    expect(ok).toMatchObject({
+      outcomeOk: true,
+      reasonsOk: true,
+      hit: true,
+      factSectionsOk: true,
+      forbiddenHits: [],
+    });
+
+    const bad = scoreCase(spec, {
+      outcome: 'insufficient_evidence',
+      text: 'Webhooks are not supported. Yes they are missing.',
+      reviewReasons: [],
+      retrievedTitles: ['Plan comparison'],
+      citedSections: [],
+    });
+    expect(bad.outcomeOk).toBe(false);
+    expect(bad.reasonsOk).toBe(false);
+    expect(bad.hit).toBe(false);
+    expect(bad.forbiddenHits).toEqual(['not supported', 'yes']);
+  });
+
+  it('treats E05 as either answer or insufficient_evidence', () => {
+    const spec = {
+      id: 'E05',
+      account: 'A-1003',
+      question: 'refund',
+      expectedOutcome: ['answer', 'insufficient_evidence'],
+      reviewReasons: ['exception_unclear'],
+      expectedDocuments: ['Refund policy'],
+      citedFactSections: ['payments'],
+      forbiddenPatterns: [],
+    };
+    expect(
+      scoreCase(spec, {
+        outcome: 'insufficient_evidence',
+        text: 'Policy is silent [F10]',
+        reviewReasons: ['exception_unclear'],
+        retrievedTitles: ['Refund policy'],
+        citedSections: ['payments'],
+      }).outcomeOk,
+    ).toBe(true);
+  });
+
+  it('matches choose_record options as a set', () => {
+    const spec = {
+      id: 'E04',
+      account: 'A-1003',
+      question: 'refund',
+      expectedOutcome: 'clarification_required',
+      chooseRecordOptions: ['F10', 'F11'],
+      expectedDocuments: [],
+      citedFactSections: [],
+      forbiddenPatterns: [],
+    };
+    expect(
+      scoreCase(spec, {
+        outcome: 'clarification_required',
+        text: '',
+        reviewReasons: [],
+        retrievedTitles: [],
+        citedSections: [],
+        chooseRecordOptions: ['F11', 'F10'],
+      }).chooseRecordOk,
+    ).toBe(true);
+  });
+
+  it('summarizes targets and p95', () => {
+    const scores = [
+      scoreCase(
+        {
+          id: 'E01',
+          account: 'A-1001',
+          question: 'sso',
+          expectedOutcome: 'answer',
+          expectedDocuments: ['SSO setup guide'],
+          citedFactSections: [],
+          forbiddenPatterns: [],
+        },
+        { outcome: 'answer', text: 'Basic', reviewReasons: [], retrievedTitles: ['SSO setup guide'], citedSections: [] },
+      ),
+    ];
+    const totals = summarize(scores, [1_000, 2_000, 3_000, 4_000]);
+    expect(totals.hitRate).toBe(1);
+    expect(totals.outcomeAccuracy).toBe(1);
+    expect(totals.forbiddenHits).toBe(0);
+    expect(p95([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])).toBe(19);
+    expect(targetsMet({ ...totals, p95Ms: 14_000 })).toBe(true);
+    expect(targetsMet({ ...totals, p95Ms: 16_000 })).toBe(false);
+  });
+
+  it('refuses stub mode and an over-budget estimate', () => {
+    expect(liveEvalGuard('stub')).toMatch(/stub/i);
+    expect(liveEvalGuard('gemini')).toBeNull();
+    expect(budgetGuard(1, 0.5)).toMatch(/exceeds/);
+    expect(budgetGuard(0.2, 1)).toBeNull();
+  });
+
+  it('word-boundary forbidden match does not trip on yesterday', () => {
+    expect(matchesForbidden('yesterday the charge failed', 'yes')).toBe(false);
+    expect(matchesForbidden('Yes, usage billing exists', 'yes')).toBe(true);
+  });
+
+  it('pnpm eval exits when LLM_PROVIDER=stub', () => {
+    const result = spawnSync(process.execPath, ['eval/run.ts'], {
+      cwd: fileURLToPath(new URL('..', import.meta.url)),
+      encoding: 'utf8',
+      env: { ...process.env, LLM_PROVIDER: 'stub' },
+    });
+    expect(result.status).toBe(1);
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(/stub/i);
+  });
+});

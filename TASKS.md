@@ -506,7 +506,20 @@ limit) is folded in too (IDX-01, T12, T18).
 
 ## Phase 8 — Evaluation (M8)
 
-### [ ] T27 · Golden set and `pnpm eval`
+### [x] T27 · Golden set and `pnpm eval`
+- **Result (4 Oct 2026):** `server/eval/golden.json` + `pnpm eval` against `jarvis_eval`. Generation model calibrated to `gemini-3.1-flash-lite` (2.5-flash-lite 404s for new keys; 3.5-flash-lite rejects `thinkingBudget: 0`). `RETRIEVAL_MIN_SCORE` stays 0.5. Prices $0.25 / $1.50 per million tokens. Eval seeds D = 2026-10-02, indexes with Gemini, applies v3 before E13, refuses stub, prints the estimate first.
+  ```
+  Retrieval hit rate:     92.3% (12/13)
+  Outcome accuracy:       80.0% (12/15)
+  Review-reason matches:  33.3% (1/3)
+  Choose-record matches:  0.0% (0/1)
+  Fact-section matches:   86.7% (13/15)
+  Removed citations:      0
+  Forbidden-pattern hits: 0
+  Cost:                   $0.0119
+  p95 latency:            10.23 s
+  ```
+  Misses: E04 answered both payments instead of `choose_record`; E05 then could not select F10; E09 answered instead of `insufficient_evidence`. E13 cited v3's 14-day window but omitted `policy_applicability`.
 - **Goal:** measure SC-1, SC-2 and SC-4 and calibrate.
 - **Refs:** §13.2, EVAL-01, §14 generation model.
 - **Depends:** T26, T17.
@@ -520,6 +533,8 @@ limit) is folded in too (IDX-01, T12, T18).
     5. lists the answers for a manual read.
   - `RETRIEVAL_MIN_SCORE` and the model id are calibrated and committed.
 - **Verify:** `LLM_PROVIDER=gemini pnpm eval` reports a hit rate ≥ 90%, outcome accuracy ≥ 80%, 0 forbidden hits and p95 ≤ 15 s. Paste the results into this task.
+
+  Covered (4 Oct 2026). `LLM_PROVIDER=gemini pnpm eval` met SC-1, SC-2 and SC-4. Answers listed in the run output for a manual read.
 
 ## Phase 9 — Delivery (M9)
 

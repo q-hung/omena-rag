@@ -10,12 +10,12 @@ const schema = z
 
     LLM_PROVIDER: z.enum(['stub', 'gemini']).default('stub'),
     GEMINI_API_KEY: z.string().min(1).optional(),
-    GENERATION_MODEL: z.string().min(1).default('gemini-2.5-flash-lite'),
+    GENERATION_MODEL: z.string().min(1).default('gemini-3.1-flash-lite'),
     EMBEDDING_MODEL: z.string().min(1).default('gemini-embedding-2'),
     EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().default(768),
 
-    PRICE_GENERATION_INPUT_USD_PER_MTOK: z.coerce.number().nonnegative().default(0.1),
-    PRICE_GENERATION_OUTPUT_USD_PER_MTOK: z.coerce.number().nonnegative().default(0.4),
+    PRICE_GENERATION_INPUT_USD_PER_MTOK: z.coerce.number().nonnegative().default(0.25),
+    PRICE_GENERATION_OUTPUT_USD_PER_MTOK: z.coerce.number().nonnegative().default(1.5),
     PRICE_EMBEDDING_INPUT_USD_PER_MTOK: z.coerce.number().nonnegative().default(0.15),
 
     RETRIEVAL_MIN_SCORE: z.coerce.number().min(0).max(1).default(0.5),
