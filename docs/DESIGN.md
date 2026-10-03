@@ -1,7 +1,7 @@
 # Jarvis — System Design (v2.1)
 
 Status: draft · 3 Oct 2026 · implements `REQ_V2.MD` v2.1 (cited as §n and by
-requirement ID) and the proposed spec issues I1–I7 in `TASKS.md`. If this file
+requirement ID) and the spec issues I1–I7 in `TASKS.md` (all approved). If this file
 and REQ_V2 disagree, REQ_V2 wins. Design decisions that REQ_V2 doesn't make
 are marked **D-n** and listed in §9.
 
@@ -12,7 +12,7 @@ are marked **D-n** and listed in §9.
 **Functional**
 - An employee selects a fictional account, asks a support question, and gets one of four outcomes: `answer`, `clarification_required`, `insufficient_evidence` or `out_of_scope` (§9.1).
 - Answers combine **structured facts** (read-only SQL functions, `[F#]`) with **document passages** (vector retrieval, `[n]`). The two kinds of evidence are shown in separate panels.
-- Clarification replies continue the same conversation, for at most 2 rounds.
+- Clarifications are either a **record choice** (`choose_record`: the model picks candidate fact ids, the server renders their labels from the snapshot) or a **free-text question** (markers validated like answers). Replies carry selections and/or text and continue the same conversation, for at most 2 rounds.
 - Edit (markers can be removed, not added), Copy without markers, and Save as an immutable internal record. Nothing is sent to customers.
 - **Ownership:** every employee can read every conversation, but only its creator can change it (AUTH-02). Ask shows only my conversations (WF-04); History has Mine / All and opens other employees' conversations read-only (WF-03).
 - A versioned knowledge base: upload, replace, archive, delete, retry and download. Saved answers whose sources change are flagged.
@@ -95,7 +95,7 @@ amounts and failure streaks come from code, not from similarity search.
 
 ```text
 employee ──POST /api/conversations {accountId, question}──▶ api
-                        (or POST …/:id/replies {text}, POST …/:id/regenerate)
+                        (or POST …/:id/replies {selections?, text?}, POST …/:id/regenerate)
  T1  tx: SELECT conversations … FOR UPDATE                                     (~ms)
          quota: first-attempt generate rows today < 50          else 429
          lock: SET generation_token=:t, generation_started_at=now()
@@ -193,7 +193,7 @@ Bodies are validated with zod (DEC-2).
 | `GET /api/accounts` | — | `[{id, ref, company, plan, status}]` | — |
 | `GET /api/accounts/:id/facts` | — | `{asOf, facts[F#], empty[]}` (no `record`) | 400, 404 |
 | `POST /api/conversations` | `{accountId, question ≤2000}` | 201 `Conversation` | 400, 404, 409 `LOCKED`, 429 `QUOTA`, 502 `PROVIDER`, 503 `BUDGET` / `ACCOUNT_DATA_UNAVAILABLE` |
-| `POST /api/conversations/:id/replies` | `{text ≤1000}` | 201 `Conversation` | as above + 403 `NOT_OWNER`, 409 `NOT_AWAITING_CLARIFICATION`, `ALREADY_SAVED` |
+| `POST /api/conversations/:id/replies` | `{selections?: F#[], text?: ≤1000}`, at least one; each selection must be an option of the latest `choose_record` | 201 `Conversation` | as above + 400 `INVALID_SELECTION`, 403 `NOT_OWNER`, 409 `NOT_AWAITING_CLARIFICATION`, `ALREADY_SAVED` |
 | `POST /api/conversations/:id/regenerate` | — | 201 `Conversation` | as above + 403 `NOT_OWNER` |
 | `GET /api/conversations?accountId&state&mine` | — | `[{id, account, firstQuestion, state, flag, createdBy, createdAt, ownedByMe}]`; `mine=1` filters to `created_by = me` (Ask list, History default) | — |
 | `GET /api/conversations/:id` | — | `Conversation` | 404 |
@@ -234,7 +234,7 @@ budget_days (day PK)
 ```
 
 - **Latest answer** = `max(answers.id)` per conversation; index `answers(conversation_id, id desc)`.
-- **State** is derived (§4.2, I1 precedence). It is computed in SQL for History, with one `LATERAL` join to the latest answer, and in TypeScript for single reads. A shared test checks that both give the same result.
+- **State** is derived (§4.2, ordered table, first match wins — WF-05). It is computed in SQL for History, with one `LATERAL` join to the latest answer, and in TypeScript for single reads. A shared test checks that both give the same result.
 - **Staleness** is computed on read (§7.6), never stored, so there are no fan-out writes on activation.
 - **Snapshots** (`answers.facts_snapshot`, `reviewed_answers.sources/facts`) hold plain values, not FKs, so they survive deletes.
 - **Indexes:** `payments(account_id, occurred_at desc)`, `webhook_deliveries(endpoint_id, attempted_at desc)`, `conversations(account_id, created_at desc)` for History, `conversations(created_by, account_id, created_at desc)` for the Ask list, `provider_calls(employee_id, created_at)` for the quota, `document_versions(indexing_status)` for the queue.
@@ -253,6 +253,7 @@ budget_days (day PK)
 - Pure functions in `rag/prompt.ts` and `rag/normalise.ts`, ported from the prototype together with its tests.
 - The prompt has a fixed section order, and untrusted text sits inside explicit delimiters. Facts are never truncated; passages are dropped lowest rank first.
 - The PRM-01 test runs the prompt builder for all five accounts and checks that no company name, ref, URL host or employee identity appears.
+- **Record choices are rendered, not written by the model.** For `choose_record`, the model only names candidate fact ids. The server checks them against the snapshot and labels each option with that fact's value, so a clarification can't contain a miscopied amount or date, and the reply is an exact fact id rather than text to interpret.
 - Normalisation is the only path from model output to stored answer, so the save rules can trust its result: ids are valid, numbering is dense, and conflict sources are numbered.
 
 ### 5.4 Concurrency control
@@ -386,7 +387,7 @@ allow-list. Alerts for a pilot:
 
 ## 9. Design decisions
 
-D-1 to D-4 were folded into REQ_V2 on 3 Oct 2026 (GEN-04, GEN-05, COST-04, LCK-02). D-5 is pending approval.
+D-1 to D-5 were folded into REQ_V2 on 3 Oct 2026 (GEN-04, GEN-05, COST-04, LCK-02, IDX-01).
 
 | # | Gap | Decision |
 |---|---|---|
@@ -394,7 +395,7 @@ D-1 to D-4 were folded into REQ_V2 on 3 Oct 2026 (GEN-04, GEN-05, COST-04, LCK-0
 | D-2 | **A chunk deleted between retrieval and T2** makes the `answer_sources` FK insert fail, so the generation fails for no good reason. | Insert `chunk_id` as `(SELECT id FROM document_chunks WHERE id = :id)`. A vanished chunk becomes null, and the answer is immediately flagged "Source updated" (cards show "Source deleted"). → GEN-05 |
 | D-3 | **Reservation rows left `reserved`** after a crash are never reconciled. | Keep the estimate charged (conservative). The worker's sweeper marks `reserved` rows older than 10 minutes as `error` with code `abandoned`, without changing `budget_days`. → COST-04 |
 | D-4 | Every mutating conversation route must serialise on the same row. | T1, T2, edit, reply and save each start with `SELECT … FROM conversations WHERE id = :id FOR UPDATE`. → LCK-02 |
-| D-5 | **Upload size.** REQ_V2 allows 10 MB, far more than the KB needs. Large files also mean large `bytea` rows, slower uploads and more parsing memory in the sandbox. | **≤ 3 MB per file.** That covers a 100-page text PDF (usually 1–2.5 MB with embedded fonts) and the 300,000-character Markdown limit (≤ ~1.2 MB in UTF-8). Enforced by Fastify multipart `limits.fileSize = 3 MiB` → 413 `FILE_TOO_LARGE`. The upload dialog checks `file.size` first and shows "Files must be 3 MB or smaller". The page and character limits are unchanged. Needs REQ_V2 IDX-01 / §10 and TASKS T12 updated (11 MB test → 3.1 MB). |
+| D-5 | **Upload size.** REQ_V2 allowed 10 MB, far more than the KB needs. Large files also mean large `bytea` rows, slower uploads and more parsing memory in the sandbox. | **≤ 3 MB per file.** That covers a 100-page text PDF (usually 1–2.5 MB with embedded fonts) and the 300,000-character Markdown limit (≤ ~1.2 MB in UTF-8). Enforced by Fastify multipart `limits.fileSize = 3 MiB` → 413 `FILE_TOO_LARGE`. The upload dialog checks `file.size` first and shows "Files must be 3 MB or smaller". The page and character limits are unchanged. → IDX-01, §10; TASKS T12, T18 |
 
-**Open items carried from TASKS.md:** I1–I7 (approval at T00); DEC-5 embedding
+**Open items carried from TASKS.md:** none (I1–I7 approved and applied: I1 → WF-05, I2 → §9.3 rule 7, I3 extended → §7.4/§9.5 CLR-04, I4 → §14 stub mode, I5 → §12.3, I6 → ANS-03, I7 → repo docs); DEC-5 embedding
 format spike (T10); calibration of `RETRIEVAL_MIN_SCORE` and the model (T27).

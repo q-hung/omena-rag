@@ -19,23 +19,23 @@ replace its data source with the API, and port its rules to the server.
 
 ## 0. Spec issues to resolve before coding
 
-Status: **proposed, needs approval**. Each one is the smallest change that
-unblocks coding and adds no scope. Once approved, T00 adds them to REQ_V2.
+Status: **all approved (3 Oct 2026) and applied.** Each one was the smallest change that
+unblocks coding and adds no scope.
 
 Already folded into REQ_V2 (3 Oct 2026), from `docs/DESIGN.md` §9: D-1 request
 deadline (GEN-04), D-2 deleted chunk in T2 (GEN-05), D-3 abandoned
 reservations (COST-04), D-4 conversation row lock (LCK-02). D-5 (3 MB upload
-limit) is still pending.
+limit) is folded in too (IDX-01, T12, T18).
 
 | # | Issue | Where | Proposed resolution |
 |---|---|---|---|
-| I1 | The state table doesn't say which state wins when an `insufficient_evidence` answer also has review reasons. | §4.2 | `needs_review` wins (precedence: generating, saved, failed, awaiting_clarification, out_of_scope, needs_review, insufficient_evidence, answer_ready). The prototype already does this. |
-| I2 | §9.3 rule 7 converts a third clarification into `insufficient_evidence` but gives it no text. ANS-04 rule 3 then blocks saving an outcome that DEC-6 says can be saved. | §9.3, ANS-04, DEC-6 | The server sets a fixed text: "Essential information is still missing after two clarification rounds, so this can't be answered from the available sources." |
-| I3 | The schema doesn't say whether `clarification_questions` may carry `[F#]`/`[S#]` markers. The S2b clarification needs to name both payments. | §7.4, §9.3 | Allowed. They are resolved and validated like `answer`, and S-ids in questions share the answer's numbering. |
-| I4 | Stub mode (§14) has no defined behaviour, so the UI can't be demonstrated without a Gemini key. | §14, CLAUDE.md | The stub provider returns the prototype's scripted results (moved to `server/fixtures/scripts.ts`), with deterministic embeddings. The UI shows **SIMULATED AI**. `pnpm eval` refuses stub mode. |
-| I5 | §12.3 names `useSubPilot.js` / `data/demo.js` as the mock files to delete, but the prototype replaced them with `useJarvis.js` / `data/jarvis.js`. | §12.3 | Update the table. Both are deleted once the API is wired (T26). |
-| I6 | `navigator.clipboard` works only in a secure context (HTTPS or localhost). Copy answer fails if the demo is opened over plain HTTP from another host. | ANS-03, §14 | The demo is served on `localhost`. If the clipboard is unavailable, Copy selects the text and says "Press ⌘C / Ctrl+C". |
-| I7 | `CLAUDE.md` and `AGENTS.md` still say employees "approve publication to customers"; `docs/DESIGN.md` describes the portal. | repo docs | Update all three in T00. |
+| I1 | The state table doesn't say which state wins when an `insufficient_evidence` answer also has review reasons. | §4.2 | **Approved 3 Oct 2026, applied to REQ_V2 §4.2 (WF-05).** `needs_review` wins (precedence: generating, saved, failed, awaiting_clarification, out_of_scope, needs_review, insufficient_evidence, answer_ready). The prototype already does this. |
+| I2 | §9.3 rule 7 converts a third clarification into `insufficient_evidence` but gives it no text. ANS-04 rule 3 then blocks saving an outcome that DEC-6 says can be saved. | §9.3, ANS-04, DEC-6 | **Approved 3 Oct 2026, applied to REQ_V2 §9.3 rule 7.** The server sets a fixed text: "Essential information is still missing after two clarification rounds, so this can't be answered from the available sources." |
+| I3 | The schema doesn't say whether `clarification_questions` may carry `[F#]`/`[S#]` markers. The S2b clarification needs to name both payments. | §7.4, §9.3 | **Approved 3 Oct 2026 in an extended form, applied to REQ_V2 §7.4, §9.3, §9.5 (CLR-02, CLR-04):** clarifications are `choose_record` (fact-id options, labels rendered by the server from the snapshot) or `free_text` (markers validated like `answer`, shared S numbering); replies carry `selections` and/or `text`. Original proposal: Allowed. They are resolved and validated like `answer`, and S-ids in questions share the answer's numbering. |
+| I4 | Stub mode (§14) has no defined behaviour, so the UI can't be demonstrated without a Gemini key. | §14, CLAUDE.md | **Approved 3 Oct 2026, applied to REQ_V2 §14.** The stub provider returns the prototype's scripted results (moved to `server/fixtures/scripts.ts`), with deterministic embeddings. The UI shows **SIMULATED AI**. `pnpm eval` refuses stub mode. |
+| I5 | §12.3 names `useSubPilot.js` / `data/demo.js` as the mock files to delete, but the prototype replaced them with `useJarvis.js` / `data/jarvis.js`. | §12.3 | **Approved 3 Oct 2026, applied to REQ_V2 §12.3 (and §2).** Update the table. Both are deleted once the API is wired (T26). |
+| I6 | `navigator.clipboard` works only in a secure context (HTTPS or localhost). Copy answer fails if the demo is opened over plain HTTP from another host. | ANS-03, §14 | **Approved 3 Oct 2026, applied to REQ_V2 ANS-03, §14.** The demo is served on `localhost`. If the clipboard is unavailable, Copy selects the text and says "Press ⌘C / Ctrl+C". |
+| I7 | `CLAUDE.md` and `AGENTS.md` still say employees "approve publication to customers"; `docs/DESIGN.md` describes the portal. | repo docs | **Approved 3 Oct 2026, applied to CLAUDE.md, AGENTS.md; docs/DESIGN.md rewritten earlier.** Update all three in T00. |
 
 ---
 
@@ -51,7 +51,8 @@ limit) is still pending.
 
 ## Phase 0 — Foundations (M0)
 
-### [ ] T00 · Approve spec issues and update repo docs
+### [x] T00 · Approve spec issues and update repo docs
+- **Result (3 Oct 2026):** I1–I7 approved and applied (none rejected); D-1–D-5 folded into REQ_V2; `CLAUDE.md`, `AGENTS.md` and `docs/DESIGN.md` updated; `prototype` merged into `main`. The verify grep returns nothing.
 - **Goal:** one consistent source before coding.
 - **Refs:** §0 of this file, §2.
 - **Depends:** your approval.
@@ -95,6 +96,7 @@ limit) is still pending.
     - cascades, plus `ON DELETE SET NULL` for `answer_sources.chunk_id` and `documents.active_version_id` (added after `document_versions`);
     - indexes on (`account_id`, `occurred_at desc`), (`endpoint_id`, `attempted_at desc`), conversations (`account_id`, `created_at desc`) and conversations (`created_by`, `account_id`, `created_at desc`) for the Ask list (WF-04).
   - `accounts` has no credential columns.
+  - `turns.selected_facts text[]`, with a `CHECK` that a question has `text` and a reply has `text` or a non-empty `selected_facts`.
 - **Verify:** `pnpm db:migrate` works on an empty DB and is a no-op on a second run. The schema test checks:
   - an invalid category is rejected;
   - a duplicate `reviewed_answers.conversation_id` is rejected;
@@ -230,7 +232,7 @@ limit) is still pending.
 - **Acceptance:**
   - `POST /api/documents` (multipart: file, title, category, effective date, note) and `POST /api/documents/:id/versions`.
   - Validation:
-    - ≤ 10 MB;
+    - ≤ 3 MB (multipart `limits.fileSize`, 413 `FILE_TOO_LARGE`);
     - `.pdf` must start with `%PDF-`;
     - `.md`/`.markdown` must be strict UTF-8 with no NUL bytes and ≤ 300,000 characters (no magic-byte check);
     - the effective date must be ≤ today.
@@ -238,7 +240,7 @@ limit) is still pending.
   - The file goes into `document_files` and the version is created as `queued`.
 - **Verify:** `pnpm --filter server test upload`. The test covers:
   - a `.pdf` with PNG bytes → 400;
-  - an 11 MB file → 413;
+  - a 3.1 MB file → 413 `FILE_TOO_LARGE`;
   - a `.md` with invalid UTF-8 → 400;
   - a valid `.md` with no signature → 201;
   - a future date → 400;
@@ -331,6 +333,7 @@ limit) is still pending.
 - **Acceptance:**
   - `KnowledgeBaseView`, `DocRow`, `UploadDialog` and `DocumentView` call the API.
   - Upload and Replace use a real file input; server errors are shown inline.
+  - The dialog rejects files over 3 MB before uploading ("Files must be 3 MB or smaller").
   - Polls every 3 s while any version is queued or processing.
   - Delete shows the `/impact` counts.
   - Download links to the file endpoint.
@@ -347,11 +350,11 @@ limit) is still pending.
 
 ### [ ] T20 · Prompt builder and normaliser
 - **Goal:** pure functions for model input and output.
-- **Refs:** §7.3, §7.4, §9.3, PRM-01, NRM-01, I1–I3.
+- **Refs:** §7.3, §7.4, §9.3, PRM-01, NRM-01, WF-05, I1–I3.
 - **Depends:** T08.
 - **Acceptance:**
   - **Prompt:**
-    - in order: versioned instructions, facts `F#` with `as_of` and empty sections, passages `S#` with metadata, prior clarification turns, then the delimited untrusted question;
+    - in order: versioned instructions, facts `F#` with `as_of` and empty sections, passages `S#` with metadata, prior clarification turns (with selections rendered as `Employee selected: F10 — <snapshot value>`), then the delimited untrusted question;
     - stays within 6,000 estimated tokens by dropping the lowest-ranked passages; facts are never dropped;
     - never contains company name, refs, webhook URL hosts, or employee names or emails.
   - **Normaliser:** ported from `normalise` in the prototype, with its tests:
@@ -360,13 +363,15 @@ limit) is still pending.
     - `S` ids renumbered;
     - model review reasons filtered to the allowed values;
     - `answer` without a citation becomes `insufficient_evidence` with `no_valid_citation`;
-    - clarification rules, including I2's fixed text.
+    - clarification rules: `choose_record` options validated against the snapshot (same section, 2–4, labels from fact values; fewer than 2 → `free_text`), `free_text` markers resolved with the answer's numbering, at most 2 clarifications, and I2's fixed text.
 - **Verify:** `pnpm --filter server test prompt normalise`. The test covers:
   - PRM-01 for all five accounts;
   - an over-budget prompt drops the last passage;
   - `[S9]` with 3 passages is removed and flagged;
   - an uncited conflict source gets n+1;
-  - a third clarification becomes `insufficient_evidence` with text.
+  - `choose_record` with options `[F11, F10, F99]` stores F11 and F10 with labels equal to their snapshot values; with only `[F10]` valid it becomes `free_text`;
+  - an `[S2]` in a `free_text` question gets the next number after the answer's citations and an `answer_sources` row;
+  - a third clarification becomes `insufficient_evidence` with the fixed §9.3 rule 7 text and a `user_input` gap, and that answer can be saved (ANS-04 rule 3 passes).
 
 ### [ ] T21 · Conversations API and generation flow
 - **Goal:** `POST /api/conversations` produces a saved answer or changes nothing.
@@ -379,7 +384,7 @@ limit) is still pending.
   - **T2:** `SELECT … FOR UPDATE` on the conversation; the token must still match (else 409 and discard), then insert the answer and `answer_sources` (each `chunk_id` resolved inside the insert, GEN-05) and clear the lock.
   - Failure: no answer saved, lock cleared only if the token matches, error recorded.
   - `POST /api/conversations/:id/regenerate` re-runs the latest turn (creator only).
-  - `GET /api/conversations/:id` (any employee) returns turns, the latest answer per turn, facts, evidence cards with status badges, flags, the derived state (I1) and `ownedByMe`.
+  - `GET /api/conversations/:id` (any employee) returns turns, the latest answer per turn, facts, evidence cards with status badges, flags, the derived state (WF-05) and `ownedByMe`.
 - **Verify:** `pnpm --filter server test generate`. The test covers:
   - a concurrent second request → 409;
   - an expired, taken-over lock can't save or clear the new owner's lock;
@@ -405,13 +410,15 @@ limit) is still pending.
 
 ### [ ] T23 · Clarification replies
 - **Goal:** the S2b round trip on the API.
-- **Refs:** CLR-01–03, AUTH-02, §7.1 step 2.
+- **Refs:** CLR-01–04, AUTH-02, §7.1 step 2.
 - **Depends:** T21.
 - **Acceptance:**
-  - `POST /api/conversations/:id/replies {text}` (1–1,000 chars) is creator-only (403 `NOT_OWNER`) and is allowed only when the latest outcome is `clarification_required` (otherwise 409).
-  - The reply is inserted in T1, under the conversation row lock (LCK-02), as a new turn, so the account and prior turns are kept.
+  - `POST /api/conversations/:id/replies {selections?, text?}` (`text` ≤ 1,000 chars; at least one of the two, else 400) is creator-only (403 `NOT_OWNER`) and is allowed only when the latest outcome is `clarification_required` (otherwise 409).
+  - Each selected fact id must be an option of a `choose_record` clarification in the latest answer, at most one per clarification (else 400).
+  - The reply is inserted in T1, under the conversation row lock (LCK-02), as a new turn (`text`, `selected_facts`), so the account and prior turns are kept.
+  - UI: `choose_record` shows radio options with the server labels plus "None of these" with a note field; `free_text` shows a text box. Suggested-reply chips from the prototype are removed.
   - The next prompt includes the conversation so far, and the retrieval query is turn 1 plus the latest reply.
-- **Verify:** `pnpm --filter server test clarify`: a reply on an `answer_ready` conversation → 409; B replying to A's clarification → 403 `NOT_OWNER` and no new turn. Manually: S2b ends in Needs review with Exception unclear, and the account is unchanged.
+- **Verify:** `pnpm --filter server test clarify`: a reply on an `answer_ready` conversation → 409; an empty reply → 400; selecting F12 when the options are F10/F11 → 400; selecting F10 stores `selected_facts = ["F10"]` and the next prompt contains "Employee selected: F10"; B replying to A's clarification → 403 `NOT_OWNER` and no new turn. Manually: S2b (select the GBP 600.00 option) ends in Needs review with Exception unclear, and the account is unchanged.
 
 ### [ ] T24 · Edit and copy
 - **Goal:** edits validated on the server; copy without markers.
@@ -455,6 +462,7 @@ limit) is still pending.
 - **Depends:** T22, T23, T25.
 - **Acceptance:**
   - `GET /api/conversations?accountId&state&mine` returns rows newest first, with derived state, flags and creator.
+  - The History state is derived in SQL with the WF-05 order; a shared fixture test checks that it matches the TypeScript derivation for every state.
   - `HistoryView` has a **Mine / All** toggle, defaulting to Mine (WF-03).
   - Opening my conversation goes to Ask. Opening another employee's goes to a **read-only view** (`/history/:id`): turns, answers, facts and evidence, the banner "Started by another employee — read-only", and Copy answer; no reply box, Edit, Regenerate or Save.
   - The Save/Edit/Copy actions use the API.
@@ -468,7 +476,7 @@ limit) is still pending.
 - **Refs:** §13.2, EVAL-01, §14 generation model.
 - **Depends:** T26, T17.
 - **Acceptance:**
-  - `eval/golden.json` holds E01–E15 (account, question, replies, expected outcome, review reasons, expected documents, cited fact sections, forbidden patterns).
+  - `eval/golden.json` holds E01–E15 (account, question, replies as `selections`/`text`, expected outcome, expected `choose_record` options for E04, review reasons, expected documents, cited fact sections, forbidden patterns).
   - `pnpm eval`:
     1. seeds an eval DB with D = 2026-10-02 and indexes it with Gemini;
     2. applies v3 before E13;
