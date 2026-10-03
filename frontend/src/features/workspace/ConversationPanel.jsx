@@ -96,7 +96,7 @@ function Answer({ app, conv, a, full }) {
     set({ activeFact: id });
     if (id) document.getElementById(`fact-${id}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   };
-  const textProps = { cites: a.cites, factIds, activeCite: s.activeCite, activeFact: s.activeFact, onCite: (n) => set({ activeCite: n }), onFact: focusFact };
+  const textProps = { cites: a.cites, factIds, activeCite: s.activeCite, activeFact: s.activeFact, onCite: (n) => { set({ activeCite: n }); if (n) document.getElementById(`cite-${n}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, onFact: focusFact };
 
   if (!full) {
     // Earlier turns are always clarification rounds: show what was asked.

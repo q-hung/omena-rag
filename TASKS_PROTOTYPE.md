@@ -148,7 +148,7 @@ these components (§12.3), so nothing is thrown away.
   - A third clarification request is shown as Insufficient evidence.
 - **Verify:** A-1003 → "Is this payment eligible for a refund?" → reply "the 600 GBP one" → Needs review with the Exception unclear banner; the account is unchanged.
 
-### [ ] P08 · Document evidence panel
+### [x] P08 · Document evidence panel
 - **Goal:** document passages, separate from facts.
 - **Refs:** §12.2 right pane, §9.4, STL-01.
 - **Depends:** P06.

@@ -4,6 +4,7 @@ import { accountById } from '../../data/jarvis';
 import { STATE_LABEL, STATE_TONE, deriveState } from '../../lib/model';
 import AccountPanel from './AccountPanel';
 import ConversationPanel from './ConversationPanel';
+import EvidencePanel from './EvidencePanel';
 
 // Ask workspace: account | conversation | document evidence (REQ §12.2).
 export default function WorkspaceView({ app }) {
@@ -26,7 +27,7 @@ export default function WorkspaceView({ app }) {
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(280px,0.9fr)_minmax(440px,1.6fr)_minmax(300px,1fr)]">
         <AccountPanel app={app} conv={conv} />
         <ConversationPanel app={app} conv={conv} account={account} state={st} />
-        <section className="overflow-auto border-l border-hairline bg-white p-6 text-sm text-secondary">Document evidence (P08).</section>
+        <EvidencePanel app={app} conv={conv} state={st} />
       </div>
     </>
   );
