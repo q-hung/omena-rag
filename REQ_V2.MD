@@ -203,6 +203,23 @@ Each fact gets an id `F1…Fn`, assigned in a fixed order (account, features, pa
 }
 ```
 
+### 5.5 Account signal badges
+
+Signals are deterministic badges that say what needs attention on an account **right now**. They are computed in code by `getAccountSignals(accountId)` from the three context functions (§5.3), at read time, never by the model, and they are not added to the prompt (the underlying facts already are). They describe the account, not the question: the UI tooltip says "About this account, not this question".
+
+| Category | Badge | Rule | Tone |
+|---|---|---|---|
+| Impact | Webhook failing | An enabled endpoint has ≥ 3 consecutive failed deliveries | negative |
+| Money | Payment failed | The latest payment has status `failed` | negative |
+| Money | Past due | `accounts.status = past_due` | alert |
+| Account | Canceled | `accounts.status = canceled` | neutral |
+| Tier | Enterprise | `accounts.plan = enterprise` | outline |
+
+Badges are shown in category order (Impact, Money, Account, Tier). Thresholds are code constants. A refund-deadline signal is deliberately excluded: the refund window comes from a document, so computing it would mean code interpreting policy text.
+
+- **SIG-01 (Must)** Signals follow the table. *AC:* with the seed data, A-1004 → Webhook failing; A-1005 → Payment failed, Past due; A-1003 → Enterprise; A-1001 and A-1002 → none. An endpoint with 2 consecutive failures → no badge.
+- **SIG-02 (Must)** Signals are shown under the account selector, in the Ask "my conversations" list, on the Ask conversation header, and on History rows, and History can filter by signal. *AC:* the same account shows the same badges in all four places; the History "Webhook failing" filter shows only A-1004's conversations.
+
 ---
 
 ## 6. Unstructured knowledge
@@ -438,6 +455,8 @@ Account facts are static in the MVP, so there is no fact staleness. Each reviewe
 - **ANS-06 (Must)** "Save" means saving an internal record. No UI text says "publish", "send" or "approve and publish".
 - **ANS-07 (Must)** No confidence percentages or "verified" labels. Valid citation ids are described only as "cited"; the UI never claims the sources prove the answer.
   *AC:* grep of `frontend/src` finds no `%` confidence rendering and no "verified" label.
+- **ANS-09 (Must) Topic badges.** Each conversation shows the knowledge-base categories (Plans, Policies, Billing, FAQ, Security, Developer) of the documents cited by its latest answer, or of the saved snapshot when saved. They are distinct and in that fixed order. An answer that cites only account facts shows **Account data**; `out_of_scope` and failed generations show none. Computed in code from `answer_sources` / the snapshot, never by the model. Shown next to each question in the Ask list, the conversation header and History rows, and History can filter by topic.
+  *AC:* E01 (SSO) → Plans, Security; E06 (refund timing) → Policies, FAQ; E12 (plan and last charge) → Account data; E11 (motorcycle) → none. The History "Billing" filter shows only conversations whose latest answer cites a Billing document.
 
 ---
 
@@ -575,7 +594,7 @@ Sidebar: **Ask** (account selector + workspace), **History**, **Knowledge base**
 
 | Pane | Contents |
 |---|---|
-| Left: **Account** | Account selector (company, ref, plan, status). Below it, the **Account facts** panel: grouped facts from the latest answer's snapshot (or live from the functions before the first question), each with its `F#`; empty sections shown explicitly. Note: "Company name and references are not sent to the model." |
+| Left: **Account** | Account selector (company, ref, plan, status) with the account's signal badges (SIG-02). Below it, the **Account facts** panel: grouped facts from the latest answer's snapshot (or live from the functions before the first question), each with its `F#`; empty sections shown explicitly. Note: "Company name and references are not sent to the model." |
 | Centre: **Conversation** | Only the signed-in employee's conversations (WF-04): a list of my earlier conversations for the selected account, the question input (with the free-text PII note), the turn history, the latest answer with outcome badge, banners, gaps, clarifications (record choices as radio options with "None of these", free-text questions) and reply box; actions **Edit**, **Copy answer**, **Save reviewed answer** (disabled with the API's reason as a hint), **Regenerate**, acknowledgement checkbox when review reasons exist. "Generating…" while running; Retry on failure |
 | Right: **Document evidence** | One card per cited passage: title, category, version, effective date, heading, page (PDF), text, badges Superseded / Archived / Deleted, link to that version |
 
@@ -644,7 +663,7 @@ Each case: account, question (and replies), expected outcome, expected review re
 ### 13.3 Automated tests (stub provider, Vitest, `jarvis_test` DB)
 
 - **Auth:** wrong password 401, 6th login 429, expired session 401, no raw token in `sessions`, foreign Origin 403; AUTH-02 ownership (403 `NOT_OWNER` on reply, regenerate, edit, save); WF-04 Ask list contains only my conversations.
-- **Context:** CTX-02–CTX-05; PRM-01.
+- **Context:** CTX-02–CTX-05; PRM-01; SIG-01 thresholds; ANS-09 topic derivation.
 - **Indexing:** IDX-01–IDX-04; KB-05, KB-06; KB-08 delete.
 - **Generation:** GEN-01–GEN-05; NRM-01; zero passages still calls the model; quota 51st → 429.
 - **Cost:** COST-01, COST-02, COST-04.
@@ -728,11 +747,11 @@ Each milestone ends with a working slice and its tests. Regenerate `TASKS.md` fr
 | M0 | pnpm workspace, `server/` skeleton, Vitest, compose `db`, config module (fails fast), `.env.example` | §14, DEC-1, DEC-2 | — |
 | M1 | Schema + migrations for all tables (§5.1, §6.3, §17a); seed employees and accounts | ACC-01, AUTH-03 | M0 |
 | M2 | Fastify baseline (CSP, Origin check, log allow-list, error shape) + auth + frontend shell (login, routes, sidebar, mock cleanup) | AUTH-01/02, SEC-01–04, SEC-11 | M1 |
-| M3 | Account context functions + snapshot + Account selector and facts panel (no AI) | CTX-01–05, §5.4 | M2 |
+| M3 | Account context functions + snapshot + signals + Account selector and facts panel (no AI) | CTX-01–05, §5.4, SIG-01 | M2 |
 | M4 | Provider module (Gemini + stub), budget reservation/reconciliation, quota; embedding-format spike | COST-01–04, DEC-5 | M1 |
 | M5 | Upload API, sandboxed extractors, chunker, worker, activation/retry, KB API + UI, KB seed fixtures | KB-01–09, IDX-01–04 | M2, M4 |
 | M6 | Retrieval, prompt builder, normaliser, conversations API with lock, Ask workspace answer + evidence panes | RET-01/02, PRM-01, GEN-01–05, NRM-01, ANS-01, AUTH-02 (ownership), WF-04, UI-01 (partial) | M3, M5 |
-| M7 | Clarification turns, History, Edit, Copy, Save reviewed answer, lifecycle locking, staleness flags | CLR-01–04, ANS-02–08, LCK-01, LCK-02, STL-01, WF-01–03 | M6 |
+| M7 | Clarification turns, History, Edit, Copy, Save reviewed answer, lifecycle locking, staleness flags | CLR-01–04, ANS-02–08, LCK-01, LCK-02, STL-01, WF-01–03, SIG-02, ANS-09 | M6 |
 | M8 | Golden set + `pnpm eval`; calibrate threshold and model; commit values | EVAL-01, SC-1/2/4 | M7 |
 | M9 | Docker delivery (multi-stage, migrations on start, SPA fallback) and release check (all tests, log sample, §16 ticked) | SC-3, SEC-11 | M8 |
 
@@ -755,9 +774,9 @@ Each milestone ends with a working slice and its tests. Regenerate `TASKS.md` fr
 | Method & path | Purpose |
 |---|---|
 | `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/me` | Auth; `me` returns the employee and the `simulated` flag |
-| `GET /api/accounts`, `GET /api/accounts/:id/facts` | Selector; live snapshot for the facts panel |
+| `GET /api/accounts`, `GET /api/accounts/:id/facts` | Selector with `signals[]` (SIG-01); live snapshot for the facts panel |
 | `POST /api/conversations` `{accountId, question}` | Create + generate (WF-01) |
-| `GET /api/conversations?accountId&state&mine`, `GET /api/conversations/:id` | History (`mine=1` for the Ask list and the Mine toggle); conversation with turns, latest answer, facts, evidence, flags and `ownedByMe`. Readable by every employee |
+| `GET /api/conversations?accountId&state&mine&signal&topic`, `GET /api/conversations/:id` | History (`mine=1` for the Ask list and the Mine toggle; rows carry `signals[]` and `topics[]`); conversation with turns, latest answer, facts, evidence, flags and `ownedByMe`. Readable by every employee |
 | `POST /api/conversations/:id/replies` `{selections?, text?}` | Clarification reply + generate (CLR-02). Creator only (403 `NOT_OWNER`) |
 | `POST /api/conversations/:id/regenerate` | Regenerate latest turn / retry. Creator only |
 | `PATCH /api/answers/:id` `{editedText}` | Edit (ANS-02). Creator of the conversation only |
@@ -800,6 +819,7 @@ Each milestone ends with a working slice and its tests. Regenerate `TASKS.md` fr
 - Stack: pnpm workspace, zod, Vitest; Drizzle confirmed.
 
 **Added**
+- Badges (3 Oct 2026): account signal badges computed in code (§5.5, SIG-01/02) and topic badges from cited document categories (ANS-09), shown on questions in Ask and History, with History filters.
 - From `docs/DESIGN.md` §9 (v2.1 revision, 3 Oct 2026): 90 s request deadline and 10 s query-embedding timeout (GEN-04); deleted-chunk handling in T2 (GEN-05); abandoned-reservation sweep (COST-04); conversation row lock for every mutating conversation request (LCK-02).
 - Structured data: `accounts`, `account_features`, `payments`, `webhook_endpoints`, `webhook_deliveries`; 5 seed accounts; three read-only context functions; fact ids `F#`.
 - Four outcomes; four kinds of "missing"; normalisation rules; review reasons.

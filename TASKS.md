@@ -157,28 +157,31 @@ limit) is folded in too (IDX-01, T12, T18).
 
 ### [ ] T08 · Account context functions and snapshot
 - **Goal:** read-only account facts with derived values computed in code.
-- **Refs:** §5.3, §5.4, CTX-01–05.
+- **Refs:** §5.3, §5.4, §5.5, CTX-01–05, SIG-01.
 - **Depends:** T04.
 - **Acceptance:**
   - `getAccountDetails`, `getRecentPayments` (limit ≤ 20, default 10) and `getWebhookStatus` run parameterised `SELECT`s in a `READ ONLY` transaction and take a zod-validated `accountId`.
   - `buildAccountSnapshot(accountId, asOf)` returns `F1…Fn` in fixed order, explicit `empty` sections, and private `record` refs. Logic is ported from `factsFor` in the prototype.
   - Any query error raises `account_data_unavailable`.
+  - `getAccountSignals(accountId)` returns the §5.5 badges in category order, computed from the three functions (thresholds as code constants).
 - **Verify:** `pnpm --filter server test context`. The test covers:
   - `days_since` across a UTC midnight;
   - `consecutive_failures` = 12 for A-1004 WH-1;
   - EUR/GBP/USD formatting;
   - A-1005 has an empty webhook section;
-  - a forced payments-query error raises `account_data_unavailable`.
+  - a forced payments-query error raises `account_data_unavailable`;
+  - signals: A-1004 → Webhook failing; A-1005 → Payment failed, Past due; A-1003 → Enterprise; A-1001/A-1002 → none; an endpoint with 2 consecutive failures → none.
 
 ### [ ] T09 · Accounts API and facts panel
 - **Goal:** the left pane on real data.
-- **Refs:** §17b, CTX-02, §12.2 left pane.
+- **Refs:** §17b, CTX-02, SIG-02, §12.2 left pane.
 - **Depends:** T07, T08.
 - **Acceptance:**
-  - `GET /api/accounts` and `GET /api/accounts/:id/facts` (snapshot without `record` refs).
+  - `GET /api/accounts` (with `signals[]`) and `GET /api/accounts/:id/facts` (snapshot without `record` refs).
+  - `AccountPanel` shows the selected account's signal badges under the selector, with the tooltip "About this account, not this question".
   - Unknown id → 404; non-numeric id → 400.
   - `AccountPanel` reads these instead of `data/jarvis.js`.
-- **Verify:** `pnpm --filter server test accounts` covers the 404 and 400 cases. Manually: A-1004 shows 12 consecutive failures; A-1005 shows "No webhook endpoints configured".
+- **Verify:** `pnpm --filter server test accounts` covers the 404 and 400 cases. Manually: A-1004 shows 12 consecutive failures and a Webhook failing badge; A-1005 shows "No webhook endpoints configured" and Payment failed + Past due badges.
 
 ## Phase 4 — Provider and cost (M4)
 
@@ -397,14 +400,15 @@ limit) is folded in too (IDX-01, T12, T18).
 
 ### [ ] T22 · Ask workspace on the API
 - **Goal:** the prototype's three panes driven by the API.
-- **Refs:** §12.2, ANS-01, ANS-07, WF-04, UI-01.
+- **Refs:** §12.2, ANS-01, ANS-07, ANS-09, SIG-02, WF-04, UI-01.
 - **Depends:** T09, T21.
 - **Acceptance:**
   - `ConversationPanel`, `EvidencePanel` and `WorkspaceView` read the conversation from the API; "Generating…" shows while the request is pending; Retry appears on failure.
   - Suggested questions appear only in stub mode.
   - `GET /api/conversations?accountId=:id&mine=1` returns my conversations for the account, newest first. Ask shows them as a list beside the new-question box and never loads another employee's conversation (WF-04).
+  - Each row and the conversation header show the account's signal badges (SIG-02) and the question's topic badges (ANS-09), computed on the server: `topics` = distinct categories of the latest answer's cited documents in fixed order, "Account data" when only facts are cited, none for out-of-scope or failed.
   - No confidence percentages or "verified" labels.
-- **Verify:** `pnpm --filter server test conversations-list`: with A and B each owning a conversation on A-1004, A's `mine=1` list contains only A's. Manually with the stub: S1, S3, S4 and S5 render as in §13.1. `grep -rn "confidence\|verified" frontend/src` finds no UI text.
+- **Verify:** `pnpm --filter server test conversations-list`: with A and B each owning a conversation on A-1004, A's `mine=1` list contains only A's; topics: E01 → Plans, Security; E06 → Policies, FAQ; E12 → Account data; E11 → none. Manually with the stub: S1, S3, S4 and S5 render as in §13.1. `grep -rn "confidence\|verified" frontend/src` finds no UI text.
 
 ## Phase 7 — Review flow (M7)
 
@@ -458,16 +462,17 @@ limit) is folded in too (IDX-01, T12, T18).
 
 ### [ ] T26 · History on the API and prototype removal
 - **Goal:** History on real data; no simulated data left in the client.
-- **Refs:** WF-02, WF-03, AUTH-02, §12.3, I5.
+- **Refs:** WF-02, WF-03, AUTH-02, SIG-02, ANS-09, §12.3, I5.
 - **Depends:** T22, T23, T25.
 - **Acceptance:**
   - `GET /api/conversations?accountId&state&mine` returns rows newest first, with derived state, flags and creator.
   - The History state is derived in SQL with the WF-05 order; a shared fixture test checks that it matches the TypeScript derivation for every state.
   - `HistoryView` has a **Mine / All** toggle, defaulting to Mine (WF-03).
+  - History rows show signal and topic badges; filter chips by signal (`signal=`) and by topic (`topic=`). Saved conversations take topics from their snapshot.
   - Opening my conversation goes to Ask. Opening another employee's goes to a **read-only view** (`/history/:id`): turns, answers, facts and evidence, the banner "Started by another employee — read-only", and Copy answer; no reply box, Edit, Regenerate or Save.
   - The Save/Edit/Copy actions use the API.
   - `frontend/src/hooks/useJarvis.js` and `frontend/src/data/jarvis.js` are deleted. Rule helpers left in `lib/model.js` are only display helpers (labels, tones); the server owns the rules.
-- **Verify:** manual with the stub: S2a, S2b and S6 end to end (save → replace Refund policy → "Source changed — recheck" → new answer cites v3 with Policy applicability). `grep -rn "useJarvis\|data/jarvis" frontend/src` returns nothing. With two seeded employees: *Mine* hides the other's rows, *All* shows them, and the other's conversation opens read-only with no write buttons.
+- **Verify:** manual with the stub: S2a, S2b and S6 end to end (save → replace Refund policy → "Source changed — recheck" → new answer cites v3 with Policy applicability). `grep -rn "useJarvis\|data/jarvis" frontend/src` returns nothing. The "Webhook failing" filter shows only A-1004 conversations and the "Billing" filter only answers citing a Billing document. With two seeded employees: *Mine* hides the other's rows, *All* shows them, and the other's conversation opens read-only with no write buttons.
 
 ## Phase 8 — Evaluation (M8)
 

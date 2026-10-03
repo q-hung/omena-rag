@@ -190,12 +190,12 @@ Bodies are validated with zod (DEC-2).
 | `POST /api/auth/login` | `{email, password}` | 204 + cookie | 401, 429 |
 | `POST /api/auth/logout` | — | 204 | — |
 | `GET /api/me` | — | `{id, name, simulated}` | 401 |
-| `GET /api/accounts` | — | `[{id, ref, company, plan, status}]` | — |
+| `GET /api/accounts` | — | `[{id, ref, company, plan, status, signals[]}]` | — |
 | `GET /api/accounts/:id/facts` | — | `{asOf, facts[F#], empty[]}` (no `record`) | 400, 404 |
 | `POST /api/conversations` | `{accountId, question ≤2000}` | 201 `Conversation` | 400, 404, 409 `LOCKED`, 429 `QUOTA`, 502 `PROVIDER`, 503 `BUDGET` / `ACCOUNT_DATA_UNAVAILABLE` |
 | `POST /api/conversations/:id/replies` | `{selections?: F#[], text?: ≤1000}`, at least one; each selection must be an option of the latest `choose_record` | 201 `Conversation` | as above + 400 `INVALID_SELECTION`, 403 `NOT_OWNER`, 409 `NOT_AWAITING_CLARIFICATION`, `ALREADY_SAVED` |
 | `POST /api/conversations/:id/regenerate` | — | 201 `Conversation` | as above + 403 `NOT_OWNER` |
-| `GET /api/conversations?accountId&state&mine` | — | `[{id, account, firstQuestion, state, flag, createdBy, createdAt, ownedByMe}]`; `mine=1` filters to `created_by = me` (Ask list, History default) | — |
+| `GET /api/conversations?accountId&state&mine` | — | `[{id, account, firstQuestion, state, flag, signals[], topics[], createdBy, createdAt, ownedByMe}]`; filters `signal`, `topic`; `mine=1` filters to `created_by = me` (Ask list, History default) | — |
 | `GET /api/conversations/:id` | — | `Conversation` | 404 |
 | `PATCH /api/answers/:id` | `{editedText}` | 200 `Answer` | 400 `UNKNOWN_MARKER`, 403 `NOT_OWNER`, 409 `NOT_LATEST` / `ALREADY_SAVED` |
 | `POST /api/conversations/:id/review` | `{answerId, reviewAcknowledged}` | 201 `Reviewed` | 403 `NOT_OWNER`, 409 with the codes in §3.3 |
@@ -241,6 +241,8 @@ budget_days (day PK)
 - **Size:** 768 × 4 B ≈ 3 KB per chunk; 10k chunks ≈ 30 MB. Original files ≤ 3 MB each (D-5), so 200 documents × 3 versions stay under ~1.8 GB in the worst case and far less in practice. Account data is a few hundred rows.
 
 ### 5.2 Account context
+
+- **Badges are code, not model output.** Account signals (§5.5: Webhook failing, Payment failed, Past due, Canceled, Enterprise) come from `getAccountSignals`, using the same read-only functions as the snapshot. Topic badges (ANS-09) are the categories of the documents an answer cites. Both are deterministic and testable, and neither is sent to the model.
 
 - Three functions, each a parameterised `SELECT` in `BEGIN READ ONLY`. `accountId` comes from the conversation row, never from model output (CTX-02).
 - `buildAccountSnapshot` assigns `F1…Fn` in a fixed order (account → features → payments → webhooks). This is deterministic for the same data, so ids are stable across regenerations.
@@ -358,6 +360,7 @@ allow-list. Alerts for a pilot:
 |---|---|---|---|
 | Account context | prefetched bounded snapshot | model-selected tool calls | One model call, predictable cost and latency, easy to test. It can include unneeded facts; the bounds keep that under ~1,500 tokens. Tool calling is OPT-1 |
 | Account facts in retrieval | relational only | embed account rows | Exact values and explicit "no record"; similarity search would blur amounts and dates |
+| Prioritisation badges | rule-based signals and cited-document topics | model-scored importance or topic labels | Consistent, explainable and testable; covers only what the rules know (no refund-deadline signal, no free-form topics) |
 | Generation | synchronous request | job + polling / streaming | Simplest code and UX; holds a connection up to the deadline |
 | Locking | ownership token + short transactions | one long transaction around the model call | No DB connection held for seconds; needs the T2 token check |
 | Budget | atomic upsert reservation | sum of `provider_calls` before the call | Correct under concurrency; reconciliation adds one write per call |
