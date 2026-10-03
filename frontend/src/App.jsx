@@ -8,6 +8,7 @@ import LoginView from './features/login/LoginView';
 import KnowledgeBaseView from './features/kb/KnowledgeBaseView';
 import DocumentView from './features/kb/DocumentView';
 import UploadDialog from './features/kb/UploadDialog';
+import WorkspaceView from './features/workspace/WorkspaceView';
 
 export default function App() {
   const app = useJarvis();
@@ -26,7 +27,7 @@ export default function App() {
       <Sidebar items={nav} user={{ name: app.employee, role: 'Employee' }} onSignOut={app.signOut} />
       <main className="flex min-h-0 min-w-0 flex-col">
         <DemoBanner failNext={s.failNext} onToggleFail={() => set((st) => ({ failNext: !st.failNext }))} />
-        {s.view === 'ask' && <Page><PageHeader title="Ask" subtitle="Built in P05–P09." /></Page>}
+        {s.view === 'ask' && <WorkspaceView app={app} />}
         {s.view === 'history' && <Page><PageHeader title="History" subtitle="Built in P10." /></Page>}
         {s.view === 'kb' && <KnowledgeBaseView app={app} />}
         {s.view === 'doc' && doc && <DocumentView app={app} doc={doc} />}

@@ -111,7 +111,7 @@ these components (§12.3), so nothing is thrown away.
   - Removed: Evaluations nav, speed setting, Load demo data, and the `App` props `simulateFailure` / `emptyLibrary` / `simSpeed`.
 - **Verify:** in the browser: log in, open each of the three nav items, sign out.
 
-### [ ] P05 · Account panel
+### [x] P05 · Account panel
 - **Goal:** account selection and the structured facts panel.
 - **Refs:** §12.2 left pane, §5.4, CTX-04, PRM-01 note.
 - **Depends:** P04.

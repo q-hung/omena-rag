@@ -1,56 +1,31 @@
-import { ChevronDown, ChevronUp } from 'lucide-react';
 import Badge from '../../components/ui/Badge';
-import { BackButton } from '../../components/ui/Page';
-import { STATUS_TONE, outdatedOf } from '../../lib/model';
-import QuestionPanel from './QuestionPanel';
-import DraftPanel from './DraftPanel';
-import EvidencePanel from './EvidencePanel';
+import Button from '../../components/ui/Button';
+import { accountById } from '../../data/jarvis';
+import { STATE_LABEL, STATE_TONE, deriveState } from '../../lib/model';
+import AccountPanel from './AccountPanel';
 
-const NAV_BTN = 'grid size-9 place-items-center border border-rule bg-white hover:bg-light-grey';
-
+// Ask workspace: account | conversation | document evidence (REQ §12.2).
 export default function WorkspaceView({ app }) {
-  const { state: s, set, openQ } = app;
-  const { qs, docs } = s;
-  const q = qs.find((x) => x.id === s.selQ) || qs[0];
-  const idx = qs.findIndex((x) => x.id === q.id);
-
-  // Draft state shared by the draft and evidence panels.
-  const g = s.gen[q.id];
-  const generating = !!g && g.s === 'gen';
-  const failed = !!g && g.s === 'failed';
-  const approved = !!q.approval;
-  const d = q.draft;
-  const showDraft = !!d && !generating && !failed;
-  const conflict = !approved && showDraft && d.conflict ? d.conflict : null;
-  const m = {
-    q, g, generating, failed, approved, d, showDraft, conflict,
-    src: approved ? q.approval : d,
-    outdated: outdatedOf(q, docs),
-    acked: !!s.ack[q.id],
-  };
+  const { state: s } = app;
+  const conv = s.conversations.find((c) => c.id === s.convId) || null;
+  const account = accountById(s.accountId);
+  const st = conv && deriveState(conv, !!s.generating[conv.id]);
 
   return (
     <>
       <div className="flex h-[60px] flex-none items-center gap-4 border-b border-hairline bg-white px-8">
-        <BackButton onClick={() => set({ view: 'inbox' })}>Inbox</BackButton>
+        <h1 className="text-base font-bold">Ask</h1>
         <span className="h-5 w-px bg-rule" />
-        <span className="whitespace-nowrap text-base font-bold">{q.customer}</span>
-        <span className="min-w-0 truncate text-sm text-secondary">{q.subject}</span>
+        <span className="whitespace-nowrap text-sm font-semibold">{account.company}</span>
+        <span className="font-mono text-xs text-muted">{account.ref}</span>
         <span className="ml-auto" />
-        <Badge tone={STATUS_TONE[q.status]}>{q.status}</Badge>
-        <div className="flex gap-1">
-          <button type="button" title="Previous question" className={NAV_BTN} onClick={() => openQ(qs[(idx - 1 + qs.length) % qs.length].id)}>
-            <ChevronUp size={16} />
-          </button>
-          <button type="button" title="Next question" className={NAV_BTN} onClick={() => openQ(qs[(idx + 1) % qs.length].id)}>
-            <ChevronDown size={16} />
-          </button>
-        </div>
+        {st && <Badge tone={STATE_TONE[st]}>{STATE_LABEL[st]}</Badge>}
+        {conv && <Button size="sm" variant="secondary" onClick={app.newQuestion}>New question</Button>}
       </div>
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(240px,0.8fr)_minmax(420px,1.7fr)_minmax(300px,1fr)]">
-        <QuestionPanel q={q} />
-        <DraftPanel app={app} m={m} />
-        <EvidencePanel app={app} m={m} />
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(280px,0.9fr)_minmax(440px,1.6fr)_minmax(300px,1fr)]">
+        <AccountPanel app={app} conv={conv} />
+        <section className="overflow-auto px-8 py-6 text-sm text-secondary">Conversation (P06).</section>
+        <section className="overflow-auto border-l border-hairline bg-white p-6 text-sm text-secondary">Document evidence (P08).</section>
       </div>
     </>
   );
