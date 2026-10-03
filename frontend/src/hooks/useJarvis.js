@@ -31,12 +31,12 @@ function seedConversations(docs) {
 function initState() {
   const docs = demoDocs();
   return {
-    signedIn: false, view: 'ask', accountId: 1, convId: null,
-    conversations: seedConversations(docs), docs, generating: {}, failNext: false,
+    accountId: 1, convId: null,
+    conversations: seedConversations(docs), docs, generating: {},
     questionText: '', replyText: '',
     editing: false, editText: '', editError: null, activeCite: null, activeFact: null, ack: {},
     histAccount: 'All', histState: 'All',
-    kbSearch: '', kbCat: 'All', showArchived: false, selDoc: null, selDocV: null,
+    kbSearch: '', kbCat: 'All', showArchived: false, selDocV: null,
     dialog: null, failSim: false, toast: null,
   };
 }
@@ -66,22 +66,18 @@ export function useJarvis() {
     toastTimer.current = setTimeout(() => set({ toast: null }), 7000);
   };
 
-  // ---------- Session and navigation ----------
-  const signIn = () => set({ signedIn: true });
-  const signOut = () => set({ signedIn: false });
-  const go = (view) => set({ view, ...CLEAR });
+  // ---------- Selection (routing lives in App) ----------
+  const clear = () => set(CLEAR);
   const selectAccount = (accountId) => set({ accountId, convId: null, ...CLEAR });
   const newQuestion = () => set({ convId: null, ...CLEAR });
-  const openConv = (id) => set({ view: 'ask', convId: id, accountId: conv(id).accountId, ...CLEAR });
+  const openConv = (id) => set({ convId: id, accountId: conv(id).accountId, ...CLEAR });
 
   // ---------- Conversations ----------
-  // Simulated generation. With "Next generation fails" on, no answer is saved (GEN-03).
   const generate = (id) => {
     set((s) => ({ generating: { ...s.generating, [id]: true }, ack: { ...s.ack, [id]: false }, ...CLEAR }));
     later(() => set((s) => {
       const generating = { ...s.generating };
       delete generating[id];
-      if (s.failNext) return { generating, failNext: false };
       const c = s.conversations.find((x) => x.id === id);
       const a = { id: uid('a'), at: now(), ...simulateAnswer(c, s.docs, accountById(c.accountId)) };
       return { generating, conversations: s.conversations.map((x) => (x.id === id ? { ...x, answers: [...x.answers, a] } : x)) };
@@ -135,8 +131,6 @@ export function useJarvis() {
   };
 
   // ---------- Knowledge base ----------
-  const openDoc = (id, v) => set({ view: 'doc', selDoc: id, selDocV: v ?? null });
-
   // Queued → Processing → Ready | Failed. A version without extractable text fails (scanned PDF).
   const runIngest = (id) => {
     const setIngest = (ing) => updDoc(id, (d) => ({ ...d, ingest: { ...d.ingest, ...ing } }));
@@ -179,7 +173,7 @@ export function useJarvis() {
     const eff = form.eff || D;
     if (dl.type === 'delete') {
       const d = latest.current.docs.find((x) => x.id === dl.id);
-      set((s) => ({ docs: s.docs.filter((x) => x.id !== dl.id), view: s.view === 'doc' ? 'kb' : s.view }));
+      set((s) => ({ docs: s.docs.filter((x) => x.id !== dl.id) }));
       toast(`${d.title} deleted. Saved answers keep their text and source snapshot.`);
     } else if (dl.type === 'replace') {
       updDoc(dl.id, (d) => {
@@ -210,8 +204,8 @@ export function useJarvis() {
 
   return {
     state, set, employee: EMPLOYEE,
-    signIn, signOut, go, selectAccount, newQuestion, openConv,
+    clear, selectAccount, newQuestion, openConv,
     ask, reply, regenerate, startEdit, cancelEdit, saveEdit, copy, toggleAck, save,
-    openDoc, retry, impact, confirmDialog, toggleArchive,
+    retry, impact, confirmDialog, toggleArchive,
   };
 }

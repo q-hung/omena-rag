@@ -1,16 +1,9 @@
-import Checkbox from './ui/Checkbox';
-
-// Shown on every screen: the prototype's AI is scripted (CLAUDE.md: simulated behaviour must be labelled).
-export default function DemoBanner({ failNext, onToggleFail }) {
+// Shown only when the server runs the stub provider (CLAUDE.md: simulated behaviour must be labelled).
+export default function DemoBanner() {
   return (
     <div className="flex h-9 flex-none items-center gap-3 border-b border-hairline bg-light-grey px-8 text-xs text-secondary">
-      <span className="font-bold tracking-caps text-black">SIMULATED AI · PROTOTYPE</span>
+      <span className="font-bold tracking-caps text-black">SIMULATED AI</span>
       <span>SubPilot and its accounts are fictional. Answers are scripted; there is no retrieval or model call.</span>
-      {onToggleFail && (
-        <Checkbox checked={failNext} onChange={onToggleFail} boxSize={14} className="ml-auto text-xs">
-          Next generation fails
-        </Checkbox>
-      )}
     </div>
   );
 }

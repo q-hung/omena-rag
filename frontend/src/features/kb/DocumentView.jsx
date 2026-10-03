@@ -19,7 +19,7 @@ export default function DocumentView({ app, doc: dd }) {
 
   return (
     <Page>
-      <BackButton onClick={() => set({ view: 'kb' })} className="h-8 self-start">Knowledge base</BackButton>
+      <BackButton onClick={() => app.go('kb')} className="h-8 self-start">Knowledge base</BackButton>
 
       <div className="flex items-end gap-4 border-b-4 border-black pb-4">
         <div className="flex flex-1 flex-col gap-1.5">

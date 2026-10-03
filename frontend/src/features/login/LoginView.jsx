@@ -1,13 +1,26 @@
+import { useState } from 'react';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
-import DemoBanner from '../../components/DemoBanner';
 
-// Prototype login: any input signs in (AUTH-01 is simulated).
 export default function LoginView({ onSignIn }) {
-  const submit = (e) => { e.preventDefault(); onSignIn(); };
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    setBusy(true);
+    setError(null);
+    try {
+      await onSignIn(String(form.get('email')), String(form.get('password')));
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-almost-white font-sans text-black">
-      <DemoBanner />
       <div className="grid flex-1 place-items-center p-8">
         <form onSubmit={submit} className="flex w-full max-w-[400px] flex-col gap-5 border border-hairline bg-white p-8">
           <div className="flex flex-col gap-1">
@@ -16,15 +29,14 @@ export default function LoginView({ onSignIn }) {
           </div>
           <label className="flex flex-col gap-1.5 text-sm font-semibold">
             Email
-            <Input type="email" name="email" autoComplete="username" placeholder="you@omena.example" />
+            <Input type="email" name="email" required autoComplete="username" placeholder="you@omena.example" />
           </label>
           <label className="flex flex-col gap-1.5 text-sm font-semibold">
             Password
-            <Input type="password" name="password" autoComplete="current-password" />
+            <Input type="password" name="password" required autoComplete="current-password" />
           </label>
-          <button type="submit" className="hidden" />
-          <Button onClick={submit}>Sign in</Button>
-          <div className="text-xs leading-[1.45] text-muted">Prototype — no real authentication. Any input signs you in.</div>
+          {error && <div role="alert" className="text-sm text-negative">{error}</div>}
+          <Button type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</Button>
         </form>
       </div>
     </div>

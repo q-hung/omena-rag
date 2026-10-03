@@ -1,5 +1,8 @@
+import { useEffect } from 'react';
 import { History, Library, MessageSquare } from 'lucide-react';
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useJarvis } from './hooks/useJarvis';
+import { useSession } from './hooks/useSession';
 import Sidebar from './components/Sidebar';
 import DemoBanner from './components/DemoBanner';
 import Toast from './components/ui/Toast';
@@ -11,29 +14,90 @@ import WorkspaceView from './features/workspace/WorkspaceView';
 import HistoryView from './features/history/HistoryView';
 
 export default function App() {
-  const app = useJarvis();
-  const { state: s, set } = app;
-  if (!s.signedIn) return <LoginView onSignIn={app.signIn} />;
-  const doc = s.docs.find((d) => d.id === s.selDoc);
+  return (
+    <BrowserRouter>
+      <Root />
+    </BrowserRouter>
+  );
+}
 
+function Root() {
+  const { session, signIn, signOut } = useSession();
+  const location = useLocation();
+  if (session === undefined) return null;
+
+  if (!session) {
+    return location.pathname === '/login'
+      ? <LoginView onSignIn={signIn} />
+      : <Navigate to="/login" replace />;
+  }
+  return (
+    <Routes>
+      <Route path="/login" element={<Navigate to="/ask" replace />} />
+      <Route path="*" element={<Shell session={session} onSignOut={signOut} />} />
+    </Routes>
+  );
+}
+
+function Shell({ session, onSignOut }) {
+  const proto = useJarvis();
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const { state: s, set } = proto;
+
+  // The prototype views navigate through `app`; route those calls through the URL.
+  const app = {
+    ...proto,
+    go: (view) => { proto.clear(); navigate(`/${view}`); },
+    openDoc: (id, v) => { set({ selDocV: v ?? null }); navigate(`/kb/${id}`); },
+    openConv: (id) => { proto.openConv(id); navigate('/ask'); },
+    confirmDialog: (form) => {
+      const wasDelete = s.dialog?.type === 'delete';
+      proto.confirmDialog(form);
+      if (wasDelete && pathname.startsWith('/kb/')) navigate('/kb');
+    },
+  };
+
+  const section = pathname.split('/')[1];
   const nav = [
-    { label: 'Ask', icon: MessageSquare, count: '', active: s.view === 'ask', onClick: () => app.go('ask') },
-    { label: 'History', icon: History, count: s.conversations.length, active: s.view === 'history', onClick: () => app.go('history') },
-    { label: 'Knowledge base', icon: Library, count: s.docs.filter((d) => !d.archived).length, active: ['kb', 'doc'].includes(s.view), onClick: () => app.go('kb') },
+    { label: 'Ask', icon: MessageSquare, count: '', active: section === 'ask', onClick: () => app.go('ask') },
+    { label: 'History', icon: History, count: s.conversations.length, active: section === 'history', onClick: () => app.go('history') },
+    { label: 'Knowledge base', icon: Library, count: s.docs.filter((d) => !d.archived).length, active: section === 'kb', onClick: () => app.go('kb') },
   ];
+
+  const signOut = async () => { await onSignOut(); navigate('/login'); };
 
   return (
     <div className="grid h-screen min-w-[1280px] grid-cols-[224px_minmax(0,1fr)] bg-almost-white font-sans text-black">
-      <Sidebar items={nav} user={{ name: app.employee, role: 'Employee' }} onSignOut={app.signOut} />
+      <Sidebar items={nav} user={{ name: session.employee.name, role: 'Employee' }} onSignOut={signOut} />
       <main className="flex min-h-0 min-w-0 flex-col">
-        <DemoBanner failNext={s.failNext} onToggleFail={() => set((st) => ({ failNext: !st.failNext }))} />
-        {s.view === 'ask' && <WorkspaceView app={app} />}
-        {s.view === 'history' && <HistoryView app={app} />}
-        {s.view === 'kb' && <KnowledgeBaseView app={app} />}
-        {s.view === 'doc' && doc && <DocumentView app={app} doc={doc} />}
+        {session.simulated && <DemoBanner />}
+        <Routes>
+          <Route path="/ask" element={<WorkspaceView app={app} />} />
+          <Route path="/history" element={<HistoryView app={app} />} />
+          <Route path="/history/:id" element={<OpenConversation app={app} />} />
+          <Route path="/kb" element={<KnowledgeBaseView app={app} />} />
+          <Route path="/kb/:id" element={<KbDocument app={app} />} />
+          <Route path="*" element={<Navigate to="/ask" replace />} />
+        </Routes>
       </main>
       <UploadDialog app={app} />
       {s.toast && <Toast {...s.toast} onClose={() => set({ toast: null })} />}
     </div>
   );
+}
+
+function KbDocument({ app }) {
+  const { id } = useParams();
+  const doc = app.state.docs.find((d) => d.id === id);
+  return doc ? <DocumentView app={app} doc={doc} /> : <Navigate to="/kb" replace />;
+}
+
+// ponytail: every prototype conversation belongs to the signed-in employee, so this opens it in Ask.
+// T26 replaces it with the read-only view for other employees' conversations.
+function OpenConversation({ app }) {
+  const { id } = useParams();
+  const found = app.state.conversations.some((c) => c.id === id);
+  useEffect(() => { if (found) app.openConv(id); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  return found ? null : <Navigate to="/history" replace />;
 }
