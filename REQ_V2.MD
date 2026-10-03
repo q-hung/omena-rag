@@ -269,7 +269,7 @@ Account records are **not** embedded or chunked. Structured data stays in relati
 ### 7.1 Generation flow (API, synchronous)
 
 1. **Authenticate**; validate the body (question 1–2,000 chars; clarification reply 1–1,000 chars); load the conversation/account (404 if missing).
-2. **Short transaction T1:** check quota (§10) and acquire the lock with an ownership token:
+2. **Short transaction T1:** lock the conversation row (`SELECT … FROM conversations WHERE id = :id FOR UPDATE`, LCK-02), check quota (§10) and acquire the generation lock with an ownership token:
    ```sql
    UPDATE conversations
    SET generation_token = :token, generation_started_at = now()
@@ -279,18 +279,22 @@ Account records are **not** embedded or chunked. Structured data stays in relati
    ```
    No row → 409. Insert the new turn (question or clarification reply) in the same transaction, so the employee's text survives a failed generation. Commit.
 3. **Snapshot** (CTX-01, read-only transaction). Error → abort (CTX-05).
-4. **Embed the query**: turn 1's question plus the latest clarification reply, if any (≤ 3,000 chars), via `formatQueryForEmbedding`. Reserve budget first.
+4. **Embed the query**: turn 1's question plus the latest clarification reply, if any (≤ 3,000 chars), via `formatQueryForEmbedding`. Reserve budget first. Each attempt times out after 10 s; at most 2 retries on 429/5xx/timeout.
 5. **Retrieve** top 8 by exact cosine distance (§7.2). Drop passages below `RETRIEVAL_MIN_SCORE`. Zero passages is valid input, not an error: the model is still called, because some questions are answerable from account facts alone and out-of-scope detection needs the model.
 6. **Build the prompt** (§7.3) within 6,000 **estimated** input tokens.
 7. **Generate** (§7.4): each attempt reserves budget, times out after 20 s; at most 2 retries on 429/5xx/timeout with exponential backoff and jitter. A response cut off by the token limit is a failure.
+   **Request deadline (GEN-04):** no embedding or generation attempt starts later than 90 s after T1 committed; the request then fails as a timeout. Worst case ≈ 90 s + one 20 s attempt already in flight < the 2-minute lock expiry, so a lock is only taken over after its owner has stopped spending.
 8. **Normalise** (§9.3): validate citations, renumber, compute outcome and review reasons.
-9. **Short transaction T2:** verify `generation_token = :token` (if not, the lock was taken over: discard the result, return 409; cost is still recorded). Insert the answer and `answer_sources`, clear the lock. Commit.
+9. **Short transaction T2:** lock the conversation row (`FOR UPDATE`), verify `generation_token = :token` (if not, the lock was taken over: discard the result, return 409; cost is still recorded). Insert the answer and `answer_sources`, clear the lock. Commit.
+   Each `answer_sources.chunk_id` is resolved inside the insert (`(SELECT id FROM document_chunks WHERE id = :chunk)`), so a chunk deleted since retrieval becomes null instead of failing the insert. The answer is then immediately stale (§7.6) and its card shows "Source deleted" (GEN-05).
 10. **On failure** anywhere after T1: clear the lock only if the token still matches; record the error in `provider_calls`; no answer is saved; state `failed`; the UI offers Retry.
 
 - **GEN-01 (Must)** No database transaction or row lock is held during an embedding or model call.
   *AC:* code review rule + a test that, while a stubbed generate call is blocked, a KB archive on a cited document completes without waiting.
 - **GEN-02 (Must)** Lock ownership. *AC:* a concurrent second request → 409; a request whose lock expired and was taken over cannot save its answer or clear the new owner's lock.
 - **GEN-03 (Must)** Failure leaves no answer. *AC:* a stubbed provider failure leaves answer count unchanged, state `failed`, lock cleared, an error row in `provider_calls`.
+- **GEN-04 (Must)** Request deadline. *AC:* with every stubbed attempt hanging until its timeout, the request fails within 90 s + 20 s, makes no attempt after the 90 s mark, and records each attempt in `provider_calls`.
+- **GEN-05 (Must)** Deleted chunk during generation. *AC:* deleting a retrieved document between retrieval and T2 still saves the answer, with a null `chunk_id` for that source and the "Source updated" flag.
 
 ### 7.2 Retrieval
 
@@ -363,6 +367,8 @@ Citations are read from the markers in `answer` (plus conflict sources, §9.3). 
 
 - Activation, archive, restore and delete each run in one transaction that first takes `SELECT … FROM documents WHERE id = :id FOR UPDATE`.
 - Saving a reviewed answer (ANS-04) takes `FOR SHARE` on every cited document row, ordered by id, then runs the stale check in the same transaction.
+- Every request that changes a conversation (T1, T2, edit, clarification reply, save) starts its transaction with `SELECT … FROM conversations WHERE id = :id FOR UPDATE`, so these changes never interleave on one conversation.
+- **LCK-02 (Must)** *AC:* an edit and a save racing on one conversation are serialised: the save either includes the edit or runs first and makes the edit return 409 `ALREADY_SAVED`; a save racing T2 either sees the new answer as latest or returns 409 `NOT_LATEST`.
 - **LCK-01 (Must)** *AC:* with a save and an activation of a cited document racing, either the save commits first and the reviewed answer later shows "Source changed — recheck", or the activation commits first and the save returns 409. Never a saved answer that was stale at commit time.
 
 ### 7.6 Staleness
@@ -498,10 +504,12 @@ No row → refuse with `budget_reached` (or reject `:estimate > :limit` up front
 
 **Estimate:** input tokens = ⌈characters ÷ 3⌉ (deliberately higher than the ÷ 4 prompt estimate), output = `maxOutputTokens`, priced from the config table.
 **Reconcile** after the call: set actual tokens and `cost_usd` from provider usage metadata; `UPDATE budget_days SET spent_usd = spent_usd - :estimate + :actual`. If actual usage is unknown (timeout, crash), the estimate stays charged.
+**Abandoned reservations:** a crash between reservation and reconciliation leaves a `reserved` row. The worker's sweeper marks `reserved` rows older than 10 minutes as `error` with `error_code = 'abandoned'` and leaves `budget_days` unchanged (the estimate stays charged, conservatively).
 
 - **COST-01 (Must)** *AC:* with $0.01 left and two concurrent requests each estimating $0.008, exactly one proceeds.
 - **COST-02 (Must)** Embeddings, failed attempts, retries and evaluations each create their own `provider_calls` row and count toward the budget. *AC:* a 500 → 500 → 200 sequence creates 3 rows, all reconciled or estimated.
 - **COST-03 (Must)** `provider_calls` never stores prompt or response text.
+- **COST-04 (Must)** *AC:* a `reserved` row older than 10 minutes becomes `error`/`abandoned` after one sweeper run, and `budget_days.spent_usd` is unchanged.
 
 Expected spend (Oct 2026 list prices, Flash-Lite tier): ≈ $0.003–0.007 per generation; ≈ $0.01 to embed a 100-page document. No monthly cap: the daily cap already bounds the month.
 
@@ -611,9 +619,9 @@ Each case: account, question (and replies), expected outcome, expected review re
 - **Auth:** wrong password 401, 6th login 429, expired session 401, no raw token in `sessions`, foreign Origin 403.
 - **Context:** CTX-02–CTX-05; PRM-01.
 - **Indexing:** IDX-01–IDX-04; KB-05, KB-06; KB-08 delete.
-- **Generation:** GEN-01–GEN-03; NRM-01; zero passages still calls the model; quota 51st → 429.
-- **Cost:** COST-01, COST-02.
-- **Saving:** every ANS-04 case; LCK-01; STL-01; ANS-02 edits.
+- **Generation:** GEN-01–GEN-05; NRM-01; zero passages still calls the model; quota 51st → 429.
+- **Cost:** COST-01, COST-02, COST-04.
+- **Saving:** every ANS-04 case; LCK-01; LCK-02; STL-01; ANS-02 edits.
 
 ---
 
@@ -694,10 +702,10 @@ Each milestone ends with a working slice and its tests. Regenerate `TASKS.md` fr
 | M1 | Schema + migrations for all tables (§5.1, §6.3, §17a); seed employees and accounts | ACC-01, AUTH-03 | M0 |
 | M2 | Fastify baseline (CSP, Origin check, log allow-list, error shape) + auth + frontend shell (login, routes, sidebar, mock cleanup) | AUTH-01/02, SEC-01–04, SEC-11 | M1 |
 | M3 | Account context functions + snapshot + Account selector and facts panel (no AI) | CTX-01–05, §5.4 | M2 |
-| M4 | Provider module (Gemini + stub), budget reservation/reconciliation, quota; embedding-format spike | COST-01–03, DEC-5 | M1 |
+| M4 | Provider module (Gemini + stub), budget reservation/reconciliation, quota; embedding-format spike | COST-01–04, DEC-5 | M1 |
 | M5 | Upload API, sandboxed extractors, chunker, worker, activation/retry, KB API + UI, KB seed fixtures | KB-01–09, IDX-01–04 | M2, M4 |
-| M6 | Retrieval, prompt builder, normaliser, conversations API with lock, Ask workspace answer + evidence panes | RET-01/02, PRM-01, GEN-01–03, NRM-01, ANS-01, UI-01 (partial) | M3, M5 |
-| M7 | Clarification turns, History, Edit, Copy, Save reviewed answer, lifecycle locking, staleness flags | CLR-01–03, ANS-02–08, LCK-01, STL-01, WF-01–03 | M6 |
+| M6 | Retrieval, prompt builder, normaliser, conversations API with lock, Ask workspace answer + evidence panes | RET-01/02, PRM-01, GEN-01–05, NRM-01, ANS-01, UI-01 (partial) | M3, M5 |
+| M7 | Clarification turns, History, Edit, Copy, Save reviewed answer, lifecycle locking, staleness flags | CLR-01–03, ANS-02–08, LCK-01, LCK-02, STL-01, WF-01–03 | M6 |
 | M8 | Golden set + `pnpm eval`; calibrate threshold and model; commit values | EVAL-01, SC-1/2/4 | M7 |
 | M9 | Docker delivery (multi-stage, migrations on start, SPA fallback) and release check (all tests, log sample, §16 ticked) | SC-3, SEC-11 | M8 |
 
@@ -712,7 +720,7 @@ Each milestone ends with a working slice and its tests. Regenerate `TASKS.md` fr
 | `answers` | `conversation_id`, `turn_id` (FK cascade), `created_by`, `outcome`, `answer_text` (immutable), `edited_text`, `edited_by`, `edited_at`, `clarification_questions jsonb`, `gaps jsonb`, `conflicts jsonb`, `review_reasons jsonb`, `facts_snapshot jsonb`, `as_of date`, `model`, `prompt_version` | Latest answer of a conversation = highest `id`. `facts_snapshot` is exactly what the model saw (minus `record`) |
 | `answer_sources` | `answer_id` (FK cascade), `rank`, `chunk_id` (FK, `ON DELETE SET NULL`), `score`, `citation_number` (null = retrieved, not cited) | PK (`answer_id`, `rank`); no `id`/`created_at` |
 | `reviewed_answers` | `conversation_id` (unique), `answer_id` (unique), `final_text`, `sources jsonb`, `facts jsonb`, `review_acknowledged bool`, `reviewer_id`, `reviewed_at` | Immutable. `sources` entries carry `document_id` and `version_id` as plain values (survive deletes) |
-| `provider_calls` | `kind` (`embed_document`, `embed_query`, `generate`), `purpose` (`app`, `indexing`, `eval`), `attempt`, `model`, `employee_id`, `conversation_id`, `document_version_id`, `status` (`reserved`, `ok`, `error`), `estimated_cost_usd numeric(12,6)`, `cost_usd numeric(12,6)`, `input_tokens`, `output_tokens`, `latency_ms`, `error_code`, `request_id` | No prompt or response text |
+| `provider_calls` | `kind` (`embed_document`, `embed_query`, `generate`), `purpose` (`app`, `indexing`, `eval`), `attempt`, `model`, `employee_id`, `conversation_id`, `document_version_id`, `status` (`reserved`, `ok`, `error`; `error_code = 'abandoned'` for swept reservations), `estimated_cost_usd numeric(12,6)`, `cost_usd numeric(12,6)`, `input_tokens`, `output_tokens`, `latency_ms`, `error_code`, `request_id` | No prompt or response text |
 | `budget_days` | `day date` PK, `spent_usd numeric(12,6)` | Reservation target (§10) |
 
 ### 17b. API surface
@@ -759,6 +767,7 @@ Each milestone ends with a working slice and its tests. Regenerate `TASKS.md` fr
 - Stack: pnpm workspace, zod, Vitest; Drizzle confirmed.
 
 **Added**
+- From `docs/DESIGN.md` §9 (v2.1 revision, 3 Oct 2026): 90 s request deadline and 10 s query-embedding timeout (GEN-04); deleted-chunk handling in T2 (GEN-05); abandoned-reservation sweep (COST-04); conversation row lock for every mutating conversation request (LCK-02).
 - Structured data: `accounts`, `account_features`, `payments`, `webhook_endpoints`, `webhook_deliveries`; 5 seed accounts; three read-only context functions; fact ids `F#`.
 - Four outcomes; four kinds of "missing"; normalisation rules; review reasons.
 - Clarification turns (limits, context preservation).

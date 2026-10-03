@@ -1,266 +1,348 @@
-# Jarvis — System Design (v1)
+# Jarvis — System Design (v2.1)
 
-Status: draft · 2 Oct 2026 · implements `REQ_V2.MD` (§n), with the proposed
-corrections C1–C20 from `TASKS.md`, which still need approval. If this file and
-REQ_V2 disagree, REQ_V2 wins.
+Status: draft · 3 Oct 2026 · implements `REQ_V2.MD` v2.1 (cited as §n and by
+requirement ID) and the proposed spec issues I1–I7 in `TASKS.md`. If this file
+and REQ_V2 disagree, REQ_V2 wins. Design decisions that REQ_V2 doesn't make
+are marked **D-n** and listed in §9.
 
 ---
 
 ## 1. Requirements summary
 
 **Functional**
-- Customers submit questions and read their published answers (portal).
-- Agents generate drafts with citations, inspect evidence, edit, and approve (approving publishes) (console).
-- Agents manage a versioned knowledge base: upload, replace, archive, delete, download.
-- Every factual claim cites a passage. Approval is blocked by the server when a cited source is stale, or when a conflict hasn't been acknowledged.
+- An employee selects a fictional account, asks a support question, and gets one of four outcomes: `answer`, `clarification_required`, `insufficient_evidence` or `out_of_scope` (§9.1).
+- Answers combine **structured facts** (read-only SQL functions, `[F#]`) with **document passages** (vector retrieval, `[n]`). The two kinds of evidence are shown in separate panels.
+- Clarification replies continue the same conversation, for at most 2 rounds.
+- Edit (markers can be removed, not added), Copy without markers, and Save as an immutable internal record. Nothing is sent to customers.
+- A versioned knowledge base: upload, replace, archive, delete, retry and download. Saved answers whose sources change are flagged.
 
 **Non-functional**
 
 | Concern | Target | Source |
 |---|---|---|
-| Draft latency | p95 ≤ 15 s | §1 |
-| Retrieval quality | expected doc in top 8 for ≥ 90% of answerable golden cases; label ≥ 80% | §1, §11 |
-| Cost | ≤ `DAILY_BUDGET_USD` per day (≈ $5); ≈ $0.003–0.007 per draft | §8 |
-| Availability | Demo-grade: single host, restart on failure | §10 |
-| Security | session auth, role-separated APIs, SQL-side retrieval filter, sandboxed parsing, no PII to the model | §9 |
+| Generation latency | p95 ≤ 15 s | SC-4 |
+| Retrieval / outcome quality | expected doc in top 8 for ≥ 90%; outcome ≥ 80%; 0 forbidden claims | SC-1, SC-2 |
+| Cost | ≤ `DAILY_BUDGET_USD` (≈ $5/day), enforced by atomic reservation | §10 |
+| Correctness under concurrency | no stale save; no double save; no answer written by a lock that was taken over | LCK-01, ANS-04, GEN-02 |
+| Availability | demo-grade: one host, restart on failure | §14 |
+| Privacy | structured identity fields never sent to the model; free text sent as written | §7.3, SEC-10 |
 
-**Constraints:** one tenant, synthetic data, a small team, the stack fixed by §10. The console is desktop only and the portal is responsive.
+**Constraints:** the §14 stack (React/Vite, Fastify/TS, Drizzle, zod, Postgres + pgvector, Gemini), one tenant, synthetic data, a small team, and the existing prototype UI to reuse.
 
-**Explicit non-goals:** streaming, notifications, auto-generation, multi-tenancy, OCR, an ANN index, object storage, a cache layer.
+**Non-goals (MVP):** customer access, model tool calling, streaming, multi-tenancy, OCR, an ANN index, object storage, caches, follow-up questions.
 
 ---
 
 ## 2. High-level design
 
 ```text
-                ┌──────────────────────── browser ────────────────────────┐
-                │  /portal (customer)            /console (agent)        │
-                │  React + Router + Tailwind, fetch + hooks, poll 3 s     │
-                └───────────────┬────────────────────────────────────────┘
-                                │ HTTPS, same origin, session cookie
-                                ▼
-┌──────────────────────────── api (Fastify, Node TS) ─────────────────────────────┐
-│ static SPA │ /api/auth │ /api/portal/* (customer) │ /api/agent/* (agent)          │
-│ helmet CSP · Origin check · rate limit · multipart limits · log allow-list      │
-│                                                                                 │
-│  questions  drafts(generate/edit/approve)  kb(upload/archive/delete/download)   │
-│      │               │   │                          │                           │
-│      │      retrieval│   │provider (embed, generate)│                           │
-└──────┼───────────────┼───┼──────────────────────────┼───────────────────────────┘
-       │               │   │                          │ INSERT version 'queued'
-       ▼               ▼   ▼                          ▼
-┌──────────────────────── Postgres 16 + pgvector ────────────────────────────────┐
-│ users sessions questions answer_drafts draft_sources answer_reviews            │
-│ documents document_versions document_files(bytea) document_chunks(vector 768)  │
-│ provider_calls  (also: the job queue = document_versions.indexing_status)      │
-└──────────────────────────────▲─────────────────────────────────────────────────┘
-                               │ SELECT … FOR UPDATE SKIP LOCKED
-┌──────────────────────────── worker (same codebase) ───────────────────────────┐
-│ claim → extract (child process, env {}, 60 s, mem cap) → chunk → embed        │
-│        → activate in one transaction | mark failed                            │
-└───────────────────────────────┬───────────────────────────────────────────────┘
-                                │ HTTPS (API key, server only)
-                                ▼
-                      Gemini API (@google/genai)
-                 embeddings (768-d) · Flash-Lite generation
+┌──────────────────────────── browser (employee, desktop) ────────────────────────────┐
+│ React + Router: /login  /ask  /history  /kb/*        fetch + hooks, poll KB every 3 s │
+│ Ask = AccountPanel (facts F#) | ConversationPanel (answer, actions) | EvidencePanel   │
+└───────────────────────────────────────┬─────────────────────────────────────────────┘
+                                        │ same origin, session cookie, JSON / multipart
+                                        ▼
+┌──────────────────────────────── api (Fastify, TS) ──────────────────────────────────┐
+│ helmet CSP · Origin check · rate limit · zod schemas · log allow-list · static SPA   │
+│                                                                                      │
+│ routes ──▶ context/ (read-only account functions → snapshot F1..Fn)                  │
+│        ──▶ rag/     (retrieve · prompt · normalise · state · stale)                  │
+│        ──▶ llm/     (provider: gemini | stub · retry · budget reserve/reconcile)     │
+│        ──▶ kb/      (upload · archive · delete · download · impact)                   │
+└────────┬──────────────────────────────────────┬─────────────────────────┬───────────┘
+         │ SQL (short transactions only)         │ HTTPS, key server-side   │
+         ▼                                       ▼                          │
+┌────────────────────── Postgres 16 + pgvector ───────────────┐   Gemini API │
+│ business: accounts · account_features · payments ·           │   embeddings│
+│           webhook_endpoints · webhook_deliveries (read-only) │   (768-d) + │
+│ KB:       documents · document_versions · document_files ·   │   Flash-Lite│
+│           document_chunks (vector 768)                       │   generation│
+│ work:     conversations · turns · answers · answer_sources · │       ▲     │
+│           reviewed_answers                                   │       │     │
+│ ops:      employees · sessions · provider_calls · budget_days│       │     │
+│ queue = document_versions.indexing_status                    │       │     │
+└──────────────────────────────▲───────────────────────────────┘       │     │
+                               │ claim FOR UPDATE SKIP LOCKED            │     │
+┌──────────────────────── worker (same codebase) ─────────────────────────┴─────┘
+│ claim → extract (child process, env {}, 60 s, memory cap) → chunk → embed      │
+│       → activate (lock document row, one transaction) | failed (+warnings)     │
+└──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Three processes, one database.** Postgres is the store, the job queue, the
-quota ledger (`provider_calls`) and the file store (`document_files`). This
-keeps the demo to `db`, `api` and `worker` in Compose (§10), with no other
-infrastructure.
+**Three processes, one database.** Postgres is the business store, the vector
+store, the job queue, the file store and the cost ledger. In Compose that's
+`db`, `api` and `worker`, with no other infrastructure.
+
+**Two evidence paths, kept apart on purpose.**
+
+| | Structured facts | Unstructured knowledge |
+|---|---|---|
+| Source | `accounts`, `payments`, `webhook_*` | Markdown / text PDFs |
+| Access | 3 explicit read-only functions | SQL-filtered vector search |
+| Unit | fact `F#` (code-derived values) | passage `S#` → `[n]` |
+| Absence | explicit empty section → `no_record` gap | no passage → `documentation` gap |
+| Freshness | static in the MVP; snapshot stored per answer | version activation → staleness flags |
+
+Account records are never embedded (§6.3). Exact values such as dates,
+amounts and failure streaks come from code, not from similarity search.
 
 ---
 
 ## 3. Data flows
 
-### 3.1 Indexing (asynchronous)
+### 3.1 Ask / regenerate (synchronous)
 
 ```text
-agent ──POST /documents (multipart)──▶ api
-  api: check ext+magic, ≤10 MB, effective_at ≤ today, hash ≠ active, no in-flight version
-  api: tx{ insert document?, version(queued), document_files } ──▶ 201 {versionId}
+employee ──POST /api/conversations {accountId, question}──▶ api
+                        (or POST …/:id/replies {text}, POST …/:id/regenerate)
+ T1  tx: SELECT conversations … FOR UPDATE                                     (~ms)
+         quota: first-attempt generate rows today < 50          else 429
+         lock: SET generation_token=:t, generation_started_at=now()
+               WHERE token IS NULL OR started_at < now()-2 min  else 409
+         INSERT turn (question | clarification_reply)     ← the text survives failure
+     commit
+ ── no transaction held from here (GEN-01) ─────────────────────────────────────────
+  1  snapshot = buildAccountSnapshot(accountId, asOf)    READ ONLY tx; error ⇒ 503 account_data_unavailable
+  2  reserve → embedQuery(turn 1 + latest reply)          → reconcile
+  3  retrieve top 8, exact cosine, SQL filter, ≥ RETRIEVAL_MIN_SCORE (0 rows is fine)
+  4  prompt ≤ 6,000 est. tokens: instructions · F# · S# · prior turns · <untrusted question>
+  5  reserve → generate (zod-checked JSON) → reconcile   ≤ 2 retries; request deadline (D-1)
+  6  normalise (§9.3): ids · renumber · conflicts · reasons · outcome rules
+ T2  tx: SELECT conversations … FOR UPDATE
+         token ≠ :t ⇒ discard result, 409 (cost stays recorded)
+         INSERT answers; INSERT answer_sources (chunk_id resolved in-statement, D-2)
+         clear lock
+     commit ──▶ 201 { conversation, latest answer, facts, evidence, state, flags }
+ failure after T1: clear lock iff token = :t · provider_calls error row · 502/503 · state 'failed'
+```
+
+**Latency budget (one attempt each):** snapshot < 50 ms + query embedding
+0.3–1 s + retrieval < 50 ms + generation 2–6 s (Flash-Lite, ≤ 2,048 output
+tokens) ≈ **3–8 s p95**, inside the 15 s target with one retry to spare.
+
+### 3.2 Indexing (asynchronous)
+
+```text
+employee ──POST /api/documents | …/:id/versions (multipart)──▶ api
+  validate: ≤3 MB (D-5) · .pdf starts %PDF- · .md strict UTF-8, no NUL, ≤300k chars · effective ≤ today
+            no in-flight version · hash ≠ active
+  tx: insert (document?), version 'queued', document_files ──▶ 201
 worker loop (every 2 s):
-  tx1: claim 1 'queued' FOR UPDATE SKIP LOCKED → 'processing', processing_started_at=now
-  check budget → else failed("Daily budget reached — retry later")
-  extract in child  ──▶ pages/sections | error → failed(msg)
-  chunk (section/page, split >~500 tok at paragraphs, heading path)
-  embed (1 Content per chunk, batched requests) ──▶ provider_calls rows
-  tx2: delete partial chunks; insert chunks; status=ready, indexed_at;
-       UPDATE documents SET active_version_id=v WHERE id=d
-         AND (active_version_id IS NULL OR <active.version_number> < v.version_number)   -- C2
-sweeper (each loop): processing_started_at < now-10 min → failed
-UI polls GET /documents every 3 s while any version is queued|processing
+  tx: claim 1 'queued' FOR UPDATE SKIP LOCKED → 'processing'
+  extract in child ─▶ pages/sections (+ blank-page warnings) | no text at all ⇒ failed
+  chunk ─▶ reserve → embed batch → reconcile (repeat)      budget refused ⇒ failed("Daily budget reached…")
+  tx: SELECT documents WHERE id=:d FOR UPDATE              ← serialises with save, archive, delete
+      DELETE partial chunks; INSERT chunks; version 'ready' (+warnings)
+      UPDATE documents SET active_version_id=:v WHERE id=:d
+        AND (active_version_id IS NULL OR active.version_number < :n)      (KB-05)
+sweeper: 'processing' for more than 10 min ⇒ failed
 ```
 
-The old version stays active until tx2 commits, so a failed version never
-affects retrieval.
+The old version answers questions until the activation transaction commits.
 
-### 3.2 Draft generation (synchronous)
+### 3.3 Save reviewed answer
 
 ```text
-agent ──POST /questions/:id/drafts──▶ api
- 1 guard: question unanswered · drafts today < 30 · budget left
- 2 lock: UPDATE questions SET generation_started_at=now() WHERE … stale-or-null → 0 rows ⇒ 409
- 3 embedQuery("task: search result | query: …")                 [provider_calls]
- 4 retrieve top 8 (exact cosine, SQL filter) → drop < RETRIEVAL_MIN_SCORE
- 5 none left → save empty missing_evidence draft (no model call) → step 9
- 6 prompt ≤ 6,000 tok: system(vN) · S1..Sk · context{plan, profile, today, received_at} · <question>
- 7 generate (JSON schema, 20 s/attempt, ≤2 retries on 429/5xx/timeout) [provider_calls]
- 8 normalise: drop unknown S ids → renumber [1..n] → number uncited conflict sources (C1) → label
- 9 tx: insert answer_drafts + draft_sources(all retrieved, cited ones numbered);
-       set question status; clear lock  ──▶ 201 draft
- fail at 3–8: clear lock, keep status, return 502 {retryable}
+employee ──POST /api/conversations/:id/review {answerId, reviewAcknowledged}──▶ api
+ tx: SELECT conversations … FOR UPDATE
+     409 GENERATING | NOT_LATEST | ALREADY_SAVED | NOT_SAVEABLE (clarification/out_of_scope) | EMPTY
+     SELECT documents WHERE id IN (cited) ORDER BY id FOR SHARE          (LCK-01)
+     stale EXISTS (§7.6)                       ⇒ 409 STALE_SOURCE
+     reasons ≠ [] AND !reviewAcknowledged      ⇒ 409 REVIEW_UNACKNOWLEDGED
+     INSERT reviewed_answers (conversation_id UNIQUE, final text,
+            sources[{n, document_id, version_id, title, version, heading, page}] for markers left,
+            facts[cited F#], review_acknowledged, reviewer)
+ commit ──▶ 201
 ```
 
-Worst case: 3 attempts × 20 s + backoff ≈ 65 s, which is below the 2-minute
-lock. The p95 target (15 s) assumes one attempt (typically 2–6 s on Flash-Lite)
-plus about 1 s for the embedding.
+`FOR SHARE` on documents and `FOR UPDATE` in activation, archive and delete
+make the save and the lifecycle change mutually exclusive. Whichever commits
+second sees the other's result (LCK-01). Locks are taken in id order, so
+concurrent saves can't deadlock.
 
-### 3.3 Approve (publish)
+### 3.4 Budget reservation (every paid call)
 
 ```text
-agent ──POST /questions/:id/approve {draftId, conflictsAcknowledged}──▶ api
- tx (SERIALIZABLE not needed; the unique key decides):
-   SELECT question FOR UPDATE
-   409 if generating | draftId ≠ latest | answered | final text empty
-   409 if stale (§6 SQL)             409 if conflicts && !ack
-   INSERT answer_reviews(question_id UNIQUE, final_text, sources snapshot {n,title,version,heading,page,document_id,version_id})
-   UPDATE questions SET status='answered', answered_at=now()
- portal GET → final_text with markers stripped
+tx (short): INSERT budget_days(day, spent) VALUES (:d, :est)
+            ON CONFLICT (day) DO UPDATE SET spent = budget_days.spent + :est
+            WHERE budget_days.spent + :est <= :limit RETURNING spent     -- 0 rows ⇒ budget_reached
+            INSERT provider_calls(status 'reserved', estimated_cost_usd, purpose, attempt, …)
+call provider
+tx (short): UPDATE provider_calls SET status, tokens, cost_usd = actual (or keep estimate if unknown)
+            UPDATE budget_days SET spent = spent - :est + :actual
 ```
 
-`SELECT … FOR UPDATE` on the question row serialises approval against
-generation and against a second approval. The unique `question_id` is the
-backstop.
+A single conditional upsert decides atomically, so concurrent requests can't
+both pass a "sum < limit" check. The estimate is deliberately high (⌈chars ÷ 3⌉
+input tokens + `maxOutputTokens`), so reconciliation usually gives money back.
 
 ---
 
 ## 4. API contracts
 
-All routes are JSON unless noted. Errors use `{ error: { code, message, details? } }`.
-Every route except login needs a session. Mutating routes need the app `Origin`.
+JSON unless noted. Errors use `{ error: { code, message, details? } }`. Every
+route except login needs a session. Mutating routes need the app `Origin`.
+Bodies are validated with zod (DEC-2).
 
-### Auth (C17)
-| Method | Path | Notes |
-|---|---|---|
-| POST | `/api/auth/login` | `{email,password}` → sets cookie. 5 attempts/min per email+IP → 429 |
-| POST | `/api/auth/logout` | deletes the session |
-| GET | `/api/me` | `{id,name,role,simulated}` |
+| Method & path | Request | Success | Errors (code) |
+|---|---|---|---|
+| `POST /api/auth/login` | `{email, password}` | 204 + cookie | 401, 429 |
+| `POST /api/auth/logout` | — | 204 | — |
+| `GET /api/me` | — | `{id, name, simulated}` | 401 |
+| `GET /api/accounts` | — | `[{id, ref, company, plan, status}]` | — |
+| `GET /api/accounts/:id/facts` | — | `{asOf, facts[F#], empty[]}` (no `record`) | 400, 404 |
+| `POST /api/conversations` | `{accountId, question ≤2000}` | 201 `Conversation` | 400, 404, 409 `LOCKED`, 429 `QUOTA`, 502 `PROVIDER`, 503 `BUDGET` / `ACCOUNT_DATA_UNAVAILABLE` |
+| `POST /api/conversations/:id/replies` | `{text ≤1000}` | 201 `Conversation` | as above + 409 `NOT_AWAITING_CLARIFICATION`, `ALREADY_SAVED` |
+| `POST /api/conversations/:id/regenerate` | — | 201 `Conversation` | as above |
+| `GET /api/conversations?accountId&state` | — | `[{id, account, firstQuestion, state, flag, createdBy, createdAt}]` | — |
+| `GET /api/conversations/:id` | — | `Conversation` | 404 |
+| `PATCH /api/answers/:id` | `{editedText}` | 200 `Answer` | 400 `UNKNOWN_MARKER`, 409 `NOT_LATEST` / `ALREADY_SAVED` |
+| `POST /api/conversations/:id/review` | `{answerId, reviewAcknowledged}` | 201 `Reviewed` | 409 with the codes in §3.3 |
+| `GET /api/documents?q&category&archived` | — | list with active version, status, warnings | — |
+| `POST /api/documents` | multipart: file, title, category, effectiveAt, note | 201 | 400, 413, 409 |
+| `POST /api/documents/:id/versions` | multipart: file, effectiveAt, note | 201 | 400, 413, 409 `IN_FLIGHT` / `SAME_HASH` |
+| `GET /api/documents/:id` | — | versions (status, error, warnings, content from chunks) | 404 |
+| `POST /api/documents/:id/archive` · `/restore` | — | 204 | 404 |
+| `POST /api/documents/:id/versions/:vid/retry` | — | 202 | 409 `NOT_LATEST_FAILED` |
+| `GET /api/documents/:id/impact` | — | `{unsaved, saved}` | 404 |
+| `DELETE /api/documents/:id` | — | 204 | 404 |
+| `GET /api/documents/:id/versions/:vid/file` | — | bytes, `attachment`, `nosniff` | 404 |
 
-### Portal (customer only, always filtered by session user)
-| Method | Path | Notes |
-|---|---|---|
-| POST | `/api/portal/questions` | `{subject≤120, body≤2000}`; 20/UTC day → 429 |
-| GET | `/api/portal/questions` | own list `{id,subject,status:'received'|'answered',createdAt}` |
-| GET | `/api/portal/questions/:id` | own only, else 404; `answer` = stripped `final_text` when answered |
-
-### Agent: questions and drafts
-| Method | Path | Notes |
-|---|---|---|
-| GET | `/api/agent/questions?status=` | newest first; `{rows:[…, stale], unansweredCount}` |
-| GET | `/api/agent/questions/:id` | question + customer record (display) |
-| POST | `/api/agent/questions/:id/drafts` | generate; 409 locked/answered, 429 quota, 503 budget, 502 provider |
-| GET | `/api/agent/questions/:id/drafts/latest` | text, edited text, label, unknowns, conflicts (numbers), `stale`, `generating`, evidence cards, review (if answered) |
-| PATCH | `/api/agent/drafts/:id` | `{editedText}`; 400 on unknown `[n]`; 409 if not latest or answered |
-| POST | `/api/agent/questions/:id/approve` | `{draftId, conflictsAcknowledged}`; 409 + `code` per rule |
-
-The 409 `code`s (`GENERATING`, `NOT_LATEST`, `ANSWERED`, `EMPTY`, `STALE`,
-`CONFLICT_UNACKED`) drive the UI hints. The UI computes the same rules
-locally, but only for display.
-
-### Agent: knowledge base
-| Method | Path | Notes |
-|---|---|---|
-| GET | `/api/agent/documents?q=&category=&archived=` | list with active version and indexing status |
-| POST | `/api/agent/documents` | multipart: file, title, category, effectiveAt, changeNote |
-| POST | `/api/agent/documents/:id/versions` | multipart replace; 409 in-flight / same hash |
-| GET | `/api/agent/documents/:id` | versions (with status/error), content per version from chunks, citedBy |
-| POST | `/api/agent/documents/:id/versions/:vid/retry` | latest + failed only (C2) |
-| POST | `/api/agent/documents/:id/archive` · `/restore` | |
-| GET | `/api/agent/documents/:id/impact` | `{openDrafts, publishedAnswers}` |
-| DELETE | `/api/agent/documents/:id` | one transaction |
-| GET | `/api/agent/documents/:id/versions/:vid/file` | bytes; `attachment`, `nosniff` |
+`Conversation` = `{ id, account, turns[], answers: latest per turn, facts, evidence[{n, title, cat, v, eff, heading, page, text, status}], state, flag, generating, savedRecord? }`.
+The UI shows the server's 409 codes as hints. The client may pre-compute them
+for display, but the server decides.
 
 ---
 
 ## 5. Deep dive
 
-### 5.1 Data model notes (beyond §6)
-- **Circular FK:** `documents.active_version_id → document_versions(id) ON DELETE SET NULL`, added in a second migration step (C19).
-- **Latest draft** = `max(id)` per question. Supporting index: `answer_drafts(question_id, id desc)`.
-- **Quota index:** `answer_drafts(created_by, created_at)`. Budget index: `provider_calls(created_at)`.
-- **Inbox stale flag:** run the §6 stale `EXISTS` once per row, for the latest draft only. With fewer than 1k open questions this is a cheap correlated subquery, so no denormalised column is needed.
-- **Snapshot** (`answer_reviews.sources`) has plain ids, not FKs, so it survives deletes (C6).
-- **Vectors:** 768 × 4 B ≈ 3 KB per chunk. 10k chunks ≈ 30 MB, which is easily scanned exactly.
+### 5.1 Data model
 
-### 5.2 Server module layout
+```text
+employees 1─* sessions
+accounts 1─* account_features · payments · webhook_endpoints 1─* webhook_deliveries
+accounts 1─* conversations 1─* turns 1─* answers 1─* answer_sources *─0..1 document_chunks
+conversations 1─0..1 reviewed_answers (sources/facts as JSON snapshots, plain ids)
+documents 1─* document_versions 1─1 document_files
+                                1─* document_chunks
+documents.active_version_id ─▶ document_versions (SET NULL, added in a second step)
+provider_calls ─▶ employees / conversations / document_versions (nullable)
+budget_days (day PK)
+```
+
+- **Latest answer** = `max(answers.id)` per conversation; index `answers(conversation_id, id desc)`.
+- **State** is derived (§4.2, I1 precedence). It is computed in SQL for History, with one `LATERAL` join to the latest answer, and in TypeScript for single reads. A shared test checks that both give the same result.
+- **Staleness** is computed on read (§7.6), never stored, so there are no fan-out writes on activation.
+- **Snapshots** (`answers.facts_snapshot`, `reviewed_answers.sources/facts`) hold plain values, not FKs, so they survive deletes.
+- **Indexes:** `payments(account_id, occurred_at desc)`, `webhook_deliveries(endpoint_id, attempted_at desc)`, `conversations(account_id, created_at desc)`, `provider_calls(employee_id, created_at)` for the quota, `document_versions(indexing_status)` for the queue.
+- **Size:** 768 × 4 B ≈ 3 KB per chunk; 10k chunks ≈ 30 MB. Original files ≤ 3 MB each (D-5), so 200 documents × 3 versions stay under ~1.8 GB in the worst case and far less in practice. Account data is a few hundred rows.
+
+### 5.2 Account context
+
+- Three functions, each a parameterised `SELECT` in `BEGIN READ ONLY`. `accountId` comes from the conversation row, never from model output (CTX-02).
+- `buildAccountSnapshot` assigns `F1…Fn` in a fixed order (account → features → payments → webhooks). This is deterministic for the same data, so ids are stable across regenerations.
+- Derived values come from code: `days_since`, the first succeeded payment, minor-unit formatting, `consecutive_failures`, `last_success_at`, 7-day outcome counts.
+- `record` refs (table + id) stay server-side. They link fact chips to rows in the UI and are stripped from the prompt.
+- **Upgrade path (OPT-1):** the same three functions become the only tools. Tool calling changes *when* they run, not *what* they can read.
+
+### 5.3 Prompt and normalisation
+
+- Pure functions in `rag/prompt.ts` and `rag/normalise.ts`, ported from the prototype together with its tests.
+- The prompt has a fixed section order, and untrusted text sits inside explicit delimiters. Facts are never truncated; passages are dropped lowest rank first.
+- The PRM-01 test runs the prompt builder for all five accounts and checks that no company name, ref, URL host or employee identity appears.
+- Normalisation is the only path from model output to stored answer, so the save rules can trust its result: ids are valid, numbering is dense, and conflict sources are numbered.
+
+### 5.4 Concurrency control
+
+| Contention | Mechanism |
+|---|---|
+| Two generations on one conversation | T1 token lock (409); stale lock taken over after 2 min |
+| A taken-over request finishing late | T2 token check: the result is discarded |
+| Save vs generation / edit / reply | `conversations` row `FOR UPDATE` in each short transaction |
+| Save vs activation / archive / delete | documents `FOR SHARE` (save) vs `FOR UPDATE` (lifecycle) |
+| Double save | `FOR UPDATE` + unique `reviewed_answers.conversation_id` |
+| Two workers, one job | `FOR UPDATE SKIP LOCKED` |
+| Concurrent budget spend | single conditional upsert on `budget_days` |
+| Chunk deleted between retrieval and T2 | `answer_sources.chunk_id` resolved inside the insert (D-2) |
+
+### 5.5 Queue
+
+- Postgres is the queue: `indexing_status = 'queued'` is the job. Workers poll every 2 s; there's no LISTEN/NOTIFY.
+- One job per worker process. Throughput is dominated by embedding latency, and one worker is enough for the demo.
+- Retries are idempotent: partial chunks are deleted before re-running, and activation is a single transaction.
+
+### 5.6 Errors and the four kinds of "missing"
+
+| Situation | Where it's detected | Result |
+|---|---|---|
+| No matching record | snapshot `empty` section | gap `no_record`; never a negative product claim (ANS-08) |
+| DB failure building the context | `context/` throws | 503 `ACCOUNT_DATA_UNAVAILABLE`, no model call, state `failed` |
+| Provider 429/5xx/timeout | `llm/retry` | ≤ 2 retries with backoff + jitter within the deadline, then 502, state `failed` |
+| Provider 4xx / invalid JSON / truncated | `llm/` | no retry; 502 |
+| Docs don't establish it | model gap / outcome | `insufficient_evidence` or `documentation` gap |
+| Employee must supply it | model outcome | `clarification_required` (≤ 2 rounds) |
+| Budget reached | reservation | 503 `BUDGET` (API); version `failed` (worker) |
+| Extractor limit or crash | worker | version `failed` with a fixed message, never document text |
+
+### 5.7 Caching
+
+None. Embeddings are persisted, query embeddings are one-off, identical
+uploads are rejected by hash, and account snapshots are a handful of indexed
+reads. A cache would only add invalidation risk against the freshness rules.
+
+### 5.8 Security boundaries
+
+- **Trust boundaries:** browser → API (session, Origin, zod), API → model (no tools; the only output is zod-validated JSON), uploads → worker (sandboxed child, `env: {}`).
+- **Retrieval access** is decided in SQL. **Account access** is decided by the conversation row. The prompt decides neither.
+- **Output** is plain text rendered by React, with no Markdown or HTML.
+- **Logs** use an allow-list of fields, so question, answer, document and fact text never reach them (SEC-11).
+
+### 5.9 Module layout
+
 ```text
 server/src/
   api.ts  worker.ts  config.ts
   db/        schema.ts, client.ts, migrations/
-  http/      app.ts (buildApp), auth.ts (sessions, guards), errors.ts, origin.ts
-  routes/    auth.ts, portal.ts, agent-questions.ts, agent-drafts.ts, agent-kb.ts
-  rag/       retrieve.ts, prompt.ts, normalise.ts, label.ts, stale.ts
-  llm/       provider.ts (interface), gemini.ts, stub.ts, cost.ts, retry.ts
-  indexing/  extract-child.ts, extract.ts (spawn+limits), chunk.ts, run.ts (claim/activate)
+  http/      app.ts, auth.ts, origin.ts, errors.ts
+  routes/    auth.ts, accounts.ts, conversations.ts, answers.ts, documents.ts
+  context/   account.ts (3 read-only functions), snapshot.ts
+  rag/       retrieve.ts, prompt.ts, normalise.ts, state.ts, stale.ts
+  llm/       provider.ts, gemini.ts, stub.ts, retry.ts, budget.ts
+  indexing/  extract-child.ts, extract.ts, chunk.ts, run.ts
+server/fixtures/  accounts.ts, scripts.ts (stub), kb/*.md|pdf
+frontend/src/     existing prototype components + lib/api.js
 ```
-`rag/*` and `indexing/chunk.ts` are pure functions, so most tests need neither
-a database nor a provider.
 
-### 5.3 Queue design
-- **Postgres is the queue:** `indexing_status='queued'` is the job, claimed with `FOR UPDATE SKIP LOCKED`, and multiple workers are safe.
-- **Concurrency:** one job per worker process. Parse and embed time is dominated by network calls, so one worker is enough at demo scale.
-- **No LISTEN/NOTIFY:** polling every 2 s is simpler, and latency doesn't matter for indexing.
-- **Idempotency:** a retry deletes the version's chunks first, and activation happens in a single transaction, so a crash mid-job leaves either nothing or a fully active version.
-
-### 5.4 Error handling and retries
-| Failure | Behaviour |
-|---|---|
-| Gemini 429/5xx/timeout | ≤ 2 retries, exponential backoff (0.5 s, 1.5 s) + jitter; then fail |
-| Gemini 4xx / schema-invalid JSON / truncated (`MAX_TOKENS`) | no retry; fail |
-| Generation fails | no draft, status unchanged, lock cleared, `provider_calls.status='error'`; UI shows Retry |
-| Extraction limit hit | kill child; version `failed` with a fixed message (never document text) |
-| Worker crash mid-job | the sweeper marks it `failed` after 10 min; agent retries |
-| Budget reached | API 503 for generate; worker marks the version failed (C12) |
-| Duplicate approve | `FOR UPDATE` + unique key → second request 409 |
-
-### 5.5 Caching
-None in v1. The heavy objects are embeddings, which are already persisted.
-Query embeddings aren't cached, because questions are unique. Re-indexing is
-avoided by the identical-hash check. Delete has no caches to purge (§9).
-
-### 5.6 Security boundaries
-- **Retrieval filter in SQL** (active, non-archived, model match). The prompt never decides access.
-- **Model input:** passages plus `plan`, `profile`, `today` and `received_at`. Name, email, company and employee names are never sent (enforced by a test on the prompt builder).
-- **Parser sandbox:** child process, `env: {}`, 60 s, `--max-old-space-size`, `pdfjs-dist` with `isEvalSupported:false`.
-- **Output:** plain text only, rendered by React, with no Markdown or HTML.
-- **CSP** `default-src 'self'`; self-hosted fonts (C5).
+`context/snapshot.ts`, `rag/*` and `indexing/chunk.ts` are pure, so most
+tests need neither a database nor a provider.
 
 ---
 
 ## 6. Scale and reliability
 
-**Load estimate (demo / early pilot)**
+**Load estimate (demo / pilot)**
 
 | Quantity | Estimate | Implication |
 |---|---|---|
-| Agents | 2–10 | ≤ 300 drafts/day at quota |
-| Concurrent generations | ≤ 10 | 10 held HTTP requests; trivial for Node |
+| Employees | 2–10 | ≤ 500 generations/day at quota |
+| Concurrent generations | ≤ 10 | 10 held requests of ≤ ~100 s; trivial for Node |
+| Accounts | 5 (seed) → thousands | indexed per-account reads, independent of total |
 | KB | 7 → ~200 docs, ≤ 10k chunks | exact scan < 50 ms |
-| Questions | ≤ 1k/day | single Postgres, no partitioning |
-| Spend | ≤ $5/day cap | hard stop in the API and worker |
+| Spend | ≤ $5/day | hard stop at reservation |
 
-**Scaling path:** scale vertically first. The API is stateless (sessions live
-in the DB), so it can run several replicas behind a proxy. Workers scale
-horizontally because of `SKIP LOCKED`. The single point of failure is
-Postgres, which is acceptable for a demo; managed Postgres with PITR is the
-first upgrade.
+**Scaling path:** the API is stateless (sessions live in Postgres), so run more
+replicas behind a proxy. Workers scale out because of `SKIP LOCKED`. Postgres
+is the single point of failure; managed Postgres with point-in-time recovery is
+the first upgrade.
 
-**Monitoring:**
-- Structured logs (allow-list fields only).
-- `provider_calls` is the metrics source: p95 latency, error rate, daily cost and tokens per draft, queryable with SQL.
-- Alerts (pilot): budget at 80%, generation error rate > 10%/hour, a version stuck in queued for more than 5 min, plus the Google Cloud budget alert (§8).
+**Monitoring.** `provider_calls` is the metrics source: p95 latency, error rate,
+cost per day and per generation, tokens per call. Add structured logs from the
+allow-list. Alerts for a pilot:
+- budget at 80%;
+- generation error rate > 10% per hour;
+- a version queued for more than 5 minutes;
+- reservations stuck in `reserved` for more than 10 minutes (a crashed request);
+- the Google Cloud budget alert.
 
 ---
 
@@ -268,33 +350,46 @@ first upgrade.
 
 | Decision | Chosen | Alternative | Why / cost |
 |---|---|---|---|
-| Generation mode | synchronous request | job + polling / streaming | Simplest UX and code; costs a held connection up to ~65 s worst case. Streaming is out of scope (§1) |
-| Queue | Postgres `SKIP LOCKED` | Redis/BullMQ, SQS | No new infra; adequate to thousands of jobs/day. Lacks delayed jobs and backpressure tooling |
-| Files | `bytea` in Postgres | S3 + presigned URLs | Private by default, deleted transactionally; DB size grows (10 MB × versions). Revisit beyond about 1 GB |
-| Vector search | exact scan, no index | HNSW | Exact recall and correct filtering (no post-filter loss); O(n) per query. Fine to ~50k chunks |
-| Citations | parsed from `[S#]` markers in text | separate citation array | Text and citations can't disagree; requires a normaliser and C1 for uncited conflict sources |
-| Staleness | computed on read (SQL `EXISTS`) | flag set on activation | No fan-out writes or drift; a small per-row query cost |
-| Approve = publish | single step | approve then send | Fewer states; no undo after approval (consistent with "no editing published answers") |
-| Auth | own sessions + argon2id | OAuth/IdP | No external dependency for seeded users; SSO is out of scope |
-| Provider | single (Gemini) behind an interface + stub | multi-provider | Stub needed for tests anyway; a second real provider is YAGNI |
-| Frontend state | fetch + hooks | React Query / Redux | Per §10. Polling and refetch are hand-written; revisit if cache bugs appear |
+| Account context | prefetched bounded snapshot | model-selected tool calls | One model call, predictable cost and latency, easy to test. It can include unneeded facts; the bounds keep that under ~1,500 tokens. Tool calling is OPT-1 |
+| Account facts in retrieval | relational only | embed account rows | Exact values and explicit "no record"; similarity search would blur amounts and dates |
+| Generation | synchronous request | job + polling / streaming | Simplest code and UX; holds a connection up to the deadline |
+| Locking | ownership token + short transactions | one long transaction around the model call | No DB connection held for seconds; needs the T2 token check |
+| Budget | atomic upsert reservation | sum of `provider_calls` before the call | Correct under concurrency; reconciliation adds one write per call |
+| Conflict handling | show both, require acknowledgement | precedence rule (non-FAQ / newest wins) | No false certainty; the employee does more work on conflicts |
+| Staleness | computed on read | flag written on activation | No drift or fan-out; a small `EXISTS` per row |
+| Citations | markers parsed from text | separate citation list | Text and citations can't disagree; needs the normaliser |
+| Queue | Postgres `SKIP LOCKED` | Redis/BullMQ | No new infrastructure; lacks delayed jobs and backpressure tooling |
+| Files | `bytea` in Postgres, ≤ 3 MB each | object storage | Private and deleted in the same transaction; the 3 MB cap keeps rows small and DB growth predictable |
+| Vector search | exact scan | HNSW | Exact recall and correct filtering; O(n) per query |
+| Validation | zod everywhere | Fastify JSON Schema | One schema language for routes, function args and model output |
+| Simulated mode | stub provider with scripts | none | Demo and tests without a key; must stay clearly labelled |
 
 ---
 
 ## 8. What to revisit as it grows
 
-1. **Chunks above ~50k:** add HNSW with `hnsw.iterative_scan` (§10) and keep a recall check in `pnpm eval`.
-2. **Files above ~1 GB, or large PDFs:** move `document_files` to object storage with presigned URLs.
-3. **Generation p95 over target or held connections at scale:** move to job + polling (reusing the worker) or to streaming.
-4. **More than one tenant:** add `workspaces`, memberships and a tenant filter in retrieval SQL (§6 "Changes from v1").
-5. **Real customer data:** a GDPR/DPA assessment and region pinning (Vertex AI), per §9.
-6. **Label quality:** if the "any unknown means missing_evidence" rule causes misses in eval, tighten the prompt first and the rule second.
-7. **Ops:** if `provider_calls` SQL dashboards aren't enough, export metrics (OpenTelemetry) instead.
+1. **Snapshot misses or bloat** (eval shows facts the model needed but didn't get): move to OPT-1 tool calling over the same three functions.
+2. **More than ~50k chunks:** HNSW with `hnsw.iterative_scan`, plus a recall check in `pnpm eval`.
+3. **Writable account data:** fact staleness (OPT-8). Store record versions in the snapshot and flag saved answers like document sources.
+4. **Generation p95 over target or many held connections:** job + polling on the existing worker, or streaming (OPT-2).
+5. **Files above ~1 GB:** object storage with presigned URLs.
+6. **Multiple tenants:** `workspaces`, memberships, and a tenant filter in the retrieval and account SQL.
+7. **Real customer data:** a GDPR/DPA assessment, region pinning (Vertex AI) and PII scrubbing of free text before the model call.
+8. **Ops beyond SQL dashboards:** OpenTelemetry metrics and traces.
 
 ---
 
-## 9. Open items
+## 9. Design decisions
 
-- C1–C20 in `TASKS.md` need approval (T00).
-- C10: verify the `gemini-embedding-2` input format, dimensions and normalisation, and the generation model id and thinking config, against current `@google/genai` docs (T11 spike).
-- Calibrate `RETRIEVAL_MIN_SCORE` and choose the model in `pnpm eval` (T27).
+D-1 to D-4 were folded into REQ_V2 on 3 Oct 2026 (GEN-04, GEN-05, COST-04, LCK-02). D-5 is pending approval.
+
+| # | Gap | Decision |
+|---|---|---|
+| D-1 | **Worst case exceeds the lock.** Embedding (3 attempts × 20 s) plus generation (3 × 20 s) plus backoff ≈ 125 s, which is more than the 2-minute lock expiry. A second request could take over while the first is still spending. Correctness holds (the T2 token check), but money is wasted. | Query-embedding timeout 10 s, generation timeout 20 s, and an **overall request deadline of 90 s**: no new attempt starts after it. Worst case ≈ 90 s + one 20 s attempt in flight = 110 s < 120 s lock. → GEN-04 |
+| D-2 | **A chunk deleted between retrieval and T2** makes the `answer_sources` FK insert fail, so the generation fails for no good reason. | Insert `chunk_id` as `(SELECT id FROM document_chunks WHERE id = :id)`. A vanished chunk becomes null, and the answer is immediately flagged "Source updated" (cards show "Source deleted"). → GEN-05 |
+| D-3 | **Reservation rows left `reserved`** after a crash are never reconciled. | Keep the estimate charged (conservative). The worker's sweeper marks `reserved` rows older than 10 minutes as `error` with code `abandoned`, without changing `budget_days`. → COST-04 |
+| D-4 | Every mutating conversation route must serialise on the same row. | T1, T2, edit, reply and save each start with `SELECT … FROM conversations WHERE id = :id FOR UPDATE`. → LCK-02 |
+| D-5 | **Upload size.** REQ_V2 allows 10 MB, far more than the KB needs. Large files also mean large `bytea` rows, slower uploads and more parsing memory in the sandbox. | **≤ 3 MB per file.** That covers a 100-page text PDF (usually 1–2.5 MB with embedded fonts) and the 300,000-character Markdown limit (≤ ~1.2 MB in UTF-8). Enforced by Fastify multipart `limits.fileSize = 3 MiB` → 413 `FILE_TOO_LARGE`. The upload dialog checks `file.size` first and shows "Files must be 3 MB or smaller". The page and character limits are unchanged. Needs REQ_V2 IDX-01 / §10 and TASKS T12 updated (11 MB test → 3.1 MB). |
+
+**Open items carried from TASKS.md:** I1–I7 (approval at T00); DEC-5 embedding
+format spike (T10); calibration of `RETRIEVAL_MIN_SCORE` and the model (T27).

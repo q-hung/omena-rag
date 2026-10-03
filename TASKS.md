@@ -22,6 +22,11 @@ replace its data source with the API, and port its rules to the server.
 Status: **proposed, needs approval**. Each one is the smallest change that
 unblocks coding and adds no scope. Once approved, T00 adds them to REQ_V2.
 
+Already folded into REQ_V2 (3 Oct 2026), from `docs/DESIGN.md` §9: D-1 request
+deadline (GEN-04), D-2 deleted chunk in T2 (GEN-05), D-3 abandoned
+reservations (COST-04), D-4 conversation row lock (LCK-02). D-5 (3 MB upload
+limit) is still pending.
+
 | # | Issue | Where | Proposed resolution |
 |---|---|---|---|
 | I1 | The state table doesn't say which state wins when an `insufficient_evidence` answer also has review reasons. | §4.2 | `needs_review` wins (precedence: generating, saved, failed, awaiting_clarification, out_of_scope, needs_review, insufficient_evidence, answer_ready). The prototype already does this. |
@@ -182,8 +187,9 @@ unblocks coding and adds no scope. Once approved, T00 adds them to REQ_V2.
 - **Acceptance:**
   - `embedDocuments` (one `Content` per chunk), `embedQuery` and `generate`:
     - structured output with the §7.4 schema, validated by zod;
-    - lowest thinking level, `maxOutputTokens` 2,048, 20 s timeout;
+    - lowest thinking level, `maxOutputTokens` 2,048, 20 s timeout for `generate` and 10 s for `embedQuery`;
     - ≤ 2 retries on 429/5xx/timeout, with backoff and jitter;
+    - every call takes a `deadline`; no attempt starts after it (GEN-04);
     - a truncated response counts as a failure.
   - Text formats live only in `formatDocumentForEmbedding` and `formatQueryForEmbedding`.
   - The stub returns deterministic embeddings and the scripted results from `server/fixtures/scripts.ts` (moved from the prototype).
@@ -192,13 +198,14 @@ unblocks coding and adds no scope. Once approved, T00 adds them to REQ_V2.
   - 500 → 500 → 200 makes 3 attempts;
   - a 400 makes 1 attempt;
   - a truncated response throws;
-  - a malformed JSON response throws.
+  - a malformed JSON response throws;
+  - with a deadline 1 s away and a hanging first attempt, no retry starts after the deadline.
 
   Spike, manual: `LLM_PROVIDER=gemini pnpm --filter server exec tsx scripts/smoke-embed.ts` prints 768.
 
 ### [ ] T11 · Budget reservation, reconciliation and quota
 - **Goal:** every paid call is reserved atomically and then reconciled.
-- **Refs:** §10, COST-01–03.
+- **Refs:** §10, COST-01–04.
 - **Depends:** T03, T10.
 - **Acceptance:**
   - Reservation: the `budget_days` conditional upsert plus a `provider_calls` row (`reserved`, `estimated_cost_usd`), in one short transaction, before each attempt.
@@ -206,11 +213,13 @@ unblocks coding and adds no scope. Once approved, T00 adds them to REQ_V2.
   - Reconciliation: actual tokens and `cost_usd` come from usage metadata; `budget_days` is adjusted by actual − estimate. When usage is unknown, the estimate stays charged.
   - `purpose` is `app`, `indexing` or `eval`. No prompt or response text is stored.
   - Quota: 50 first-attempt `generate` rows per employee per UTC day → 429.
+  - `sweepAbandonedReservations()`: `reserved` rows older than 10 minutes → `error` / `abandoned`; `budget_days` unchanged (COST-04). Run by the worker loop (T15).
 - **Verify:** `pnpm --filter server test budget`. The test covers:
   - $0.01 left and two concurrent $0.008 reservations → exactly one succeeds;
   - a retry sequence creates one row per attempt;
   - a timeout keeps the estimate;
-  - the 51st generation returns 429.
+  - the 51st generation returns 429;
+  - a 15-minute-old `reserved` row becomes `abandoned` and `budget_days` doesn't change.
 
 ## Phase 5 — Knowledge base (M5)
 
@@ -275,6 +284,7 @@ unblocks coding and adds no scope. Once approved, T00 adds them to REQ_V2.
   - Errors → `failed` with a short message that contains no document text.
   - A retry deletes partial chunks first.
   - Versions in `processing` for more than 10 minutes → `failed`.
+  - Each loop also runs `sweepAbandonedReservations()` (T11).
   - Budget reached → `failed` with "Daily budget reached — retry later".
 - **Verify:** `pnpm --filter server test worker`. The test covers:
   - a failed v3 leaves v2 active;
@@ -360,12 +370,12 @@ unblocks coding and adds no scope. Once approved, T00 adds them to REQ_V2.
 
 ### [ ] T21 · Conversations API and generation flow
 - **Goal:** `POST /api/conversations` produces a saved answer or changes nothing.
-- **Refs:** §7.1, WF-01, GEN-01–03, CTX-05, §17b.
+- **Refs:** §7.1, WF-01, GEN-01–05, LCK-02, CTX-05, §17b.
 - **Depends:** T09, T11, T19, T20.
 - **Acceptance:**
-  - **T1:** quota check, lock with a `generation_token` (409 if held), and insert the turn.
-  - **Outside any transaction:** snapshot (abort on `account_data_unavailable` → 503), embed, retrieve, prompt, generate, normalise.
-  - **T2:** the token must still match (else 409 and discard), then insert the answer and `answer_sources` and clear the lock.
+  - **T1:** `SELECT … FOR UPDATE` on the conversation, quota check, lock with a `generation_token` (409 if held), and insert the turn.
+  - **Outside any transaction:** snapshot (abort on `account_data_unavailable` → 503), embed, retrieve, prompt, generate, normalise. A 90 s deadline from T1's commit is passed to every provider call (GEN-04).
+  - **T2:** `SELECT … FOR UPDATE` on the conversation; the token must still match (else 409 and discard), then insert the answer and `answer_sources` (each `chunk_id` resolved inside the insert, GEN-05) and clear the lock.
   - Failure: no answer saved, lock cleared only if the token matches, error recorded.
   - `POST /api/conversations/:id/regenerate` re-runs the latest turn.
   - `GET /api/conversations/:id` returns turns, the latest answer per turn, facts, evidence cards with status badges, flags and the derived state (I1).
@@ -374,7 +384,9 @@ unblocks coding and adds no scope. Once approved, T00 adds them to REQ_V2.
   - an expired, taken-over lock can't save or clear the new owner's lock;
   - a stub failure leaves the answer count unchanged and the state `failed`;
   - zero passages still calls the model;
-  - while a stubbed generate call is blocked, archiving a cited document completes immediately (GEN-01).
+  - while a stubbed generate call is blocked, archiving a cited document completes immediately (GEN-01);
+  - with every stubbed attempt hanging, the request fails within 110 s and makes no attempt after 90 s (GEN-04);
+  - deleting a retrieved document before T2 still saves the answer, with a null `chunk_id` and the "Source updated" flag (GEN-05).
 
 ### [ ] T22 · Ask workspace on the API
 - **Goal:** the prototype's three panes driven by the API.
@@ -394,7 +406,7 @@ unblocks coding and adds no scope. Once approved, T00 adds them to REQ_V2.
 - **Depends:** T21.
 - **Acceptance:**
   - `POST /api/conversations/:id/replies {text}` (1–1,000 chars) is allowed only when the latest outcome is `clarification_required` (otherwise 409).
-  - The reply is a new turn, so the account and prior turns are kept.
+  - The reply is inserted in T1, under the conversation row lock (LCK-02), as a new turn, so the account and prior turns are kept.
   - The next prompt includes the conversation so far, and the retrieval query is turn 1 plus the latest reply.
 - **Verify:** `pnpm --filter server test clarify`: a reply on an `answer_ready` conversation → 409. Manually: S2b ends in Needs review with Exception unclear, and the account is unchanged.
 
@@ -404,6 +416,7 @@ unblocks coding and adds no scope. Once approved, T00 adds them to REQ_V2.
 - **Depends:** T21.
 - **Acceptance:**
   - `PATCH /api/answers/:id {editedText}`:
+    - runs under `SELECT … FOR UPDATE` on the conversation (LCK-02);
     - only on the latest answer of an unsaved conversation;
     - every `[n]` and `[F#]` must exist in the answer (else 400);
     - `answer_text` never changes.
@@ -412,7 +425,7 @@ unblocks coding and adds no scope. Once approved, T00 adds them to REQ_V2.
 
 ### [ ] T25 · Save reviewed answer, locking and staleness
 - **Goal:** the API enforces every save rule, under document-lifecycle locks.
-- **Refs:** ANS-04, ANS-05, ANS-06, LCK-01, STL-01, §7.5, §7.6, SC-3.
+- **Refs:** ANS-04, ANS-05, ANS-06, LCK-01, LCK-02, STL-01, §7.5, §7.6, SC-3.
 - **Depends:** T16, T24.
 - **Acceptance:**
   - `POST /api/conversations/:id/review {answerId, reviewAcknowledged}` returns 409 for:
@@ -421,12 +434,14 @@ unblocks coding and adds no scope. Once approved, T00 adds them to REQ_V2.
     - empty text;
     - a stale source;
     - review reasons without acknowledgement.
-  - One transaction takes `FOR SHARE` on the cited documents (ordered by id), runs the stale check, and inserts `reviewed_answers` with the source snapshot (`document_id`, `version_id`, …) for the markers left in the text, plus the facts snapshot.
+  - One transaction takes `FOR UPDATE` on the conversation (LCK-02), then `FOR SHARE` on the cited documents (ordered by id), runs the stale check, and inserts `reviewed_answers` with the source snapshot (`document_id`, `version_id`, …) for the markers left in the text, plus the facts snapshot.
   - Staleness flags use the two §7.6 queries and are included in conversation reads.
 - **Verify:** `pnpm --filter server test review`. The test covers:
   - each 409 case;
   - two concurrent saves → one 200 and one 409;
   - a save racing an activation of a cited document never commits a stale save;
+  - a save racing an edit either includes the edit or makes the edit return 409 `ALREADY_SAVED` (LCK-02);
+  - a save racing T2 either sees the new answer as latest or returns 409 `NOT_LATEST`;
   - delete after save keeps the snapshot, and the flag shows "Source changed — recheck";
   - restore clears an archive flag.
 
