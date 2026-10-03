@@ -2,9 +2,10 @@
 
 Internal Product Support Copilot. Source of truth: `REQ_V2.MD`, `TASKS.md`.
 
-## Done (T00–T11)
+## Done (T00–T18)
 
-Phases 0–4. Employees can sign in and see live account facts. The provider and budget modules exist but nothing in the Ask flow calls them yet.
+Phases 0–5. Employees can sign in, see live account facts, and manage the
+knowledge base on the API. Ask / History still use the prototype.
 
 | Area | Where |
 |---|---|
@@ -12,45 +13,46 @@ Phases 0–4. Employees can sign in and see live account facts. The provider and
 | Accounts | `GET /api/accounts`, `GET /api/accounts/:id/facts` |
 | Provider | `server/src/llm/` — `createProvider(config)` |
 | Budget | `server/src/llm/budget.ts` — `reserve`, `reconcile`, `paidAttempt`, `sweepAbandonedReservations` |
-| Stub scripts | `server/fixtures/scripts.ts` |
+| Upload | `POST /api/documents`, `POST /api/documents/:id/versions` |
+| Extract / chunk | `server/src/extract.ts` (child), `server/src/chunk.ts` |
+| Worker | `pnpm worker` / `pnpm worker --once` |
+| KB API | list, detail, archive, restore, retry, impact, file, `GET /api/documents/indexing-status` |
+| KB UI | `frontend/src/hooks/useDocuments.js` |
 
 ## Run
 
 ```bash
-pnpm db:migrate && pnpm seed
+pnpm db:migrate && pnpm seed && pnpm worker --once
 pnpm dev          # API :8080, UI http://localhost:5173
+pnpm worker       # leave running to index uploads
 ```
 
 Login: `ada@omena.example` or `rei@omena.example` / `jarvis-demo` (from `SEED_EMPLOYEE_PASSWORD`). Open **5173** only — `APP_ORIGIN` rejects other ports.
 
 ```bash
 pnpm --filter server test
-pnpm --filter server test provider
-pnpm --filter server test budget
-pnpm --filter server smoke-embed          # stub: prints 768
-LLM_PROVIDER=gemini pnpm --filter server smoke-embed   # needs GEMINI_API_KEY
+pnpm --filter server test upload extract chunk worker kb
 ```
 
-## Provider and budget
+After seed + worker: 6 documents Ready (SSO guide warned about page 2) and Failed payment retries Failed (`No page has a text layer. OCR isn't supported.`). `refund-policy-v3.md` is in `server/fixtures/kb/` but is not seeded.
 
-- `LLM_PROVIDER=stub|gemini`. Tests force stub (`server/test/env.ts`).
-- Formats live only in `formatDocumentForEmbedding` / `formatQueryForEmbedding`.
-- Gemini generate: JSON §7.4, `maxOutputTokens` 2048, `thinkingBudget: 0`, 20 s; embedQuery 10 s. ≤ 2 retries. No attempt after `deadline`.
-- Each paid attempt: `paidAttempt` upserts `budget_days` then inserts `provider_calls` (`reserved`). Reconcile sets tokens/`cost_usd` from usage, or leaves the estimate on timeout. No prompt or response text is stored.
-- 50 first-attempt `generate` rows per employee per UTC day → 429 `GENERATION_QUOTA`. Over daily cap → 429 `budget_reached`.
-- `sweepAbandonedReservations()` marks `reserved` rows older than 10 minutes as `error`/`abandoned` and does not touch `budget_days`. Call it from the worker loop (T15).
-- T21 should call `paidAttempt` once per attempt. `createProvider().generate` still retries internally and must not be wrapped as a single reservation.
+## Knowledge base
+
+- Multipart fields: `file`, `title`, `category`, `effectiveDate`, `note`. Limit 3 MiB (`FILE_TOO_LARGE`).
+- Extractor child: 60 s, `--max-old-space-size=256`, empty `process.env`. `pdfjs-dist` 6 has no `isEvalSupported` flag; eval is off.
+- Worker claims with `FOR UPDATE SKIP LOCKED`. One `embed_document` reservation per version. Activation locks the document row and promotes only a higher `version_number` (KB-05). Each loop sweeps abandoned reservations and stale `processing` rows (> 10 min).
+- Budget reached while embedding → version `failed` with "Daily budget reached — retry later".
+- UI polls `/api/documents/indexing-status` every 3 s while anything is queued or processing.
 
 ## Next
 
-**T12** — document upload and replace API.
+**T19** — retrieval (access filter in SQL).
 
-Then T13–T18 (extract / chunk / worker / KB UI), T19–T22 (retrieve / prompt / conversations / Ask), T23–T26 (review + History), T27–T29 (eval / Docker / release).
+Then T20–T22 (prompt / conversations / Ask), T23–T26 (review + History), T27–T29 (eval / Docker / release).
 
 ## Limits
 
-- Ask / History / KB UI still read `frontend/src/data/jarvis.js`.
-- Worker does not run the abandoned-reservation sweep yet (T15).
+- Ask / History still read `frontend/src/data/jarvis.js`.
 - Conversations do not call the provider or reserve budget (T21).
 - Smoke-embed against Gemini is manual; CI never calls Gemini.
-- Node 26 strip-only mode: no constructor parameter properties.
+- Node 26 strip-only mode: no constructor parameter properties; no top-level `return` in `.ts` scripts.

@@ -4,6 +4,8 @@ import { db } from '../src/db/index.ts';
 import {
   accountFeatures,
   accounts,
+  documentVersions,
+  documents,
   employees,
   payments,
   webhookDeliveries,
@@ -80,6 +82,23 @@ describe('seed', () => {
       .from(webhookEndpoints)
       .where(eq(webhookEndpoints.accountId, account!.id));
     expect(endpoints).toHaveLength(0);
+  });
+
+  it('queues the §6.4 knowledge base and leaves refund-policy-v3 unseeded', async () => {
+    const rows = await db().select().from(documents).orderBy(asc(documents.title));
+    expect(rows.map((r) => r.title)).toEqual([
+      'Billing FAQ',
+      'Failed payment retries',
+      'Payment methods and regions',
+      'Plan comparison',
+      'Refund policy',
+      'SSO setup guide',
+      'Webhooks developer guide',
+    ]);
+    const versions = await db().select().from(documentVersions);
+    expect(versions).toHaveLength(7);
+    expect(versions.every((v) => v.indexingStatus === 'queued')).toBe(true);
+    expect(versions.some((v) => v.originalFilename === 'refund-policy-v3.md')).toBe(false);
   });
 
   it('is deterministic for a given D (ACC-01)', async () => {

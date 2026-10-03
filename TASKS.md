@@ -228,7 +228,7 @@ limit) is folded in too (IDX-01, T12, T18).
 
 ## Phase 5 — Knowledge base (M5)
 
-### [ ] T12 · Upload and replace API
+### [x] T12 · Upload and replace API
 - **Goal:** queue new documents and versions.
 - **Refs:** KB-03, KB-04, IDX-01, §6.2 step 1.
 - **Depends:** T06, T03.
@@ -250,7 +250,9 @@ limit) is folded in too (IDX-01, T12, T18).
   - a duplicate hash → 409;
   - a replace while another version is queued → 409.
 
-### [ ] T13 · Sandboxed extractors
+  Multipart fields: `file`, `title`, `category`, `effectiveDate`, `note`. 409 codes: `INDEXING_IN_PROGRESS`, `DUPLICATE_HASH`.
+
+### [x] T13 · Sandboxed extractors
 - **Goal:** isolated extraction that tolerates blank pages.
 - **Refs:** §6.2 step 3, IDX-02, IDX-03.
 - **Depends:** T01.
@@ -269,14 +271,16 @@ limit) is folded in too (IDX-01, T12, T18).
   - the child's `process.env` is empty;
   - a `#` inside a fence isn't a heading.
 
-### [ ] T14 · Chunker
+  Child is `spawn` with `env: {}` and `--max-old-space-size=256`; it then deletes leftover Darwin keys so `process.env` is empty. `pdfjs-dist` 6 dropped `isEvalSupported` (eval is permanently off); we still pass `false`.
+
+### [x] T14 · Chunker
 - **Goal:** passages sized for retrieval.
 - **Refs:** §6.2 step 4.
 - **Depends:** T13.
 - **Acceptance:** one chunk per Markdown section or PDF page; chunks over ~500 estimated tokens (chars ÷ 4) are split at paragraph boundaries; each chunk keeps its heading path ("A > B") and page.
 - **Verify:** `pnpm --filter server test chunk`: a 3,000-char section splits on a blank line; nested headings give "A > B".
 
-### [ ] T15 · Indexing worker
+### [x] T15 · Indexing worker
 - **Goal:** queued versions become active, or fail without side effects.
 - **Refs:** §6.2 steps 2 and 5–7, KB-05, KB-06, IDX-04, §7.5.
 - **Depends:** T10, T11, T12, T14.
@@ -298,7 +302,9 @@ limit) is folded in too (IDX-01, T12, T18).
   - after a retry, the chunk count equals the new chunks only;
   - a stale `processing` version becomes `failed`.
 
-### [ ] T16 · KB management API
+  `pnpm worker --once` drains the queue then exits. One `embed_document` reservation covers the version's chunks.
+
+### [x] T16 · KB management API
 - **Goal:** list, inspect, archive, delete, download and retry.
 - **Refs:** KB-01, KB-06–09, §7.5, §17b.
 - **Depends:** T15.
@@ -316,7 +322,9 @@ limit) is folded in too (IDX-01, T12, T18).
   - after delete, no versions, files or chunks remain and reviewed answers are unchanged;
   - an unauthenticated download → 401.
 
-### [ ] T17 · KB fixtures and seed indexing
+  `archived=1` includes archived documents. `GET /api/documents/indexing-status` returns `{ busy }` for the UI poller.
+
+### [x] T17 · KB fixtures and seed indexing
 - **Goal:** `pnpm seed` reproduces the §6.4 knowledge base.
 - **Refs:** §6.4.
 - **Depends:** T15, T04.
@@ -329,7 +337,9 @@ limit) is folded in too (IDX-01, T12, T18).
   - Effective dates are relative to D. The seed queues every version.
 - **Verify:** `pnpm seed && pnpm worker --once` → 6 documents Ready (SSO guide with one warning) and 1 Failed with "No page has a text layer". Running it twice gives the same result.
 
-### [ ] T18 · KB UI on the API
+  Covered by `pnpm --filter server test worker` (seed + `runWorker({ once: true })`).
+
+### [x] T18 · KB UI on the API
 - **Goal:** the prototype KB views on real data.
 - **Refs:** KB-01–09, §14 (3 s polling).
 - **Depends:** T07, T16, T17.
@@ -341,6 +351,10 @@ limit) is folded in too (IDX-01, T12, T18).
   - Delete shows the `/impact` counts.
   - Download links to the file endpoint.
 - **Verify:** manual with the stub provider and `pnpm worker` running: upload a `.md`, watch Queued → Processing → Ready without reloading, then delete it and see the counts in the confirmation.
+
+  Ask / History still use `useJarvis` prototype data. KB views use `useDocuments`.
+
+
 
 ## Phase 6 — Generation (M6)
 

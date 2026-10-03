@@ -9,15 +9,10 @@ import DocRow, { DOC_COLS } from './DocRow';
 const CATS = ['All', 'Plans', 'Policies', 'FAQ', 'Billing', 'Security', 'Developer'];
 
 export default function KnowledgeBaseView({ app }) {
-  const { state: s, set } = app;
-  const openUpload = () => set({ dialog: { type: 'upload' } });
-  const hasDocs = s.docs.length > 0;
-  const term = s.kbSearch.trim().toLowerCase();
-  const rows = s.docs.filter((d) =>
-    (s.showArchived || !d.archived) &&
-    (s.kbCat === 'All' || d.cat === s.kbCat) &&
-    (!term || d.title.toLowerCase().includes(term) || d.versions.some((v) => v.ps.some((p) => `${p.h} ${p.t}`.toLowerCase().includes(term)))),
-  );
+  const kb = app.kb;
+  const openUpload = () => kb.setDialog({ type: 'upload' });
+  const rows = kb.docs;
+  const hasDocs = kb.raw.length > 0 || kb.q || kb.cat !== 'All' || kb.showArchived;
 
   return (
     <Page>
@@ -41,16 +36,16 @@ export default function KnowledgeBaseView({ app }) {
         <>
           <div className="flex flex-wrap items-end gap-4">
             <div className="w-80">
-              <Input placeholder="Search titles and content" value={s.kbSearch} onChange={(e) => set({ kbSearch: e.target.value })} />
+              <Input placeholder="Search titles and content" value={kb.q} onChange={(e) => kb.setQ(e.target.value)} />
             </div>
             <div className="flex flex-wrap gap-2">
               {CATS.map((c) => (
-                <Tag key={c} selected={s.kbCat === c} onClick={() => set({ kbCat: c })}>{c}</Tag>
+                <Tag key={c} selected={kb.cat === c} onClick={() => kb.setCat(c)}>{c}</Tag>
               ))}
             </div>
             <Checkbox
-              checked={s.showArchived}
-              onChange={() => set((st) => ({ showArchived: !st.showArchived }))}
+              checked={kb.showArchived}
+              onChange={() => kb.setShowArchived(!kb.showArchived)}
               className="ml-auto h-11 gap-2 text-sm"
             >
               Show archived

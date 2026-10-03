@@ -1,5 +1,6 @@
 // Demo date D (REQ §5.2). Every date in the prototype is relative to it.
 export const D = '2026-10-02';
+export const utcToday = () => new Date().toISOString().slice(0, 10);
 
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const DAY = 864e5;

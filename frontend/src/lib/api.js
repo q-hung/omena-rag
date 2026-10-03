@@ -8,12 +8,12 @@ export class ApiError extends Error {
   }
 }
 
-export async function api(path, { method = 'GET', body } = {}) {
+export async function api(path, { method = 'GET', body, form } = {}) {
   const res = await fetch(`/api${path}`, {
     method,
     credentials: 'same-origin',
-    headers: body === undefined ? undefined : { 'content-type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    headers: form ? undefined : (body === undefined ? undefined : { 'content-type': 'application/json' }),
+    body: form ?? (body === undefined ? undefined : JSON.stringify(body)),
   });
   if (res.status === 204) return null;
   const data = await res.json().catch(() => null);

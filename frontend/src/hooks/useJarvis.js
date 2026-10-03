@@ -235,6 +235,6 @@ export function useJarvis() {
     state, set, employee: EMPLOYEE,
     clear, selectAccount, newQuestion, openConv,
     ask, reply, regenerate, startEdit, cancelEdit, saveEdit, copy, toggleAck, save,
-    retry, impact, confirmDialog, toggleArchive,
+    retry, impact, confirmDialog, toggleArchive, toast,
   };
 }

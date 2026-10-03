@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { History, Library, MessageSquare } from 'lucide-react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useDocuments } from './hooks/useDocuments';
 import { useJarvis } from './hooks/useJarvis';
 import { useSession } from './hooks/useSession';
 import Sidebar from './components/Sidebar';
@@ -44,25 +45,23 @@ function Shell({ session, onSignOut }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { state: s, set } = proto;
+  const kb = useDocuments({ onToast: proto.toast });
 
   // The prototype views navigate through `app`; route those calls through the URL.
   const app = {
     ...proto,
+    kb,
     go: (view) => { proto.clear(); navigate(`/${view}`); },
     openDoc: (id, v) => { set({ selDocV: v ?? null }); navigate(`/kb/${id}`); },
     openConv: (id) => { proto.openConv(id); navigate('/ask'); },
-    confirmDialog: (form) => {
-      const wasDelete = s.dialog?.type === 'delete';
-      proto.confirmDialog(form);
-      if (wasDelete && pathname.startsWith('/kb/')) navigate('/kb');
-    },
+    onDeleted: () => { if (pathname.startsWith('/kb/')) navigate('/kb'); },
   };
 
   const section = pathname.split('/')[1];
   const nav = [
     { label: 'Ask', icon: MessageSquare, count: '', active: section === 'ask', onClick: () => app.go('ask') },
     { label: 'History', icon: History, count: s.conversations.length, active: section === 'history', onClick: () => app.go('history') },
-    { label: 'Knowledge base', icon: Library, count: s.docs.filter((d) => !d.archived).length, active: section === 'kb', onClick: () => app.go('kb') },
+    { label: 'Knowledge base', icon: Library, count: kb.navCount, active: section === 'kb', onClick: () => app.go('kb') },
   ];
 
   const signOut = async () => { await onSignOut(); navigate('/login'); };
@@ -89,8 +88,14 @@ function Shell({ session, onSignOut }) {
 
 function KbDocument({ app }) {
   const { id } = useParams();
-  const doc = app.state.docs.find((d) => d.id === id);
-  return doc ? <DocumentView app={app} doc={doc} /> : <Navigate to="/kb" replace />;
+  const { detail, load } = app.kb;
+  useEffect(() => {
+    let active = true;
+    load(id).catch(() => { if (active) app.go('kb'); });
+    return () => { active = false; };
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!detail || String(detail.id) !== String(id)) return null;
+  return <DocumentView app={app} doc={detail} />;
 }
 
 // ponytail: every prototype conversation belongs to the signed-in employee, so this opens it in Ask.

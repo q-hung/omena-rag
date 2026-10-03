@@ -27,9 +27,9 @@ export default function DocumentView({ app, doc: dd }) {
           <h1 className="text-4xl font-bold">{dd.title}</h1>
         </div>
         <Badge tone={INGEST_TONE[st]}>{INGEST_STATUS[st] + (dd.archived ? ' · Archived' : '')}</Badge>
-        {!dd.ingest && !dd.archived && !!dd.current && <Button size="sm" onClick={() => set({ dialog: { type: 'replace', id: dd.id } })}>Replace</Button>}
-        {st === 'failed' && <Button size="sm" onClick={() => app.retry(dd.id)}>Retry indexing</Button>}
-        <Button size="sm" variant="ghost" disabled={busy} onClick={() => set({ dialog: { type: 'delete', id: dd.id } })}>Delete</Button>
+        {!dd.ingest && !dd.archived && !!dd.current && <Button size="sm" onClick={() => app.kb.setDialog({ type: 'replace', id: dd.id })}>Replace</Button>}
+        {st === 'failed' && <Button size="sm" onClick={() => app.kb.retry(dd.id)}>Retry indexing</Button>}
+        <Button size="sm" variant="ghost" disabled={busy} onClick={() => app.kb.openDelete(dd.id)}>Delete</Button>
       </div>
 
       {dd.staged && (
@@ -63,12 +63,17 @@ export default function DocumentView({ app, doc: dd }) {
                 <span>{vObj.format === 'pdf' ? `PDF · ${vObj.pages} pages` : 'Markdown'}</span>
                 <span>Effective {fmtDate(vObj.eff)}</span>
                 <span>Uploaded {vObj.up}</span>
-                <Button size="sm" variant="ghost" disabled className="ml-auto">Download original (prototype: no file)</Button>
+                <a
+                  href={`/api/documents/${dd.id}/versions/${vObj.id}/file`}
+                  className="ml-auto inline-flex min-h-[34px] items-center border-2 border-transparent px-[14px] text-xs font-bold uppercase tracking-caps hover:bg-current/7"
+                >
+                  Download original
+                </a>
               </div>
               {vObj.ps.map((p) => (
                 <div key={p.k} className="flex max-w-[68ch] flex-col gap-1.5">
                   {p.page && <span className="font-mono text-xs text-muted">Page {p.page}</span>}
-                  <h3 className="text-lg font-bold">{p.h}</h3>
+                  {p.h && <h3 className="text-lg font-bold">{p.h}</h3>}
                   <p className="text-base leading-[1.6] text-pretty">{p.t}</p>
                 </div>
               ))}

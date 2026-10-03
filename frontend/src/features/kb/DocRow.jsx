@@ -32,12 +32,12 @@ export default function DocRow({ app, d }) {
         {warnings > 0 && <span className="text-xs text-secondary">{warnings} warning{warnings > 1 ? 's' : ''}</span>}
       </span>
       <span className="flex justify-end gap-1">
-        {st === 'failed' && <Button size="sm" onClick={() => app.retry(d.id)}>Retry</Button>}
+        {st === 'failed' && <Button size="sm" onClick={() => app.kb.retry(d.id)}>Retry</Button>}
         {!d.ingest && !d.archived && !!d.current && (
-          <Button size="sm" variant="secondary" onClick={() => app.set({ dialog: { type: 'replace', id: d.id } })}>Replace</Button>
+          <Button size="sm" variant="secondary" onClick={() => app.kb.setDialog({ type: 'replace', id: d.id })}>Replace</Button>
         )}
-        <Button size="sm" variant="ghost" disabled={busy} onClick={() => app.toggleArchive(d)}>{d.archived ? 'Restore' : 'Archive'}</Button>
-        <Button size="sm" variant="ghost" disabled={busy} onClick={() => app.set({ dialog: { type: 'delete', id: d.id } })}>Delete</Button>
+        <Button size="sm" variant="ghost" disabled={busy} onClick={() => app.kb.toggleArchive(d)}>{d.archived ? 'Restore' : 'Archive'}</Button>
+        <Button size="sm" variant="ghost" disabled={busy} onClick={() => app.kb.openDelete(d.id)}>Delete</Button>
       </span>
     </div>
   );

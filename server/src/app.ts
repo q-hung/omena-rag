@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import cookie from '@fastify/cookie';
 import helmet from '@fastify/helmet';
+import multipart from '@fastify/multipart';
 import Fastify, { LogController, type FastifyServerOptions } from 'fastify';
 import {
   hasZodFastifySchemaValidationErrors,
@@ -11,7 +12,9 @@ import {
 import { config as loadConfig, type Config } from './config.ts';
 import { registerAccounts } from './accounts.ts';
 import { registerAuth } from './auth.ts';
+import { registerDocuments } from './documents.ts';
 import { AppError } from './errors.ts';
+import { FILE_SIZE_LIMIT } from './upload.ts';
 
 export type App = Awaited<ReturnType<typeof buildApp>>;
 
@@ -30,6 +33,7 @@ export async function buildApp(options: BuildOptions = {}) {
 
   const app = Fastify({
     genReqId: () => randomUUID(),
+    bodyLimit: 4 * 1024 * 1024,
     logger: options.logger ?? { level: process.env.LOG_LEVEL ?? 'info' },
     // SEC-11: Fastify's own request/response lines would echo query strings and
     // headers. One allow-listed line per request is emitted below instead.
@@ -43,6 +47,7 @@ export async function buildApp(options: BuildOptions = {}) {
     contentSecurityPolicy: { useDefaults: false, directives: { 'default-src': ["'self'"] } },
   });
   await app.register(cookie);
+  await app.register(multipart, { limits: { fileSize: FILE_SIZE_LIMIT, files: 1 } });
 
   app.addHook('onRequest', async (request, reply) => {
     reply.header('x-request-id', request.id);
@@ -55,6 +60,7 @@ export async function buildApp(options: BuildOptions = {}) {
 
   registerAuth(app, config);
   registerAccounts(app);
+  registerDocuments(app);
 
   app.addHook('onResponse', async (request, reply) => {
     // `reqId` is already bound on the request logger.
