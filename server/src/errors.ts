@@ -19,3 +19,7 @@ export const notFound = (code: string, message: string) => new AppError(404, cod
 export const conflict = (code: string, message: string) => new AppError(409, code, message);
 export const tooManyRequests = (code: string, message: string) => new AppError(429, code, message);
 export const unavailable = (code: string, message: string) => new AppError(503, code, message);
+export const budgetReached = () =>
+  tooManyRequests('budget_reached', 'The daily model budget has been reached. Try again tomorrow.');
+export const generationQuota = () =>
+  tooManyRequests('GENERATION_QUOTA', 'This employee has reached the daily generation limit.');

@@ -208,7 +208,7 @@ limit) is folded in too (IDX-01, T12, T18).
 
   Spike, manual: `LLM_PROVIDER=gemini pnpm --filter server exec tsx scripts/smoke-embed.ts` prints 768.
 
-### [ ] T11 · Budget reservation, reconciliation and quota
+### [x] T11 · Budget reservation, reconciliation and quota
 - **Goal:** every paid call is reserved atomically and then reconciled.
 - **Refs:** §10, COST-01–04.
 - **Depends:** T03, T10.
