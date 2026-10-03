@@ -73,7 +73,7 @@ limit) is folded in too (IDX-01, T12, T18).
   - Root scripts from Conventions exist; unimplemented ones exit with a clear message.
 - **Verify:** `pnpm install && pnpm build && pnpm test` pass.
 
-### [ ] T02 · Compose database and config
+### [x] T02 · Compose database and config
 - **Goal:** local Postgres with pgvector and a fail-fast config module.
 - **Refs:** §14, §10, SEC-01, SEC-09, I4.
 - **Depends:** T01.
