@@ -5,20 +5,11 @@ import { db } from '../src/db/index.ts';
 import { accounts, answers, conversations, employees, reviewedAnswers, turns } from '../src/db/schema.ts';
 import { seed } from '../src/seed.ts';
 import { HISTORY_LIMIT } from '../src/conversations.ts';
-import { conversationStatesById, deriveState, type ConversationState } from '../src/state.ts';
+import { conversationStatesById, deriveState, STATES, type ConversationState } from '../src/state.ts';
 import { asBrowser, buildTestApp } from './helpers/app.ts';
 
 const PASSWORD = 'test-password';
-const CASES: ConversationState[] = [
-  'generating',
-  'saved',
-  'failed',
-  'awaiting_clarification',
-  'out_of_scope',
-  'needs_review',
-  'insufficient_evidence',
-  'answer_ready',
-];
+const CASES = STATES;
 
 let app: Awaited<ReturnType<typeof buildTestApp>>;
 let ada: Record<string, string>;

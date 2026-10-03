@@ -5,15 +5,18 @@ import { rowsOf } from './upload.ts';
 
 // REQ §4.2 (WF-05) and ANS-09. Derived, never stored.
 
-export type ConversationState =
-  | 'generating'
-  | 'saved'
-  | 'failed'
-  | 'awaiting_clarification'
-  | 'out_of_scope'
-  | 'needs_review'
-  | 'insufficient_evidence'
-  | 'answer_ready';
+export const STATES = [
+  'generating',
+  'saved',
+  'failed',
+  'awaiting_clarification',
+  'out_of_scope',
+  'needs_review',
+  'insufficient_evidence',
+  'answer_ready',
+] as const;
+
+export type ConversationState = (typeof STATES)[number];
 
 export function deriveState(input: {
   generating?: boolean;

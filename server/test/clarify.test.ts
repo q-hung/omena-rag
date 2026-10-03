@@ -70,6 +70,12 @@ describe('clarification replies', () => {
     expect(created.json().state).toBe('awaiting_clarification');
     const res = await reply(ada.cookie, created.json().id, {});
     expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe('EMPTY_REPLY');
+    const blank = await reply(ada.cookie, created.json().id, { text: '   ' });
+    expect(blank.json().error.code).toBe('EMPTY_REPLY');
+    const long = await reply(ada.cookie, created.json().id, { text: 'x'.repeat(1_001) });
+    expect(long.statusCode).toBe(400);
+    expect(long.json().error.code).toBe('REPLY_TOO_LONG');
   });
 
   it('rejects a fact that is not an option', async () => {

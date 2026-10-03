@@ -26,7 +26,7 @@ import {
   type GenerateDeps,
 } from './generate.ts';
 import { editAnswer, reviewConversation, reviewedSourceChanged, reviewedSourceChangedByConversation, unsavedSourceUpdated } from './review.ts';
-import { conversationStatesById, deriveState, STATE_FROM, STATE_SQL, topicsOf } from './state.ts';
+import { conversationStatesById, deriveState, STATE_FROM, STATE_SQL, STATES, topicsOf } from './state.ts';
 import { rowsOf } from './upload.ts';
 
 const questionBody = z.object({
@@ -37,14 +37,11 @@ const questionBody = z.object({
 export const HISTORY_LIMIT = 200;
 
 const idParam = z.object({ id: z.coerce.number().int().positive() });
-const replyBody = z
-  .object({
-    selections: z.array(z.string().trim().min(1)).max(4).optional(),
-    text: z.string().max(1_000).optional(),
-  })
-  .refine((b) => (b.selections && b.selections.length > 0) || (b.text && b.text.trim()), {
-    message: 'Select a record or enter a reply.',
-  });
+// Empty and over-long replies are rejected by replyConversation (EMPTY_REPLY, REPLY_TOO_LONG).
+const replyBody = z.object({
+  selections: z.array(z.string().trim().min(1)).max(4).optional(),
+  text: z.string().optional(),
+});
 const editBody = z.object({ editedText: z.string() });
 const reviewBody = z.object({
   answerId: z.number().int().positive(),
@@ -53,18 +50,7 @@ const reviewBody = z.object({
 const listQuery = z.object({
   accountId: z.coerce.number().int().positive().optional(),
   mine: z.enum(['0', '1']).default('1'),
-  state: z
-    .enum([
-      'generating',
-      'saved',
-      'failed',
-      'awaiting_clarification',
-      'out_of_scope',
-      'needs_review',
-      'insufficient_evidence',
-      'answer_ready',
-    ])
-    .optional(),
+  state: z.enum(STATES).optional(),
   signal: z.string().optional(),
   topic: z.string().optional(),
 });
@@ -181,24 +167,15 @@ export async function presentConversation(id: number, employeeId: number) {
   const lastTurn = turnRows[turnRows.length - 1];
   const latest = lastTurn ? latestByTurn.get(lastTurn.id) : undefined;
   const latestPresented = presented.find((a) => a.id === latest?.id);
-  const generating = generationLockHeld(conv);
   const state = deriveState({
-    generating,
+    generating: generationLockHeld(conv),
     saved: !!reviewed,
     hasAnswer: !!latest,
     outcome: latest?.outcome,
     reviewReasons: (latest?.reviewReasons as string[]) ?? [],
   });
   const sourceChanged = reviewed ? await reviewedSourceChanged(reviewed.id) : false;
-  const topics = reviewed
-    ? topicsOf({
-        outcome: latest?.outcome,
-        citedCategories: ((reviewed.sources as { category?: string | null }[]) ?? [])
-          .map((s) => s.category)
-          .filter((c): c is string => !!c),
-        citedFacts: /\[F\d+\]/.test(reviewed.finalText),
-      })
-    : (latestPresented?.topics ?? []);
+  const topics = reviewed ? reviewedTopics(reviewed, latest?.outcome) : (latestPresented?.topics ?? []);
 
   return {
     id: conv.id,
@@ -297,13 +274,7 @@ async function presentSummaries(
     const saved = reviewedBy.get(conv.id);
     const account = accountBy.get(conv.accountId);
     const topics = saved
-      ? topicsOf({
-          outcome: latest?.outcome,
-          citedCategories: ((saved.sources as { category?: string | null }[]) ?? [])
-            .map((s) => s.category)
-            .filter((c): c is string => !!c),
-          citedFacts: /\[F\d+\]/.test(saved.finalText),
-        })
+      ? reviewedTopics(saved, latest?.outcome)
       : latest
         ? answerTopics(latest, categoriesBy.get(latest.id) ?? [])
         : [];
@@ -314,7 +285,7 @@ async function presentSummaries(
       companyName: account?.companyName ?? '',
       question: questionBy.get(conv.id) ?? '',
       createdAt: conv.createdAt.toISOString(),
-      createdBy: creatorBy.get(conv.createdBy) ?? { id: conv.createdBy, name: '' },
+      createdBy: creatorBy.get(conv.createdBy)!,
       ownedByMe: conv.createdBy === employeeId,
       state: sqlStates.get(conv.id) ?? 'failed',
       flags: {
@@ -325,6 +296,13 @@ async function presentSummaries(
       signals: signalsBy.get(conv.accountId) ?? [],
     };
   });
+}
+
+function reviewedTopics(saved: typeof reviewedAnswers.$inferSelect, outcome: string | undefined): string[] {
+  const citedCategories = ((saved.sources as { category?: string | null }[]) ?? [])
+    .map((s) => s.category)
+    .filter((c): c is string => !!c);
+  return topicsOf({ outcome, citedCategories, citedFacts: /\[F\d+\]/.test(saved.finalText) });
 }
 
 function answerTopics(answer: typeof answers.$inferSelect, citedCategories: string[]): string[] {
@@ -354,7 +332,7 @@ async function presentAnswer(answer: typeof answers.$inferSelect, turnSeq: numbe
   for (const row of rowsOf(sources)) {
     if (row.citation_number == null) continue;
     const card = citeCard(row);
-    cites[String(card.n)] = card;
+    cites[card.n] = card;
     if (card.status) sourceUpdated = true;
     if (card.cat) categories.push(card.cat);
   }
