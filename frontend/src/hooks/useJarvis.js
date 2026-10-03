@@ -33,6 +33,7 @@ function initState() {
   return {
     signedIn: false, view: 'ask', accountId: 1, convId: null,
     conversations: seedConversations(docs), docs, generating: {}, failNext: false,
+    questionText: '', replyText: '',
     editing: false, editText: '', editError: null, activeCite: null, activeFact: null, ack: {},
     histAccount: 'All', histState: 'All',
     kbSearch: '', kbCat: 'All', showArchived: false, selDoc: null, selDocV: null,
@@ -91,7 +92,7 @@ export function useJarvis() {
     const id = uid('c');
     const at = now();
     set((s) => ({
-      convId: id,
+      convId: id, questionText: '',
       conversations: [{ id, accountId: s.accountId, createdAt: at, createdBy: EMPLOYEE, turns: [{ seq: 1, kind: 'question', text, at }], answers: [], reviewed: null }, ...s.conversations],
     }));
     generate(id);

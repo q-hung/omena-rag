@@ -123,7 +123,7 @@ these components (§12.3), so nothing is thrown away.
   - A highlighted fact row when its `[F#]` chip is selected.
 - **Verify:** select A-1004: WH-1 shows 12 consecutive failures and its last success time; select A-1005: the empty webhook section is visible.
 
-### [ ] P06 · Conversation and answer
+### [x] P06 · Conversation and answer
 - **Goal:** ask a question and read the answer.
 - **Refs:** §12.2 centre pane, ANS-01, §9.1, §9.2, §9.3 banners, ANS-07, CLR-03.
 - **Depends:** P05.
