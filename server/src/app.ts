@@ -12,8 +12,10 @@ import {
 import { config as loadConfig, type Config } from './config.ts';
 import { registerAccounts } from './accounts.ts';
 import { registerAuth } from './auth.ts';
+import { registerConversations } from './conversations.ts';
 import { registerDocuments } from './documents.ts';
 import { AppError } from './errors.ts';
+import type { GenerateDeps } from './generate.ts';
 import { FILE_SIZE_LIMIT } from './upload.ts';
 
 export type App = Awaited<ReturnType<typeof buildApp>>;
@@ -26,7 +28,11 @@ declare module 'fastify' {
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
-export type BuildOptions = { config?: Config; logger?: FastifyServerOptions['logger'] };
+export type BuildOptions = {
+  config?: Config;
+  logger?: FastifyServerOptions['logger'];
+  generate?: GenerateDeps;
+};
 
 export async function buildApp(options: BuildOptions = {}) {
   const config = options.config ?? loadConfig();
@@ -61,6 +67,7 @@ export async function buildApp(options: BuildOptions = {}) {
   registerAuth(app, config);
   registerAccounts(app);
   registerDocuments(app);
+  registerConversations(app, config, options.generate ?? {});
 
   app.addHook('onResponse', async (request, reply) => {
     // `reqId` is already bound on the request logger.
@@ -78,7 +85,11 @@ export async function buildApp(options: BuildOptions = {}) {
     const { statusCode, code, message } = describe(error);
     if (statusCode >= 500) request.log.error({ code, err: error.message, cause: (error.cause as Error | undefined)?.message });
     else request.log.warn({ code });
-    reply.status(statusCode).send({ error: { code, message } });
+    const conversationId = raw instanceof AppError ? raw.conversationId : undefined;
+    reply.status(statusCode).send({
+      error: { code, message },
+      ...(conversationId != null ? { conversationId } : {}),
+    });
   });
 
   app.setNotFoundHandler((_request, reply) => {

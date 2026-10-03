@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { History, Library, MessageSquare } from 'lucide-react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useAsk } from './hooks/useAsk';
 import { useDocuments } from './hooks/useDocuments';
 import { useJarvis } from './hooks/useJarvis';
 import { useSession } from './hooks/useSession';
@@ -46,12 +47,15 @@ function Shell({ session, onSignOut }) {
   const { pathname } = useLocation();
   const { state: s, set } = proto;
   const kb = useDocuments({ onToast: proto.toast });
+  const workspace = useAsk({ accountId: s.accountId, onToast: proto.toast });
 
   // The prototype views navigate through `app`; route those calls through the URL.
   const app = {
     ...proto,
     kb,
-    go: (view) => { proto.clear(); navigate(`/${view}`); },
+    workspace,
+    simulated: session.simulated,
+    go: (view) => { proto.clear(); workspace.newQuestion(); navigate(`/${view}`); },
     openDoc: (id, v) => { set({ selDocV: v ?? null }); navigate(`/kb/${id}`); },
     openConv: (id) => { proto.openConv(id); navigate('/ask'); },
     onDeleted: () => { if (pathname.startsWith('/kb/')) navigate('/kb'); },

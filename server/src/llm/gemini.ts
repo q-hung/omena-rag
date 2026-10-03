@@ -81,7 +81,7 @@ export function geminiProvider(config: Config, models: GeminiModels = geminiMode
               httpOptions: { timeout: GENERATE_TIMEOUT_MS, retryOptions: noSdkRetry },
             },
           }),
-        { timeoutMs: GENERATE_TIMEOUT_MS, deadline },
+        { timeoutMs: GENERATE_TIMEOUT_MS, deadline, maxRetries: input.once ? 0 : undefined },
       ).catch((error) => {
         throw wrap(error);
       });

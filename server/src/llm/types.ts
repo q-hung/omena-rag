@@ -8,6 +8,7 @@ export type GenerateInput = {
   accountId?: number;
   previousScriptId?: string;
   refundV3?: boolean;
+  once?: boolean;
 };
 
 export type EmbedResult = { vectors: number[][] };

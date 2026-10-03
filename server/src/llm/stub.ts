@@ -43,14 +43,17 @@ export function stubProvider(): Provider {
   };
 }
 
-/** Deterministic 768-d unit vector from the formatted text. */
+/** Deterministic 768-d unit vector from token overlap, so stub retrieval can hit. */
 export function embedText(text: string): number[] {
   const values = new Array<number>(DIM).fill(0);
-  let hash = 2166136261;
-  for (let i = 0; i < text.length; i++) {
-    hash ^= text.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-    values[i % DIM]! += ((hash >>> 0) % 2000) / 1000 - 1;
+  const tokens = text.toLowerCase().match(/[a-z0-9]+/g) ?? [];
+  for (const token of tokens) {
+    let hash = 2166136261;
+    for (let i = 0; i < token.length; i++) {
+      hash ^= token.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    values[(hash >>> 0) % DIM]! += 1;
   }
   let norm = 0;
   for (const n of values) norm += n * n;

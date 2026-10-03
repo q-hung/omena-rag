@@ -19,7 +19,9 @@ export async function api(path, { method = 'GET', body, form } = {}) {
   const data = await res.json().catch(() => null);
   if (!res.ok) {
     const e = data?.error;
-    throw new ApiError(res.status, e?.code ?? 'HTTP_ERROR', e?.message ?? `Request failed (${res.status}).`);
+    const err = new ApiError(res.status, e?.code ?? 'HTTP_ERROR', e?.message ?? `Request failed (${res.status}).`);
+    err.conversationId = data?.conversationId;
+    throw err;
   }
   return data;
 }

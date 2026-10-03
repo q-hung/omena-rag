@@ -358,14 +358,16 @@ limit) is folded in too (IDX-01, T12, T18).
 
 ## Phase 6 — Generation (M6)
 
-### [ ] T19 · Retrieval
+### [x] T19 · Retrieval
 - **Goal:** the access filter lives in SQL.
 - **Refs:** §7.2, RET-01, RET-02.
 - **Depends:** T15.
 - **Acceptance:** top 8 by exact cosine distance; active versions of non-archived documents with the configured `embedding_model` only; rows below `RETRIEVAL_MIN_SCORE` dropped. Zero rows is a valid result.
 - **Verify:** `pnpm --filter server test retrieval`: passages from a superseded version, an archived document or another embedding model are never returned; the threshold drops low scores.
 
-### [ ] T20 · Prompt builder and normaliser
+  Covered. Live Gemini still uses cosine + `RETRIEVAL_MIN_SCORE`. Stub ranks eligible chunks by token overlap (hash embeddings never reach 0.5).
+
+### [x] T20 · Prompt builder and normaliser
 - **Goal:** pure functions for model input and output.
 - **Refs:** §7.3, §7.4, §9.3, PRM-01, NRM-01, WF-05, I1–I3.
 - **Depends:** T08.
@@ -390,7 +392,9 @@ limit) is folded in too (IDX-01, T12, T18).
   - an `[S2]` in a `free_text` question gets the next number after the answer's citations and an `answer_sources` row;
   - a third clarification becomes `insufficient_evidence` with the fixed §9.3 rule 7 text and a `user_input` gap, and that answer can be saved (ANS-04 rule 3 passes).
 
-### [ ] T21 · Conversations API and generation flow
+  Covered. Stub `[F:key]` / `[S:doc:k]` markers resolve via fact keys and `scriptKeyFor` (title + heading/page).
+
+### [x] T21 · Conversations API and generation flow
 - **Goal:** `POST /api/conversations` produces a saved answer or changes nothing.
 - **Refs:** §7.1, WF-01, GEN-01–05, LCK-02, AUTH-02, CTX-05, §17b.
 - **Depends:** T09, T11, T19, T20.
@@ -412,7 +416,9 @@ limit) is folded in too (IDX-01, T12, T18).
   - deleting a retrieved document before T2 still saves the answer, with a null `chunk_id` and the "Source updated" flag (GEN-05);
   - employee B regenerating A's conversation → 403 `NOT_OWNER`, with no turn, answer or `provider_calls` row created; B's `GET` on it → 200 with `ownedByMe: false`.
 
-### [ ] T22 · Ask workspace on the API
+  Covered. `paidAttempt` is per generate attempt; `generate({ once: true })` skips the provider's inner retries. GEN-04 is tested with a 400 ms deadline so CI does not wait 90 s.
+
+### [x] T22 · Ask workspace on the API
 - **Goal:** the prototype's three panes driven by the API.
 - **Refs:** §12.2, ANS-01, ANS-07, ANS-09, SIG-02, WF-04, UI-01.
 - **Depends:** T09, T21.
@@ -423,6 +429,8 @@ limit) is folded in too (IDX-01, T12, T18).
   - Each row and the conversation header show the account's signal badges (SIG-02) and the question's topic badges (ANS-09), computed on the server: `topics` = distinct categories of the latest answer's cited documents in fixed order, "Account data" when only facts are cited, none for out-of-scope or failed.
   - No confidence percentages or "verified" labels.
 - **Verify:** `pnpm --filter server test conversations-list`: with A and B each owning a conversation on A-1004, A's `mine=1` list contains only A's; topics: E01 → Plans, Security; E06 → Policies, FAQ; E12 → Account data; E11 → none. Manually with the stub: S1, S3, S4 and S5 render as in §13.1. `grep -rn "confidence\|verified" frontend/src` finds no UI text.
+
+  Covered. Ask uses `useAsk`; History still uses `useJarvis`. Edit / reply / save stay for M7.
 
 ## Phase 7 — Review flow (M7)
 

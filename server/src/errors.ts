@@ -2,12 +2,19 @@
 export class AppError extends Error {
   readonly statusCode: number;
   readonly code: string;
+  readonly conversationId?: number;
 
-  constructor(statusCode: number, code: string, message: string, options?: ErrorOptions) {
+  constructor(
+    statusCode: number,
+    code: string,
+    message: string,
+    options?: ErrorOptions & { conversationId?: number },
+  ) {
     super(message, options);
     this.name = 'AppError';
     this.statusCode = statusCode;
     this.code = code;
+    this.conversationId = options?.conversationId;
   }
 }
 
@@ -23,3 +30,5 @@ export const budgetReached = () =>
   tooManyRequests('budget_reached', 'The daily model budget has been reached. Try again tomorrow.');
 export const generationQuota = () =>
   tooManyRequests('GENERATION_QUOTA', 'This employee has reached the daily generation limit.');
+export const notOwner = () =>
+  forbidden('NOT_OWNER', 'Only the employee who started this conversation can change it.');

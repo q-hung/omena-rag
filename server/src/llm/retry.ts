@@ -6,13 +6,20 @@ export type AttemptFn<T> = (signal: AbortSignal) => Promise<T>;
 
 export async function withRetries<T>(
   fn: AttemptFn<T>,
-  opts: { timeoutMs: number; deadline: number; now?: () => number; sleep?: (ms: number) => Promise<void> },
+  opts: {
+    timeoutMs: number;
+    deadline: number;
+    now?: () => number;
+    sleep?: (ms: number) => Promise<void>;
+    maxRetries?: number;
+  },
 ): Promise<T> {
   const now = opts.now ?? Date.now;
   const sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
+  const maxRetries = opts.maxRetries ?? MAX_RETRIES;
   let last: unknown;
 
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
     const start = now();
     if (start >= opts.deadline) {
       throw last instanceof ProviderError
@@ -25,7 +32,7 @@ export async function withRetries<T>(
       return await timed(fn, budget);
     } catch (error) {
       last = error;
-      if (!isRetryable(error) || attempt === MAX_RETRIES) throw error;
+      if (!isRetryable(error) || attempt === maxRetries) throw error;
       const wait = backoff(attempt);
       if (now() + wait >= opts.deadline) throw error;
       await sleep(wait);

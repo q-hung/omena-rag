@@ -9,8 +9,10 @@ const SECTION_LABEL = { account: 'Account', features: 'Features', payments: 'Pay
 export default function AccountPanel({ app, conv }) {
   const { state: s } = app;
   const account = s.accounts.find((a) => a.id === s.accountId);
-  const facts = s.accountFacts?.facts ?? [];
-  const empty = s.accountFacts?.empty ?? [];
+  const latest = conv?.answers?.[conv.answers.length - 1];
+  const facts = latest?.facts ?? s.accountFacts?.facts ?? [];
+  const empty = latest?.empty ?? s.accountFacts?.empty ?? [];
+  const asOf = latest?.asOf ?? s.accountFacts?.as_of;
 
   return (
     <section className="flex flex-col gap-5 overflow-auto border-r border-hairline bg-white p-6">
@@ -39,7 +41,7 @@ export default function AccountPanel({ app, conv }) {
 
       <div className="flex items-baseline justify-between gap-2">
         <div className="eyebrow">ACCOUNT FACTS</div>
-        {s.accountFacts && <span className="font-mono text-xs text-muted">as of {fmtDate(s.accountFacts.as_of)}</span>}
+        {asOf && <span className="font-mono text-xs text-muted">as of {fmtDate(asOf)}</span>}
       </div>
 
       {s.accountsError && <div className="border border-negative px-3 py-2 text-sm text-negative">{s.accountsError}</div>}
@@ -52,7 +54,7 @@ export default function AccountPanel({ app, conv }) {
             <div
               key={f.id}
               id={`fact-${f.id}`}
-              className={`grid grid-cols-[34px_minmax(0,1fr)] gap-2 border-b border-hairline px-1 pb-2 text-sm transition-colors ${s.activeFact === f.id ? 'bg-supply-green-tint' : ''}`}
+              className={`grid grid-cols-[34px_minmax(0,1fr)] gap-2 border-b border-hairline px-1 pb-2 text-sm transition-colors ${app.workspace.activeFact === f.id ? 'bg-supply-green-tint' : ''}`}
             >
               <span className="pt-px font-mono text-[11px] font-bold">{f.id}</span>
               <span className="flex flex-col gap-0.5">
