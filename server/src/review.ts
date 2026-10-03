@@ -1,6 +1,6 @@
-import { and, desc, eq, isNotNull, sql } from 'drizzle-orm';
+import { desc, eq, sql } from 'drizzle-orm';
 import { db } from './db/index.ts';
-import { answerSources, answers, reviewedAnswers } from './db/schema.ts';
+import { answers, reviewedAnswers } from './db/schema.ts';
 import { badRequest, conflict, notFound } from './errors.ts';
 import { generationLockHeld, requireOwner } from './generate.ts';
 import { rowsOf } from './upload.ts';
@@ -29,17 +29,11 @@ export async function editAnswer(input: { answerId: number; employeeId: number; 
       .limit(1);
     if (latest?.id !== input.answerId) throw conflict('NOT_LATEST', 'Only the latest answer can be edited.');
 
-    const cites = await tx
-      .select({ n: answerSources.citationNumber })
-      .from(answerSources)
-      .where(and(eq(answerSources.answerId, input.answerId), isNotNull(answerSources.citationNumber)));
-    const citeNums = new Set(cites.map((c) => String(c.n)));
-    const snapshot = answer.factsSnapshot as { facts?: { id: string }[] };
-    const factIds = new Set((snapshot.facts ?? []).map((f) => f.id));
-    for (const match of input.editedText.matchAll(MARKER)) {
-      const marker = match[0];
-      const ok = match[1] ? factIds.has(`F${match[2]}`) : citeNums.has(match[2]!);
-      if (!ok) throw badRequest('UNKNOWN_CITATION', `${marker} doesn't match a citation in this answer.`);
+    // ANS-02: markers can be removed but not added, so only the model text's own markers are allowed.
+    // The normaliser already checked those against answer_sources and the fact snapshot.
+    const allowed = new Set([...answer.answerText.matchAll(MARKER)].map((m) => m[0]));
+    for (const [marker] of input.editedText.matchAll(MARKER)) {
+      if (!allowed.has(marker)) throw badRequest('UNKNOWN_CITATION', `${marker} doesn't match a citation in this answer.`);
     }
 
     await tx

@@ -125,6 +125,16 @@ describe('edit', () => {
     expect(row!.editedText).toBe('The plan is Pro [F1].');
   });
 
+  it('rejects adding a marker the model did not cite, even when it exists in the snapshot', async () => {
+    const created = await ask();
+    const answer = created.json().answers[0];
+    const uncited = answer.facts.find((f: { id: string }) => f.id !== 'F1')!.id;
+    const res = await edit(ada, answer.id, `The plan is Pro [F1] [${uncited}].`);
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe('UNKNOWN_CITATION');
+    expect((await edit(ada, answer.id, 'Removing every marker is fine.')).statusCode).toBe(200);
+  });
+
   it('rejects editing a saved conversation', async () => {
     const created = await ask();
     const answer = created.json().answers[0];

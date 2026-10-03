@@ -47,24 +47,29 @@ export const STATE_SQL = sql`
   end
 `;
 
+/** The joins STATE_SQL reads: c, r (reviewed), lt (last turn), a (latest answer). */
+export const STATE_FROM = sql`
+  conversations c
+  left join reviewed_answers r on r.conversation_id = c.id
+  left join lateral (
+    select id from turns where conversation_id = c.id order by seq desc limit 1
+  ) lt on true
+  left join lateral (
+    select id, turn_id, outcome, review_reasons
+    from answers
+    where conversation_id = c.id
+    order by id desc
+    limit 1
+  ) a on true
+`;
+
 export async function conversationStatesById(ids: number[]): Promise<Map<number, ConversationState>> {
   const states = new Map<number, ConversationState>();
   if (!ids.length) return states;
   const rows = rowsOf(
     await db().execute(sql`
       select c.id, ${STATE_SQL} as state
-      from conversations c
-      left join reviewed_answers r on r.conversation_id = c.id
-      left join lateral (
-        select id from turns where conversation_id = c.id order by seq desc limit 1
-      ) lt on true
-      left join lateral (
-        select id, turn_id, outcome, review_reasons
-        from answers
-        where conversation_id = c.id
-        order by id desc
-        limit 1
-      ) a on true
+      from ${STATE_FROM}
       where c.id in (${sql.join(ids.map((id) => sql`${id}`), sql`, `)})
     `),
   );

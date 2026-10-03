@@ -26,13 +26,16 @@ import {
   type GenerateDeps,
 } from './generate.ts';
 import { editAnswer, reviewConversation, reviewedSourceChanged, reviewedSourceChangedByConversation, unsavedSourceUpdated } from './review.ts';
-import { conversationStatesById, deriveState, topicsOf } from './state.ts';
+import { conversationStatesById, deriveState, STATE_FROM, STATE_SQL, topicsOf } from './state.ts';
 import { rowsOf } from './upload.ts';
 
 const questionBody = z.object({
   accountId: z.number().int().positive(),
   question: z.string().trim().min(1).max(2_000),
 });
+/** History returns the newest rows only; filters narrow the list before the limit. */
+export const HISTORY_LIMIT = 200;
+
 const idParam = z.object({ id: z.coerce.number().int().positive() });
 const replyBody = z
   .object({
@@ -129,18 +132,29 @@ export function registerConversations(app: App, config: Config, deps: GenerateDe
   app.get('/api/conversations', { schema: { querystring: listQuery } }, async (request) => {
     const { accountId, mine, state, signal, topic } = request.query;
     const filters = [];
-    if (accountId) filters.push(eq(conversations.accountId, accountId));
-    if (mine === '1') filters.push(eq(conversations.createdBy, request.employeeId!));
-    const where = filters.length === 1 ? filters[0] : filters.length ? and(...filters) : undefined;
-    const rows = await db().select().from(conversations).where(where).orderBy(desc(conversations.createdAt));
-    const listed = await presentSummaries(rows, request.employeeId!);
+    if (accountId) filters.push(sql`c.account_id = ${accountId}`);
+    if (mine === '1') filters.push(sql`c.created_by = ${request.employeeId!}`);
+    if (signal) {
+      const withSignal = await accountsWithSignal(signal, filters);
+      if (!withSignal.length) return { conversations: [] };
+      filters.push(sql`c.account_id in (${sql.join(withSignal.map((id) => sql`${id}`), sql`, `)})`);
+    }
+    if (state) filters.push(sql`${STATE_SQL} = ${state}`);
+    const where = filters.length ? sql`where ${sql.join(filters, sql` and `)}` : sql``;
+    // ponytail: topics are derived from cited sources in TS, so a topic filter runs over every
+    // matching row before the limit. Move topicsOf into SQL if topic-filtered History gets slow.
+    const limit = topic ? sql`` : sql`limit ${HISTORY_LIMIT}`;
+    const ids = rowsOf(
+      await db().execute(sql`select c.id from ${STATE_FROM} ${where} order by c.created_at desc, c.id desc ${limit}`),
+    ).map((r) => Number(r.id));
+    if (!ids.length) return { conversations: [] };
+
+    const byId = new Map(
+      (await db().select().from(conversations).where(inArray(conversations.id, ids))).map((r) => [r.id, r]),
+    );
+    const listed = await presentSummaries(ids.map((id) => byId.get(id)!), request.employeeId!);
     return {
-      conversations: listed.filter((row) => {
-        if (state && row.state !== state) return false;
-        if (signal && !(row.signals ?? []).some((s) => s.key === signal || s.label === signal)) return false;
-        if (topic && !row.topics.includes(topic)) return false;
-        return true;
-      }),
+      conversations: topic ? listed.filter((row) => row.topics.includes(topic)).slice(0, HISTORY_LIMIT) : listed,
     };
   });
 }
@@ -397,3 +411,14 @@ function citeCard(row: Record<string, unknown>) {
   };
 }
 
+/** Accounts among the listed conversations that currently show `signal` (matched by key or label). */
+async function accountsWithSignal(signal: string, filters: ReturnType<typeof sql>[]): Promise<number[]> {
+  const where = filters.length ? sql`where ${sql.join(filters, sql` and `)}` : sql``;
+  const accountIds = rowsOf(await db().execute(sql`select distinct c.account_id from conversations c ${where}`)).map(
+    (r) => Number(r.account_id),
+  );
+  const matches = await Promise.all(
+    accountIds.map(async (id) => ((await getAccountSignals(id)).some((s) => s.key === signal || s.label === signal) ? id : null)),
+  );
+  return matches.filter((id): id is number => id != null);
+}

@@ -4,6 +4,7 @@ import { SESSION_COOKIE } from '../src/auth.ts';
 import { db } from '../src/db/index.ts';
 import { accounts, answers, conversations, employees, reviewedAnswers, turns } from '../src/db/schema.ts';
 import { seed } from '../src/seed.ts';
+import { HISTORY_LIMIT } from '../src/conversations.ts';
 import { conversationStatesById, deriveState, type ConversationState } from '../src/state.ts';
 import { asBrowser, buildTestApp } from './helpers/app.ts';
 
@@ -146,5 +147,27 @@ describe('history state', () => {
       cookies: ada,
     });
     expect(failing.json().conversations.every((c: { accountRef: string }) => c.accountRef === 'A-1004')).toBe(true);
+  });
+
+  it('filters by state in SQL', async () => {
+    const ids = new Map<ConversationState, number>();
+    for (const state of CASES) ids.set(state, await fixture(state));
+    for (const state of CASES) {
+      const res = await app.inject({ method: 'GET', url: `/api/conversations?mine=0&state=${state}`, cookies: ada });
+      const rows = res.json().conversations as { id: number; state: string }[];
+      expect(rows.map((r) => r.id)).toContain(ids.get(state));
+      expect(rows.every((r) => r.state === state)).toBe(true);
+    }
+  });
+
+  it(`returns at most ${HISTORY_LIMIT} rows, newest first`, async () => {
+    await db()
+      .insert(conversations)
+      .values(Array.from({ length: HISTORY_LIMIT + 1 }, () => ({ accountId: a1004, createdBy: employeeId })));
+    const res = await app.inject({ method: 'GET', url: '/api/conversations?mine=0', cookies: ada });
+    const rows = res.json().conversations as { createdAt: string }[];
+    expect(rows).toHaveLength(HISTORY_LIMIT);
+    const times = rows.map((r) => r.createdAt);
+    expect(times).toEqual([...times].sort().reverse());
   });
 });
