@@ -5,6 +5,7 @@ import type { Config } from './config.ts';
 import { getAccountSignals } from './context.ts';
 import { db } from './db/index.ts';
 import {
+  accounts,
   answerSources,
   answers,
   conversations,
@@ -21,9 +22,11 @@ import {
   createConversation,
   generationLockHeld,
   regenerateConversation,
+  replyConversation,
   type GenerateDeps,
 } from './generate.ts';
-import { deriveState, topicsOf } from './state.ts';
+import { editAnswer, reviewConversation, reviewedSourceChanged, reviewedSourceChangedByConversation, unsavedSourceUpdated } from './review.ts';
+import { conversationStatesById, deriveState, topicsOf } from './state.ts';
 import { rowsOf } from './upload.ts';
 
 const questionBody = z.object({
@@ -31,6 +34,37 @@ const questionBody = z.object({
   question: z.string().trim().min(1).max(2_000),
 });
 const idParam = z.object({ id: z.coerce.number().int().positive() });
+const replyBody = z
+  .object({
+    selections: z.array(z.string().trim().min(1)).max(4).optional(),
+    text: z.string().max(1_000).optional(),
+  })
+  .refine((b) => (b.selections && b.selections.length > 0) || (b.text && b.text.trim()), {
+    message: 'Select a record or enter a reply.',
+  });
+const editBody = z.object({ editedText: z.string() });
+const reviewBody = z.object({
+  answerId: z.number().int().positive(),
+  reviewAcknowledged: z.boolean().optional(),
+});
+const listQuery = z.object({
+  accountId: z.coerce.number().int().positive().optional(),
+  mine: z.enum(['0', '1']).default('1'),
+  state: z
+    .enum([
+      'generating',
+      'saved',
+      'failed',
+      'awaiting_clarification',
+      'out_of_scope',
+      'needs_review',
+      'insufficient_evidence',
+      'answer_ready',
+    ])
+    .optional(),
+  signal: z.string().optional(),
+  topic: z.string().optional(),
+});
 
 export function registerConversations(app: App, config: Config, deps: GenerateDeps = {}): void {
   app.post('/api/conversations', { schema: { body: questionBody } }, async (request, reply) => {
@@ -56,31 +90,59 @@ export function registerConversations(app: App, config: Config, deps: GenerateDe
     return presentConversation(id, request.employeeId!);
   });
 
+  app.post('/api/conversations/:id/replies', { schema: { params: idParam, body: replyBody } }, async (request) => {
+    const id = await replyConversation({
+      conversationId: request.params.id,
+      employeeId: request.employeeId!,
+      selections: request.body.selections,
+      text: request.body.text,
+      config,
+      deps,
+      log: request.log,
+    });
+    return presentConversation(id, request.employeeId!);
+  });
+
+  app.patch('/api/answers/:id', { schema: { params: idParam, body: editBody } }, async (request) => {
+    const conversationId = await editAnswer({
+      answerId: request.params.id,
+      employeeId: request.employeeId!,
+      editedText: request.body.editedText,
+    });
+    return presentConversation(conversationId, request.employeeId!);
+  });
+
+  app.post('/api/conversations/:id/review', { schema: { params: idParam, body: reviewBody } }, async (request) => {
+    const id = await reviewConversation({
+      conversationId: request.params.id,
+      employeeId: request.employeeId!,
+      answerId: request.body.answerId,
+      reviewAcknowledged: request.body.reviewAcknowledged,
+    });
+    return presentConversation(id, request.employeeId!);
+  });
+
   app.get('/api/conversations/:id', { schema: { params: idParam } }, async (request) => {
     return presentConversation(request.params.id, request.employeeId!);
   });
 
-  app.get(
-    '/api/conversations',
-    {
-      schema: {
-        querystring: z.object({
-          accountId: z.coerce.number().int().positive(),
-          mine: z.enum(['0', '1']).default('1'),
-        }),
-      },
-    },
-    async (request) => {
-      const { accountId, mine } = request.query;
-      const where =
-        mine === '1'
-          ? and(eq(conversations.accountId, accountId), eq(conversations.createdBy, request.employeeId!))
-          : eq(conversations.accountId, accountId);
-      const rows = await db().select().from(conversations).where(where).orderBy(desc(conversations.createdAt));
-      const signals = await getAccountSignals(accountId);
-      return { conversations: await presentSummaries(rows, request.employeeId!, signals) };
-    },
-  );
+  app.get('/api/conversations', { schema: { querystring: listQuery } }, async (request) => {
+    const { accountId, mine, state, signal, topic } = request.query;
+    const filters = [];
+    if (accountId) filters.push(eq(conversations.accountId, accountId));
+    if (mine === '1') filters.push(eq(conversations.createdBy, request.employeeId!));
+    const where = filters.length === 1 ? filters[0] : filters.length ? and(...filters) : undefined;
+    const rows = await db().select().from(conversations).where(where).orderBy(desc(conversations.createdAt));
+    const listed = await presentSummaries(rows, request.employeeId!);
+    return {
+      conversations: listed.filter((row) => {
+        if (state && row.state !== state) return false;
+        if (signal && !(row.signals ?? []).some((s) => s.key === signal || s.label === signal)) return false;
+        if (topic && !row.topics.includes(topic)) return false;
+        return true;
+      }),
+    };
+  });
 }
 
 export async function presentConversation(id: number, employeeId: number) {
@@ -113,6 +175,16 @@ export async function presentConversation(id: number, employeeId: number) {
     outcome: latest?.outcome,
     reviewReasons: (latest?.reviewReasons as string[]) ?? [],
   });
+  const sourceChanged = reviewed ? await reviewedSourceChanged(reviewed.id) : false;
+  const topics = reviewed
+    ? topicsOf({
+        outcome: latest?.outcome,
+        citedCategories: ((reviewed.sources as { category?: string | null }[]) ?? [])
+          .map((s) => s.category)
+          .filter((c): c is string => !!c),
+        citedFacts: /\[F\d+\]/.test(reviewed.finalText),
+      })
+    : (latestPresented?.topics ?? []);
 
   return {
     id: conv.id,
@@ -121,8 +193,11 @@ export async function presentConversation(id: number, employeeId: number) {
     createdAt: conv.createdAt.toISOString(),
     ownedByMe: conv.createdBy === employeeId,
     state,
-    flags: { sourceUpdated: latestPresented?.sourceUpdated ?? false },
-    topics: latestPresented?.topics ?? [],
+    flags: {
+      sourceUpdated: !reviewed && (latestPresented?.sourceUpdated ?? false),
+      sourceChanged,
+    },
+    topics,
     turns: turnRows.map((t) => ({
       id: t.id,
       seq: t.seq,
@@ -142,30 +217,34 @@ export async function presentConversation(id: number, employeeId: number) {
 async function presentSummaries(
   rows: (typeof conversations.$inferSelect)[],
   employeeId: number,
-  signals: Awaited<ReturnType<typeof getAccountSignals>>,
 ) {
   if (!rows.length) return [];
   const ids = rows.map((r) => r.id);
-  const [questions, lastTurns, latestAnswers, reviewed] = await Promise.all([
+  const accountIds = [...new Set(rows.map((r) => r.accountId))];
+  const [questions, latestAnswers, reviewed, creators, accountRows, sqlStates] = await Promise.all([
     db()
       .selectDistinctOn([turns.conversationId], { conversationId: turns.conversationId, text: turns.text })
       .from(turns)
       .where(and(inArray(turns.conversationId, ids), eq(turns.kind, 'question')))
       .orderBy(turns.conversationId, turns.seq),
     db()
-      .selectDistinctOn([turns.conversationId], { conversationId: turns.conversationId, id: turns.id })
-      .from(turns)
-      .where(inArray(turns.conversationId, ids))
-      .orderBy(turns.conversationId, desc(turns.seq)),
-    db()
       .selectDistinctOn([answers.conversationId])
       .from(answers)
       .where(inArray(answers.conversationId, ids))
       .orderBy(answers.conversationId, desc(answers.id)),
     db()
-      .select({ conversationId: reviewedAnswers.conversationId })
+      .select()
       .from(reviewedAnswers)
       .where(inArray(reviewedAnswers.conversationId, ids)),
+    db()
+      .select({ id: employees.id, name: employees.name })
+      .from(employees)
+      .where(inArray(employees.id, [...new Set(rows.map((r) => r.createdBy))])),
+    db()
+      .select({ id: accounts.id, ref: accounts.ref, companyName: accounts.companyName })
+      .from(accounts)
+      .where(inArray(accounts.id, accountIds)),
+    conversationStatesById(ids),
   ]);
 
   const answerIds = latestAnswers.map((a) => a.id);
@@ -179,30 +258,57 @@ async function presentSummaries(
         .where(and(inArray(answerSources.answerId, answerIds), isNotNull(answerSources.citationNumber)))
     : [];
 
+  const [staleAnswers, staleReviewed] = await Promise.all([
+    unsavedSourceUpdated(answerIds),
+    reviewedSourceChangedByConversation(ids),
+  ]);
+
   const questionBy = new Map(questions.map((q) => [q.conversationId, q.text]));
-  const lastTurnBy = new Map(lastTurns.map((t) => [t.conversationId, t.id]));
   const latestBy = new Map(latestAnswers.map((a) => [a.conversationId, a]));
-  const savedIds = new Set(reviewed.map((r) => r.conversationId));
+  const reviewedBy = new Map(reviewed.map((r) => [r.conversationId, r]));
+  const creatorBy = new Map(creators.map((e) => [e.id, e]));
+  const accountBy = new Map(accountRows.map((a) => [a.id, a]));
   const categoriesBy = new Map<number, string[]>();
   for (const c of cited) categoriesBy.set(c.answerId, [...(categoriesBy.get(c.answerId) ?? []), c.category]);
 
+  const signalsBy = new Map<number, Awaited<ReturnType<typeof getAccountSignals>>>();
+  await Promise.all(
+    accountIds.map(async (id) => {
+      signalsBy.set(id, await getAccountSignals(id));
+    }),
+  );
+
   return rows.map((conv) => {
     const latest = latestBy.get(conv.id);
+    const saved = reviewedBy.get(conv.id);
+    const account = accountBy.get(conv.accountId);
+    const topics = saved
+      ? topicsOf({
+          outcome: latest?.outcome,
+          citedCategories: ((saved.sources as { category?: string | null }[]) ?? [])
+            .map((s) => s.category)
+            .filter((c): c is string => !!c),
+          citedFacts: /\[F\d+\]/.test(saved.finalText),
+        })
+      : latest
+        ? answerTopics(latest, categoriesBy.get(latest.id) ?? [])
+        : [];
     return {
       id: conv.id,
       accountId: conv.accountId,
+      accountRef: account?.ref ?? '',
+      companyName: account?.companyName ?? '',
       question: questionBy.get(conv.id) ?? '',
       createdAt: conv.createdAt.toISOString(),
+      createdBy: creatorBy.get(conv.createdBy) ?? { id: conv.createdBy, name: '' },
       ownedByMe: conv.createdBy === employeeId,
-      state: deriveState({
-        generating: generationLockHeld(conv),
-        saved: savedIds.has(conv.id),
-        hasAnswer: !!latest && latest.turnId === lastTurnBy.get(conv.id),
-        outcome: latest?.outcome,
-        reviewReasons: (latest?.reviewReasons as string[]) ?? [],
-      }),
-      topics: latest ? answerTopics(latest, categoriesBy.get(latest.id) ?? []) : [],
-      signals,
+      state: sqlStates.get(conv.id) ?? 'failed',
+      flags: {
+        sourceUpdated: !saved && !!latest && staleAnswers.has(latest.id),
+        sourceChanged: !!saved && staleReviewed.has(conv.id),
+      },
+      topics,
+      signals: signalsBy.get(conv.accountId) ?? [],
     };
   });
 }

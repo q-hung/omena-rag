@@ -1,78 +1,107 @@
+import { useNavigate } from 'react-router-dom';
 import Badge from '../../components/ui/Badge';
 import Tag from '../../components/ui/Tag';
 import { Page, PageHeader } from '../../components/ui/Page';
 import { TableEmpty, TableHeader } from '../../components/ui/Table';
-import { accountById, accounts } from '../../data/jarvis';
-import { STATE_LABEL, STATE_TONE, deriveState, latestAnswer, sourcesChanged } from '../../lib/model';
+import { STATE_LABEL, STATE_TONE } from '../../lib/model';
 
 const COLS = 'grid-cols-[200px_minmax(0,1fr)_220px_200px]';
+const TOPICS = ['Plans', 'Policies', 'Billing', 'FAQ', 'Security', 'Developer', 'Account data'];
 
-// Source flags (§4.2): unsaved answers use their citations, saved ones their snapshot.
-function flagOf(c, docs) {
-  if (c.reviewed) return sourcesChanged(c.reviewed.sources, docs) ? 'Source changed — recheck' : null;
-  const a = latestAnswer(c);
-  return a && sourcesChanged(a.cites, docs) ? 'Source updated' : null;
+function flagOf(row) {
+  if (row.flags?.sourceChanged) return 'Source changed — recheck';
+  if (row.flags?.sourceUpdated) return 'Source updated';
+  return null;
 }
 
-// All conversations, newest first, filterable by account and state (WF-03).
 export default function HistoryView({ app }) {
-  const { state: s, set, openConv } = app;
-  const rows = s.conversations.map((c) => ({ c, st: deriveState(c, !!s.generating[c.id]), flag: flagOf(c, s.docs) }));
-  const byAccount = rows.filter((r) => s.histAccount === 'All' || r.c.accountId === s.histAccount);
-  const shown = byAccount.filter((r) => s.histState === 'All' || r.st === s.histState);
+  const { history: h, accounts } = app;
+  const navigate = useNavigate();
+  const openRow = (row) => {
+    if (row.ownedByMe) {
+      app.selectAccount(row.accountId);
+      app.workspace.open(row.id);
+      navigate('/ask');
+    } else {
+      navigate(`/history/${row.id}`);
+    }
+  };
 
   return (
     <Page>
       <PageHeader title="History" subtitle="Questions and answers from every employee. Saved answers are internal records; nothing is sent to customers." />
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap gap-2">
-          <Tag selected={s.histAccount === 'All'} onClick={() => set({ histAccount: 'All' })}>All accounts · {rows.length}</Tag>
+          <Tag selected={h.mine} onClick={() => h.setMine(true)}>Mine</Tag>
+          <Tag selected={!h.mine} onClick={() => h.setMine(false)}>All</Tag>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Tag selected={h.accountId == null} onClick={() => h.setAccountId(null)}>All accounts · {h.rows.length}</Tag>
           {accounts.map((a) => (
-            <Tag key={a.id} selected={s.histAccount === a.id} onClick={() => set({ histAccount: a.id })}>
-              {a.ref} {a.company} · {rows.filter((r) => r.c.accountId === a.id).length}
+            <Tag key={a.id} selected={h.accountId === a.id} onClick={() => h.setAccountId(a.id)}>
+              {a.ref} {a.companyName}
             </Tag>
           ))}
         </div>
         <div className="flex flex-wrap gap-2">
-          <Tag selected={s.histState === 'All'} onClick={() => set({ histState: 'All' })}>All states · {byAccount.length}</Tag>
+          <Tag selected={!h.state} onClick={() => h.setState(null)}>All states</Tag>
           {Object.keys(STATE_LABEL).map((st) => (
-            <Tag key={st} selected={s.histState === st} onClick={() => set({ histState: st })}>
-              {STATE_LABEL[st]} · {byAccount.filter((r) => r.st === st).length}
+            <Tag key={st} selected={h.state === st} onClick={() => h.setState(st)}>
+              {STATE_LABEL[st]}
             </Tag>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Tag selected={!h.signal} onClick={() => h.setSignal(null)}>All signals</Tag>
+          <Tag selected={h.signal === 'webhook_failing'} onClick={() => h.setSignal('webhook_failing')}>Webhook failing</Tag>
+          <Tag selected={h.signal === 'payment_failed'} onClick={() => h.setSignal('payment_failed')}>Payment failed</Tag>
+          <Tag selected={h.signal === 'past_due'} onClick={() => h.setSignal('past_due')}>Past due</Tag>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Tag selected={!h.topic} onClick={() => h.setTopic(null)}>All topics</Tag>
+          {TOPICS.map((topic) => (
+            <Tag key={topic} selected={h.topic === topic} onClick={() => h.setTopic(topic)}>{topic}</Tag>
           ))}
         </div>
       </div>
       <div className="border border-hairline bg-white">
         <TableHeader cols={COLS} labels={['ACCOUNT', 'QUESTION', 'STATE', 'CREATED']} />
-        {shown.map(({ c, st, flag }) => {
-          const a = accountById(c.accountId);
+        {h.rows.map((row) => {
+          const flag = flagOf(row);
           return (
             <button
-              key={c.id}
+              key={row.id}
               type="button"
-              onClick={() => openConv(c.id)}
+              onClick={() => openRow(row)}
               className={`grid w-full items-center gap-4 border-b border-hairline bg-white px-5 py-4 text-left hover:bg-almost-white ${COLS}`}
             >
               <span className="flex flex-col gap-0.5">
-                <span className="text-sm font-semibold">{a.company}</span>
-                <span className="font-mono text-xs text-muted">{a.ref}</span>
+                <span className="text-sm font-semibold">{row.companyName}</span>
+                <span className="font-mono text-xs text-muted">{row.accountRef}</span>
               </span>
               <span className="flex min-w-0 flex-col gap-0.5">
-                <span className="truncate text-sm">{c.turns[0].text}</span>
-                {c.turns.length > 1 && <span className="text-xs text-muted">{c.turns.length - 1} clarification {c.turns.length > 2 ? 'replies' : 'reply'}</span>}
+                <span className="truncate text-sm">{row.question}</span>
+                <span className="flex flex-wrap gap-1.5">
+                  {(row.signals ?? []).map((signal) => (
+                    <Badge key={signal.key} tone={signal.tone}>{signal.label}</Badge>
+                  ))}
+                  {(row.topics ?? []).map((topic) => (
+                    <Badge key={topic} tone="outline">{topic}</Badge>
+                  ))}
+                </span>
               </span>
               <span className="flex flex-col items-start gap-1">
-                <Badge tone={STATE_TONE[st]}>{STATE_LABEL[st]}</Badge>
+                <Badge tone={STATE_TONE[row.state]}>{STATE_LABEL[row.state]}</Badge>
                 {flag && <span className="text-xs font-semibold text-secondary">{flag}</span>}
               </span>
               <span className="flex flex-col gap-0.5">
-                <span className="font-mono text-xs text-secondary">{c.createdAt}</span>
-                <span className="text-xs text-muted">{c.createdBy}</span>
+                <span className="font-mono text-xs text-secondary">{row.createdAt}</span>
+                <span className="text-xs text-muted">{row.createdBy?.name}</span>
               </span>
             </button>
           );
         })}
-        {shown.length === 0 && <TableEmpty>No conversations match these filters.</TableEmpty>}
+        {h.rows.length === 0 && <TableEmpty>No conversations match these filters.</TableEmpty>}
       </div>
     </Page>
   );

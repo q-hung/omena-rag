@@ -15,6 +15,7 @@ import {
 } from './db/schema.ts';
 import {
   AppError,
+  badRequest,
   conflict,
   generationQuota,
   notFound,
@@ -39,6 +40,7 @@ export type GenerateDeps = {
   provider?: Provider;
   retrieve?: typeof retrieve;
   afterRetrieve?: (passages: Passage[]) => Promise<void>;
+  afterT2Lock?: () => Promise<void>;
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
   requestDeadlineMs?: number;
@@ -101,6 +103,7 @@ export async function regenerateConversation(input: {
     );
     if (!conv) throw notFound('CONVERSATION_NOT_FOUND', 'No such conversation.');
     requireOwner({ createdBy: Number(conv.created_by) }, input.employeeId);
+    await assertNotSaved(tx, input.conversationId);
     await assertQuota(tx, input.employeeId);
     if (!rowsOf(await takeLock(tx, input.conversationId, token)).length) {
       throw conflict('GENERATION_IN_PROGRESS', 'This conversation is already generating an answer.');
@@ -113,6 +116,63 @@ export async function regenerateConversation(input: {
       .limit(1);
     if (!turn) throw notFound('TURN_NOT_FOUND', 'This conversation has no question yet.');
     return { conversationId: input.conversationId, turnId: turn.id, token };
+  });
+
+  return finish(started, input);
+}
+
+export async function replyConversation(input: {
+  conversationId: number;
+  employeeId: number;
+  selections?: string[];
+  text?: string;
+  config: Config;
+  deps?: GenerateDeps;
+  log?: FastifyBaseLogger;
+}) {
+  const selections = [...new Set((input.selections ?? []).map((id) => id.trim()).filter(Boolean))];
+  const text = input.text?.trim() || null;
+  if (!selections.length && !text) throw badRequest('EMPTY_REPLY', 'Select a record or enter a reply.');
+  if (text && text.length > 1_000) throw badRequest('REPLY_TOO_LONG', 'A reply can be at most 1,000 characters.');
+
+  const token = randomUUID();
+  const started = await db().transaction(async (tx) => {
+    const [conv] = rowsOf(
+      await tx.execute(sql`select * from conversations where id = ${input.conversationId} for update`),
+    );
+    if (!conv) throw notFound('CONVERSATION_NOT_FOUND', 'No such conversation.');
+    requireOwner({ createdBy: Number(conv.created_by) }, input.employeeId);
+    await assertNotSaved(tx, input.conversationId);
+
+    const [lastTurn] = await tx
+      .select()
+      .from(turns)
+      .where(eq(turns.conversationId, input.conversationId))
+      .orderBy(desc(turns.seq))
+      .limit(1);
+    const [latest] = lastTurn
+      ? await tx.select().from(answers).where(eq(answers.turnId, lastTurn.id)).orderBy(desc(answers.id)).limit(1)
+      : [];
+    if (latest?.outcome !== 'clarification_required') {
+      throw conflict('NOT_AWAITING_CLARIFICATION', 'Reply only when Jarvis has asked for clarification.');
+    }
+    const selected = validateSelections(selections, latest.clarifications);
+    await assertQuota(tx, input.employeeId);
+    if (!rowsOf(await takeLock(tx, input.conversationId, token)).length) {
+      throw conflict('GENERATION_IN_PROGRESS', 'This conversation is already generating an answer.');
+    }
+    const [turn] = await tx
+      .insert(turns)
+      .values({
+        conversationId: input.conversationId,
+        seq: lastTurn!.seq + 1,
+        kind: 'clarification_reply',
+        text,
+        selectedFacts: selected.length ? selected : null,
+        createdBy: input.employeeId,
+      })
+      .returning();
+    return { conversationId: input.conversationId, turnId: turn!.id, token };
   });
 
   return finish(started, input);
@@ -180,7 +240,7 @@ async function runOutsideTxn(
     });
   }
 
-  const query = retrievalQuery(turnRows);
+  const query = retrievalQuery(turnRows, snapshot.facts);
   if (now() >= deadline) throw new ProviderError('DEADLINE', 'The request deadline passed before a new attempt could start.');
   const formatted = formatQueryForEmbedding(query);
   const vector = await paidAttempt(
@@ -250,6 +310,7 @@ async function runOutsideTxn(
     normalised,
     model: generated.model,
     promptVersion: built.promptVersion,
+    deps,
   });
 }
 
@@ -303,12 +364,14 @@ async function saveAnswer(input: {
   normalised: Normalised;
   model: string;
   promptVersion: string;
+  deps?: GenerateDeps;
 }): Promise<void> {
   const { started, normalised } = input;
   await db().transaction(async (tx) => {
     const [conv] = rowsOf(
       await tx.execute(sql`select generation_token from conversations where id = ${started.conversationId} for update`),
     );
+    await input.deps?.afterT2Lock?.();
     if (!conv || String(conv.generation_token) !== started.token) {
       throw conflict('LOCK_TAKEN', 'The generation lock was taken over.');
     }
@@ -408,11 +471,43 @@ async function recordFailure(conversationId: number, employeeId: number, cfg: Co
   });
 }
 
-function retrievalQuery(turnRows: { kind: string; text: string | null }[]): string {
+function retrievalQuery(
+  turnRows: { kind: string; text: string | null; selectedFacts?: string[] | null }[],
+  facts: { id: string; value: string }[],
+): string {
   const first = turnRows.find((t) => t.kind === 'question')?.text ?? '';
   const last = turnRows[turnRows.length - 1];
   const extra = last && last.kind !== 'question' ? last.text : '';
-  return [first, extra].filter(Boolean).join('\n').slice(0, 3_000);
+  const byId = new Map(facts.map((f) => [f.id, f.value]));
+  const selected = (last?.selectedFacts ?? []).map((id) => `${id} ${byId.get(id) ?? ''}`).join(' ');
+  return [first, extra, selected].filter((s) => s && s.trim()).join('\n').slice(0, 3_000);
+}
+
+function validateSelections(ids: string[], raw: unknown): string[] {
+  const clarifications = (raw ?? []) as { kind: string; options?: { fact: string }[] }[];
+  const choose = clarifications.filter((c) => c.kind === 'choose_record');
+  const allowed = new Map<string, number>();
+  choose.forEach((c, i) => {
+    for (const option of c.options ?? []) allowed.set(option.fact, i);
+  });
+  const used = new Set<number>();
+  for (const id of ids) {
+    const index = allowed.get(id);
+    if (index == null) throw badRequest('INVALID_SELECTION', `${id} is not an option of the current clarification.`);
+    if (used.has(index)) throw badRequest('INVALID_SELECTION', 'Select at most one option per clarification.');
+    used.add(index);
+  }
+  return ids;
+}
+
+async function assertNotSaved(
+  tx: { execute: (q: ReturnType<typeof sql>) => Promise<unknown> },
+  conversationId: number,
+) {
+  const existing = rowsOf(
+    await tx.execute(sql`select id from reviewed_answers where conversation_id = ${conversationId}`),
+  );
+  if (existing.length) throw conflict('ALREADY_SAVED', 'This conversation is already saved.');
 }
 
 function clarificationsFor(prior: { turnId: number; clarifications: unknown }[], turnId: number) {

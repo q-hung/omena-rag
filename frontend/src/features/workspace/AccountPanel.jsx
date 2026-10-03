@@ -8,7 +8,7 @@ const SECTION_LABEL = { account: 'Account', features: 'Features', payments: 'Pay
 // Left pane: account selector and structured facts (REQ §12.2, §5.4).
 export default function AccountPanel({ app, conv }) {
   const { state: s } = app;
-  const account = s.accounts.find((a) => a.id === s.accountId);
+  const account = s.accounts.find((a) => a.id === (conv?.accountId ?? s.accountId));
   const latest = conv?.answers?.[conv.answers.length - 1];
   const facts = latest?.facts ?? s.accountFacts?.facts ?? [];
   const empty = latest?.empty ?? s.accountFacts?.empty ?? [];
@@ -20,7 +20,7 @@ export default function AccountPanel({ app, conv }) {
         <label htmlFor="account" className="eyebrow">ACCOUNT</label>
         <select
           id="account"
-          value={s.accountId}
+          value={conv?.accountId ?? s.accountId}
           disabled={!!conv}
           onChange={(e) => app.selectAccount(Number(e.target.value))}
           className="min-h-11 border-2 border-rule bg-white px-3 text-sm font-semibold disabled:bg-light-grey disabled:text-secondary"

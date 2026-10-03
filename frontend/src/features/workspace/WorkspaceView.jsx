@@ -35,7 +35,7 @@ export default function WorkspaceView({ app }) {
       </div>
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(280px,0.9fr)_minmax(440px,1.6fr)_minmax(300px,1fr)]">
         <AccountPanel app={app} conv={conv} />
-        <ConversationPanel app={app} conv={conv} account={account} state={st} />
+        <ConversationPanel app={app} conv={conv} account={account} state={st} readOnly={false} />
         <EvidencePanel app={app} conv={conv} state={st} />
       </div>
     </>

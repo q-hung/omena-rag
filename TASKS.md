@@ -430,11 +430,11 @@ limit) is folded in too (IDX-01, T12, T18).
   - No confidence percentages or "verified" labels.
 - **Verify:** `pnpm --filter server test conversations-list`: with A and B each owning a conversation on A-1004, A's `mine=1` list contains only A's; topics: E01 → Plans, Security; E06 → Policies, FAQ; E12 → Account data; E11 → none. Manually with the stub: S1, S3, S4 and S5 render as in §13.1. `grep -rn "confidence\|verified" frontend/src` finds no UI text.
 
-  Covered. Ask uses `useAsk`; History still uses `useJarvis`. Edit / reply / save stay for M7.
+  Covered. Ask and History both use the API.
 
 ## Phase 7 — Review flow (M7)
 
-### [ ] T23 · Clarification replies
+### [x] T23 · Clarification replies
 - **Goal:** the S2b round trip on the API.
 - **Refs:** CLR-01–04, AUTH-02, §7.1 step 2.
 - **Depends:** T21.
@@ -446,7 +446,9 @@ limit) is folded in too (IDX-01, T12, T18).
   - The next prompt includes the conversation so far, and the retrieval query is turn 1 plus the latest reply.
 - **Verify:** `pnpm --filter server test clarify`: a reply on an `answer_ready` conversation → 409; an empty reply → 400; selecting F12 when the options are F10/F11 → 400; selecting F10 stores `selected_facts = ["F10"]` and the next prompt contains "Employee selected: F10"; B replying to A's clarification → 403 `NOT_OWNER` and no new turn. Manually: S2b (select the GBP 600.00 option) ends in Needs review with Exception unclear, and the account is unchanged.
 
-### [ ] T24 · Edit and copy
+  Covered (4 Oct 2026). Reply is a T1 turn under the conversation lock. The retrieval query is turn 1 + latest reply text + selected fact values, so a selections-only reply still matches the stub (E05).
+
+### [x] T24 · Edit and copy
 - **Goal:** edits validated on the server; copy without markers.
 - **Refs:** ANS-02, ANS-03, AUTH-02, I6.
 - **Depends:** T21.
@@ -459,7 +461,9 @@ limit) is folded in too (IDX-01, T12, T18).
   - Copy strips markers on the client and falls back to selecting the text (I6). It's available to every employee, including in the read-only view.
 - **Verify:** `pnpm --filter server test edit`: `[7]` → 400; `[F99]` → 400; `answer_text` is unchanged after an edit; editing a saved conversation → 409; B editing A's answer → 403 `NOT_OWNER` and `edited_text` unchanged.
 
-### [ ] T25 · Save reviewed answer, locking and staleness
+  Covered (4 Oct 2026). Copy uses `navigator.clipboard` and falls back to selecting the marker-free text with "Press ⌘C / Ctrl+C to copy".
+
+### [x] T25 · Save reviewed answer, locking and staleness
 - **Goal:** the API enforces every save rule, under document-lifecycle locks.
 - **Refs:** ANS-04, ANS-05, ANS-06, LCK-01, LCK-02, AUTH-02, STL-01, §7.5, §7.6, SC-3.
 - **Depends:** T16, T24.
@@ -482,7 +486,9 @@ limit) is folded in too (IDX-01, T12, T18).
   - delete after save keeps the snapshot, and the flag shows "Source changed — recheck";
   - restore clears an archive flag.
 
-### [ ] T26 · History on the API and prototype removal
+  Covered (4 Oct 2026). Save takes `FOR UPDATE` on the conversation then `FOR SHARE` on cited documents by id. The source snapshot also stores `category` so saved topic badges survive a delete (ANS-09).
+
+### [x] T26 · History on the API and prototype removal
 - **Goal:** History on real data; no simulated data left in the client.
 - **Refs:** WF-02, WF-03, AUTH-02, SIG-02, ANS-09, §12.3, I5.
 - **Depends:** T22, T23, T25.
@@ -495,6 +501,8 @@ limit) is folded in too (IDX-01, T12, T18).
   - The Save/Edit/Copy actions use the API.
   - `frontend/src/hooks/useJarvis.js` and `frontend/src/data/jarvis.js` are deleted. Rule helpers left in `lib/model.js` are only display helpers (labels, tones); the server owns the rules.
 - **Verify:** manual with the stub: S2a, S2b and S6 end to end (save → replace Refund policy → "Source changed — recheck" → new answer cites v3 with Policy applicability). `grep -rn "useJarvis\|data/jarvis" frontend/src` returns nothing. The "Webhook failing" filter shows only A-1004 conversations and the "Billing" filter only answers citing a Billing document. With two seeded employees: *Mine* hides the other's rows, *All* shows them, and the other's conversation opens read-only with no write buttons.
+
+  Covered (4 Oct 2026). `GET /api/conversations` accepts optional `accountId`, `state`, `mine`, `signal`, `topic`. History state is `STATE_SQL` (WF-05); `history-state.test.ts` checks it against `deriveState` for every state. `useJarvis.js` and `data/jarvis.js` are deleted. Suggested questions are a small ref-keyed list in `ConversationPanel`. Browser-checked with the stub: S2a (A-1002 refund → answer, 20 days, Save/Edit/Copy); S2b (A-1003 choose_record → F10 → Needs review / Exception unclear); History Mine/All and Webhook failing → A-1004 only. S6 (v3 replace) is still a manual walkthrough; v3 is not seeded.
 
 ## Phase 8 — Evaluation (M8)
 

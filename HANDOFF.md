@@ -2,11 +2,11 @@
 
 Internal Product Support Copilot. Source of truth: `REQ_V2.MD`, `TASKS.md`.
 
-## Done (T00–T22)
+## Done (T00–T26)
 
-Phases 0–6. Employees can sign in, see live account facts, manage the knowledge
-base, and generate answers on the API. History, clarification replies, edit,
-and save reviewed answers are still prototype / next milestone.
+Phases 0–7. Employees can sign in, generate answers, reply to clarifications,
+edit and copy, save a reviewed internal answer, and browse History on the API.
+The prototype data files are gone.
 
 | Area | Where |
 |---|---|
@@ -17,7 +17,12 @@ and save reviewed answers are still prototype / next milestone.
 | Retrieval | `server/src/retrieve.ts` — SQL access filter; stub uses token overlap |
 | Prompt / normalise | `server/src/prompt.ts`, `server/src/normalise.ts` |
 | Generation | `POST /api/conversations`, `POST /api/conversations/:id/regenerate` |
+| Replies | `POST /api/conversations/:id/replies` `{selections?, text?}` |
+| Edit | `PATCH /api/answers/:id` `{editedText}` |
+| Review | `POST /api/conversations/:id/review` `{answerId, reviewAcknowledged}` |
+| History | `GET /api/conversations?accountId&state&mine&signal&topic` |
 | Ask UI | `frontend/src/hooks/useAsk.js` |
+| History UI | `frontend/src/hooks/useHistory.js` |
 | KB UI | `frontend/src/hooks/useDocuments.js` |
 
 ## Run
@@ -32,30 +37,29 @@ Login: `ada@omena.example` or `rei@omena.example` / `jarvis-demo` (from `SEED_EM
 
 ```bash
 pnpm --filter server test
-pnpm --filter server test retrieval prompt normalise generate conversations-list
+pnpm --filter server test clarify edit review history-state conversations-list generate
 ```
 
 After seed + worker: 6 documents Ready (SSO guide warned about page 2) and Failed payment retries Failed (`No page has a text layer. OCR isn't supported.`). `refund-policy-v3.md` is in `server/fixtures/kb/` but is not seeded.
 
-## Generation
+## Review flow
 
-- T1 locks the conversation, checks the 50/day quota, sets `generation_token`, inserts the turn. T2 verifies the token, inserts the answer, resolves `chunk_id` in-insert (GEN-05), clears the lock.
-- Request deadline is 90 s from T1 (GEN-04). Each generate attempt is its own `paidAttempt`. Pass `once: true` so Gemini does not retry inside one reservation.
-- `requireOwner` → 403 `NOT_OWNER` after 404 and before state checks.
-- Snapshot failure after T1 → 503 `account_data_unavailable` with `conversationId`.
-- Stub retrieval ranks eligible chunks by token overlap (stopwords dropped, light stemming). Hash embeddings do not reach `RETRIEVAL_MIN_SCORE` (0.5). Live Gemini still uses cosine + the configured threshold.
-- Stub script markers `[F:key]` / `[S:doc:k]` are resolved in the normaliser via fact keys and `scriptKeyFor`.
+- Reply is a new turn in T1 under the conversation lock. Allowed only when the latest outcome is `clarification_required`. Selections must be `choose_record` options, at most one per clarification.
+- Retrieval query is turn 1 + latest reply text + selected fact values (so a selections-only reply still retrieves and matches the stub).
+- Edit stores `edited_text` under `FOR UPDATE`; `answer_text` never changes. Unknown `[n]` / `[F#]` → 400.
+- Copy strips markers. If `navigator.clipboard` is missing, the text is selected and the UI says "Press ⌘C / Ctrl+C to copy".
+- Save takes `FOR UPDATE` on the conversation, then `FOR SHARE` on cited documents ordered by id, then the §7.6 stale check, then inserts `reviewed_answers`. The snapshot includes `category` so saved topic badges survive a delete.
+- History state is derived in SQL (`STATE_SQL`, WF-05). Mine / All defaults to Mine. Other employees' conversations open read-only at `/history/:id`.
 
 ## Next
 
-**T23** — clarification replies (S2b).
+**T27** — golden set and `pnpm eval` (M8). Do not start until M7 is accepted.
 
-Then T24–T26 (edit / copy / save / History), T27–T29 (eval / Docker / release).
+Then T28–T29 (Docker / release).
 
 ## Limits
 
-- History still reads `frontend/src/data/jarvis.js`.
-- Reply, edit, and save reviewed answer are not on the API (T23–T25).
+- S6 (replace Refund policy with v3) is a manual stub walkthrough; v3 is not seeded.
 - Smoke-embed against Gemini is manual; CI never calls Gemini.
 - GEN-04 is tested with a shortened deadline (400 ms), not a 90 s hang.
 - Node 26 strip-only mode: no constructor parameter properties; no top-level `return` in `.ts` scripts.
