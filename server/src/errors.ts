@@ -1,12 +1,13 @@
 /** Every expected failure carries the code the API returns (§17b error shape). */
 export class AppError extends Error {
-  constructor(
-    readonly statusCode: number,
-    readonly code: string,
-    message: string,
-  ) {
+  readonly statusCode: number;
+  readonly code: string;
+
+  constructor(statusCode: number, code: string, message: string) {
     super(message);
     this.name = 'AppError';
+    this.statusCode = statusCode;
+    this.code = code;
   }
 }
 
