@@ -63,12 +63,12 @@ The employee inspects both kinds of evidence separately, edits the draft, copies
 
 | Role | Who | Can |
 |---|---|---|
-| `employee` | Omena staff (seeded) | Everything in Jarvis: select accounts, ask questions, view all conversations, edit/save answers, manage the KB |
+| `employee` | Omena staff (seeded) | Select accounts, ask questions, change their **own** conversations (reply, regenerate, edit, save), read everyone's conversations, manage the KB |
 
 - **AUTH-01 (Must)** Employees log in with email and password. There is no self-signup and no other role.
   *AC:* a wrong password → 401; no route other than `POST /api/auth/login` responds without a session (→ 401).
-- **AUTH-02 (Must)** All employees have the same permissions, including on conversations started by others.
-  *AC:* employee B can open and save employee A's conversation.
+- **AUTH-02 (Must)** All employees have the same permissions. Conversations are **readable by every employee and changeable only by their creator** (`conversations.created_by`). Replying, regenerating, editing and saving someone else's conversation returns 403 `NOT_OWNER`. Ownership is checked after the 404 check and before every state check (409s). The knowledge base stays shared: any employee can manage any document.
+  *AC:* employee B can `GET` employee A's conversation; B's reply, regenerate, edit and save on it each return 403 `NOT_OWNER` and change nothing; A's same requests succeed.
 - **AUTH-03 (Must)** Accounts are business records with no credentials or login capability.
   *AC:* the `accounts` schema has no password, email or session columns.
 
@@ -126,8 +126,10 @@ document version
   *AC:* `POST /api/conversations` returns the conversation with its first answer; if generation fails, the conversation and turn still exist and the state is `failed`.
 - **WF-02 (Must)** A `saved` conversation is read-only. A new question starts a new conversation with the same account preselected.
   *AC:* reply, regenerate, edit or save on a saved conversation → 409.
-- **WF-03 (Must)** History lists all conversations newest first with account, first question, state, flags, creator and time, filterable by account and state.
-  *AC:* filtering by account A-1004 shows only its conversations; a saved conversation whose source was replaced shows "Source changed — recheck".
+- **WF-03 (Must)** History lists conversations newest first with account, first question, state, flags, creator and time, filterable by account and state, with a **Mine / All** toggle that defaults to **Mine**. Opening your own conversation opens it in Ask. Opening someone else's opens a **read-only view**: turns, answers, facts and evidence, the banner "Started by another employee — read-only", and Copy answer; no reply box, Edit, Regenerate or Save.
+  *AC:* filtering by account A-1004 shows only its conversations; a saved conversation whose source was replaced shows "Source changed — recheck"; with *Mine* selected, no row has another creator; another employee's conversation opens without any write action.
+- **WF-04 (Must)** The Ask workspace only ever shows the signed-in employee's conversations (`created_by = me`). Selecting an account shows a new-question box and a list of *my* earlier conversations for that account, newest first. Another employee's conversation is never loaded into Ask.
+  *AC:* with A and B each having a conversation on A-1004, A's Ask list for A-1004 contains only A's; opening B's conversation from History shows the read-only view, not Ask.
 
 ---
 
@@ -554,7 +556,7 @@ Sidebar: **Ask** (account selector + workspace), **History**, **Knowledge base**
 | Pane | Contents |
 |---|---|
 | Left: **Account** | Account selector (company, ref, plan, status). Below it, the **Account facts** panel: grouped facts from the latest answer's snapshot (or live from the functions before the first question), each with its `F#`; empty sections shown explicitly. Note: "Company name and references are not sent to the model." |
-| Centre: **Conversation** | Question input (with the free-text PII note), the turn history, the latest answer with outcome badge, banners, gaps, clarification questions and reply box; actions **Edit**, **Copy answer**, **Save reviewed answer** (disabled with the API's reason as a hint), **Regenerate**, acknowledgement checkbox when review reasons exist. "Generating…" while running; Retry on failure |
+| Centre: **Conversation** | Only the signed-in employee's conversations (WF-04): a list of my earlier conversations for the selected account, the question input (with the free-text PII note), the turn history, the latest answer with outcome badge, banners, gaps, clarification questions and reply box; actions **Edit**, **Copy answer**, **Save reviewed answer** (disabled with the API's reason as a hint), **Regenerate**, acknowledgement checkbox when review reasons exist. "Generating…" while running; Retry on failure |
 | Right: **Document evidence** | One card per cited passage: title, category, version, effective date, heading, page (PDF), text, badges Superseded / Archived / Deleted, link to that version |
 
 ### 12.3 Reuse of the mock
@@ -616,7 +618,7 @@ Each case: account, question (and replies), expected outcome, expected review re
 
 ### 13.3 Automated tests (stub provider, Vitest, `jarvis_test` DB)
 
-- **Auth:** wrong password 401, 6th login 429, expired session 401, no raw token in `sessions`, foreign Origin 403.
+- **Auth:** wrong password 401, 6th login 429, expired session 401, no raw token in `sessions`, foreign Origin 403; AUTH-02 ownership (403 `NOT_OWNER` on reply, regenerate, edit, save); WF-04 Ask list contains only my conversations.
 - **Context:** CTX-02–CTX-05; PRM-01.
 - **Indexing:** IDX-01–IDX-04; KB-05, KB-06; KB-08 delete.
 - **Generation:** GEN-01–GEN-05; NRM-01; zero passages still calls the model; quota 51st → 429.
@@ -704,7 +706,7 @@ Each milestone ends with a working slice and its tests. Regenerate `TASKS.md` fr
 | M3 | Account context functions + snapshot + Account selector and facts panel (no AI) | CTX-01–05, §5.4 | M2 |
 | M4 | Provider module (Gemini + stub), budget reservation/reconciliation, quota; embedding-format spike | COST-01–04, DEC-5 | M1 |
 | M5 | Upload API, sandboxed extractors, chunker, worker, activation/retry, KB API + UI, KB seed fixtures | KB-01–09, IDX-01–04 | M2, M4 |
-| M6 | Retrieval, prompt builder, normaliser, conversations API with lock, Ask workspace answer + evidence panes | RET-01/02, PRM-01, GEN-01–05, NRM-01, ANS-01, UI-01 (partial) | M3, M5 |
+| M6 | Retrieval, prompt builder, normaliser, conversations API with lock, Ask workspace answer + evidence panes | RET-01/02, PRM-01, GEN-01–05, NRM-01, ANS-01, AUTH-02 (ownership), WF-04, UI-01 (partial) | M3, M5 |
 | M7 | Clarification turns, History, Edit, Copy, Save reviewed answer, lifecycle locking, staleness flags | CLR-01–03, ANS-02–08, LCK-01, LCK-02, STL-01, WF-01–03 | M6 |
 | M8 | Golden set + `pnpm eval`; calibrate threshold and model; commit values | EVAL-01, SC-1/2/4 | M7 |
 | M9 | Docker delivery (multi-stage, migrations on start, SPA fallback) and release check (all tests, log sample, §16 ticked) | SC-3, SEC-11 | M8 |
@@ -715,7 +717,7 @@ Each milestone ends with a working slice and its tests. Regenerate `TASKS.md` fr
 |---|---|---|
 | `employees` | `email` (unique, lower-case), `name`, `password_hash` | `name` is displayed, never sent to the model |
 | `sessions` | `token_hash`, `employee_id`, `expires_at` | |
-| `conversations` | `account_id` (FK), `created_by`, `generation_token uuid`, `generation_started_at` | Index (`account_id`, `created_at desc`) |
+| `conversations` | `account_id` (FK), `created_by`, `generation_token uuid`, `generation_started_at` | Index (`account_id`, `created_at desc`) for History; index (`created_by`, `account_id`, `created_at desc`) for the Ask list (WF-04). `created_by` is the owner (AUTH-02) |
 | `turns` | `conversation_id` (FK cascade), `seq`, `kind` (`question`, `clarification_reply`), `text`, `created_by` | Unique (`conversation_id`, `seq`) |
 | `answers` | `conversation_id`, `turn_id` (FK cascade), `created_by`, `outcome`, `answer_text` (immutable), `edited_text`, `edited_by`, `edited_at`, `clarification_questions jsonb`, `gaps jsonb`, `conflicts jsonb`, `review_reasons jsonb`, `facts_snapshot jsonb`, `as_of date`, `model`, `prompt_version` | Latest answer of a conversation = highest `id`. `facts_snapshot` is exactly what the model saw (minus `record`) |
 | `answer_sources` | `answer_id` (FK cascade), `rank`, `chunk_id` (FK, `ON DELETE SET NULL`), `score`, `citation_number` (null = retrieved, not cited) | PK (`answer_id`, `rank`); no `id`/`created_at` |
@@ -730,11 +732,11 @@ Each milestone ends with a working slice and its tests. Regenerate `TASKS.md` fr
 | `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/me` | Auth; `me` returns the employee and the `simulated` flag |
 | `GET /api/accounts`, `GET /api/accounts/:id/facts` | Selector; live snapshot for the facts panel |
 | `POST /api/conversations` `{accountId, question}` | Create + generate (WF-01) |
-| `GET /api/conversations?accountId&state`, `GET /api/conversations/:id` | History; conversation with turns, latest answer, facts, evidence, flags |
-| `POST /api/conversations/:id/replies` `{text}` | Clarification reply + generate |
-| `POST /api/conversations/:id/regenerate` | Regenerate latest turn / retry |
-| `PATCH /api/answers/:id` `{editedText}` | Edit (ANS-02) |
-| `POST /api/conversations/:id/review` `{answerId, reviewAcknowledged}` | Save reviewed answer (ANS-04) |
+| `GET /api/conversations?accountId&state&mine`, `GET /api/conversations/:id` | History (`mine=1` for the Ask list and the Mine toggle); conversation with turns, latest answer, facts, evidence, flags and `ownedByMe`. Readable by every employee |
+| `POST /api/conversations/:id/replies` `{text}` | Clarification reply + generate. Creator only (403 `NOT_OWNER`) |
+| `POST /api/conversations/:id/regenerate` | Regenerate latest turn / retry. Creator only |
+| `PATCH /api/answers/:id` `{editedText}` | Edit (ANS-02). Creator of the conversation only |
+| `POST /api/conversations/:id/review` `{answerId, reviewAcknowledged}` | Save reviewed answer (ANS-04). Creator only |
 | `GET/POST /api/documents`, `GET/DELETE /api/documents/:id`, `POST /api/documents/:id/versions`, `POST …/archive`, `POST …/restore`, `POST …/versions/:vid/retry`, `GET …/impact`, `GET …/versions/:vid/file` | KB |
 
 ---
@@ -753,6 +755,7 @@ Each milestone ends with a working slice and its tests. Regenerate `TASKS.md` fr
 - Open decisions #1 (approve vs send) and #2 (customer logins); C4, C11, C14 from TASKS.md.
 
 **Changed**
+- Conversation ownership (3 Oct 2026): every employee can read all conversations, but only the creator can reply, regenerate, edit or save (AUTH-02, 403 `NOT_OWNER`). Ask shows only my conversations (WF-04); History has Mine / All, defaulting to Mine, and opens other employees' conversations read-only (WF-03). Replaces "any employee can act on any conversation".
 - Product: from a reply-drafting tool for customer questions to an internal Product Support Copilot combining SQL facts and documents.
 - Workflow: employee selects an account and asks; history is per conversation.
 - Approval → **Save reviewed answer** (internal, immutable), with acknowledgement for review reasons.

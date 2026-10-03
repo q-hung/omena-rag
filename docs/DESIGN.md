@@ -14,6 +14,7 @@ are marked **D-n** and listed in §9.
 - Answers combine **structured facts** (read-only SQL functions, `[F#]`) with **document passages** (vector retrieval, `[n]`). The two kinds of evidence are shown in separate panels.
 - Clarification replies continue the same conversation, for at most 2 rounds.
 - Edit (markers can be removed, not added), Copy without markers, and Save as an immutable internal record. Nothing is sent to customers.
+- **Ownership:** every employee can read every conversation, but only its creator can change it (AUTH-02). Ask shows only my conversations (WF-04); History has Mine / All and opens other employees' conversations read-only (WF-03).
 - A versioned knowledge base: upload, replace, archive, delete, retry and download. Saved answers whose sources change are flagged.
 
 **Non-functional**
@@ -37,7 +38,7 @@ are marked **D-n** and listed in §9.
 
 ```text
 ┌──────────────────────────── browser (employee, desktop) ────────────────────────────┐
-│ React + Router: /login  /ask  /history  /kb/*        fetch + hooks, poll KB every 3 s │
+│ React + Router: /login  /ask  /history[/:id]  /kb/*  fetch + hooks, poll KB every 3 s │
 │ Ask = AccountPanel (facts F#) | ConversationPanel (answer, actions) | EvidencePanel   │
 └───────────────────────────────────────┬─────────────────────────────────────────────┘
                                         │ same origin, session cookie, JSON / multipart
@@ -192,12 +193,12 @@ Bodies are validated with zod (DEC-2).
 | `GET /api/accounts` | — | `[{id, ref, company, plan, status}]` | — |
 | `GET /api/accounts/:id/facts` | — | `{asOf, facts[F#], empty[]}` (no `record`) | 400, 404 |
 | `POST /api/conversations` | `{accountId, question ≤2000}` | 201 `Conversation` | 400, 404, 409 `LOCKED`, 429 `QUOTA`, 502 `PROVIDER`, 503 `BUDGET` / `ACCOUNT_DATA_UNAVAILABLE` |
-| `POST /api/conversations/:id/replies` | `{text ≤1000}` | 201 `Conversation` | as above + 409 `NOT_AWAITING_CLARIFICATION`, `ALREADY_SAVED` |
-| `POST /api/conversations/:id/regenerate` | — | 201 `Conversation` | as above |
-| `GET /api/conversations?accountId&state` | — | `[{id, account, firstQuestion, state, flag, createdBy, createdAt}]` | — |
+| `POST /api/conversations/:id/replies` | `{text ≤1000}` | 201 `Conversation` | as above + 403 `NOT_OWNER`, 409 `NOT_AWAITING_CLARIFICATION`, `ALREADY_SAVED` |
+| `POST /api/conversations/:id/regenerate` | — | 201 `Conversation` | as above + 403 `NOT_OWNER` |
+| `GET /api/conversations?accountId&state&mine` | — | `[{id, account, firstQuestion, state, flag, createdBy, createdAt, ownedByMe}]`; `mine=1` filters to `created_by = me` (Ask list, History default) | — |
 | `GET /api/conversations/:id` | — | `Conversation` | 404 |
-| `PATCH /api/answers/:id` | `{editedText}` | 200 `Answer` | 400 `UNKNOWN_MARKER`, 409 `NOT_LATEST` / `ALREADY_SAVED` |
-| `POST /api/conversations/:id/review` | `{answerId, reviewAcknowledged}` | 201 `Reviewed` | 409 with the codes in §3.3 |
+| `PATCH /api/answers/:id` | `{editedText}` | 200 `Answer` | 400 `UNKNOWN_MARKER`, 403 `NOT_OWNER`, 409 `NOT_LATEST` / `ALREADY_SAVED` |
+| `POST /api/conversations/:id/review` | `{answerId, reviewAcknowledged}` | 201 `Reviewed` | 403 `NOT_OWNER`, 409 with the codes in §3.3 |
 | `GET /api/documents?q&category&archived` | — | list with active version, status, warnings | — |
 | `POST /api/documents` | multipart: file, title, category, effectiveAt, note | 201 | 400, 413, 409 |
 | `POST /api/documents/:id/versions` | multipart: file, effectiveAt, note | 201 | 400, 413, 409 `IN_FLIGHT` / `SAME_HASH` |
@@ -208,7 +209,9 @@ Bodies are validated with zod (DEC-2).
 | `DELETE /api/documents/:id` | — | 204 | 404 |
 | `GET /api/documents/:id/versions/:vid/file` | — | bytes, `attachment`, `nosniff` | 404 |
 
-`Conversation` = `{ id, account, turns[], answers: latest per turn, facts, evidence[{n, title, cat, v, eff, heading, page, text, status}], state, flag, generating, savedRecord? }`.
+`Conversation` = `{ id, account, turns[], answers: latest per turn, facts, evidence[{n, title, cat, v, eff, heading, page, text, status}], state, flag, generating, ownedByMe, savedRecord? }`.
+
+**Authorization order** for every conversation write: session (401) → conversation exists (404) → `created_by = me` (403 `NOT_OWNER`) → state checks (409). Reads (`GET`) skip the ownership check.
 The UI shows the server's 409 codes as hints. The client may pre-compute them
 for display, but the server decides.
 
@@ -234,7 +237,7 @@ budget_days (day PK)
 - **State** is derived (§4.2, I1 precedence). It is computed in SQL for History, with one `LATERAL` join to the latest answer, and in TypeScript for single reads. A shared test checks that both give the same result.
 - **Staleness** is computed on read (§7.6), never stored, so there are no fan-out writes on activation.
 - **Snapshots** (`answers.facts_snapshot`, `reviewed_answers.sources/facts`) hold plain values, not FKs, so they survive deletes.
-- **Indexes:** `payments(account_id, occurred_at desc)`, `webhook_deliveries(endpoint_id, attempted_at desc)`, `conversations(account_id, created_at desc)`, `provider_calls(employee_id, created_at)` for the quota, `document_versions(indexing_status)` for the queue.
+- **Indexes:** `payments(account_id, occurred_at desc)`, `webhook_deliveries(endpoint_id, attempted_at desc)`, `conversations(account_id, created_at desc)` for History, `conversations(created_by, account_id, created_at desc)` for the Ask list, `provider_calls(employee_id, created_at)` for the quota, `document_versions(indexing_status)` for the queue.
 - **Size:** 768 × 4 B ≈ 3 KB per chunk; 10k chunks ≈ 30 MB. Original files ≤ 3 MB each (D-5), so 200 documents × 3 versions stay under ~1.8 GB in the worst case and far less in practice. Account data is a few hundred rows.
 
 ### 5.2 Account context
@@ -256,7 +259,8 @@ budget_days (day PK)
 
 | Contention | Mechanism |
 |---|---|
-| Two generations on one conversation | T1 token lock (409); stale lock taken over after 2 min |
+| Two employees writing to one conversation | Ruled out by ownership (403 `NOT_OWNER`); only the creator can write |
+| Two generations on one conversation (same employee, two tabs) | T1 token lock (409); stale lock taken over after 2 min |
 | A taken-over request finishing late | T2 token check: the result is discarded |
 | Save vs generation / edit / reply | `conversations` row `FOR UPDATE` in each short transaction |
 | Save vs activation / archive / delete | documents `FOR SHARE` (save) vs `FOR UPDATE` (lifecycle) |
@@ -294,6 +298,7 @@ reads. A cache would only add invalidation risk against the freshness rules.
 
 - **Trust boundaries:** browser → API (session, Origin, zod), API → model (no tools; the only output is zod-validated JSON), uploads → worker (sandboxed child, `env: {}`).
 - **Retrieval access** is decided in SQL. **Account access** is decided by the conversation row. The prompt decides neither.
+- **Conversation writes** need `created_by = me` (AUTH-02), checked by one `requireOwner` guard that every write route uses. Reads are open to all employees, so team visibility stays without shared writes. The knowledge base is shared and has no ownership.
 - **Output** is plain text rendered by React, with no Markdown or HTML.
 - **Logs** use an allow-list of fields, so question, answer, document and fact text never reach them (SEC-11).
 

@@ -93,7 +93,7 @@ limit) is still pending.
   - Constraints:
     - enum `CHECK`s and unique keys;
     - cascades, plus `ON DELETE SET NULL` for `answer_sources.chunk_id` and `documents.active_version_id` (added after `document_versions`);
-    - indexes on (`account_id`, `occurred_at desc`), (`endpoint_id`, `attempted_at desc`) and (`account_id`, `created_at desc`).
+    - indexes on (`account_id`, `occurred_at desc`), (`endpoint_id`, `attempted_at desc`), conversations (`account_id`, `created_at desc`) and conversations (`created_by`, `account_id`, `created_at desc`) for the Ask list (WF-04).
   - `accounts` has no credential columns.
 - **Verify:** `pnpm db:migrate` works on an empty DB and is a no-op on a second run. The schema test checks:
   - an invalid category is rejected;
@@ -145,7 +145,7 @@ limit) is still pending.
 - **Depends:** T06.
 - **Acceptance:**
   - `src/lib/api.js`: `fetch` with credentials and the error shape surfaced. The Vite dev proxy forwards `/api`.
-  - React Router routes `/login`, `/ask`, `/history`, `/kb` and `/kb/:id`. Unauthenticated users are redirected to `/login`.
+  - React Router routes `/login`, `/ask`, `/history`, `/history/:id` (read-only view), `/kb` and `/kb/:id`. Unauthenticated users are redirected to `/login`.
   - `LoginView` posts real credentials, and its "any input" note is removed.
   - The banner shows **SIMULATED AI** only when `/api/me` says `simulated`. The "Next generation fails" control is removed.
   - Fonts are self-hosted (the woff2 files from the mock bundle) and the Google Fonts import is removed.
@@ -370,15 +370,16 @@ limit) is still pending.
 
 ### [ ] T21 · Conversations API and generation flow
 - **Goal:** `POST /api/conversations` produces a saved answer or changes nothing.
-- **Refs:** §7.1, WF-01, GEN-01–05, LCK-02, CTX-05, §17b.
+- **Refs:** §7.1, WF-01, GEN-01–05, LCK-02, AUTH-02, CTX-05, §17b.
 - **Depends:** T09, T11, T19, T20.
 - **Acceptance:**
-  - **T1:** `SELECT … FOR UPDATE` on the conversation, quota check, lock with a `generation_token` (409 if held), and insert the turn.
+  - `requireOwner(conversation, employee)` → 403 `NOT_OWNER` unless `created_by` is the signed-in employee. It runs after the 404 check and before every state check, and every conversation write route uses it (here, and in T23–T25).
+  - **T1:** `SELECT … FOR UPDATE` on the conversation, ownership check, quota check, lock with a `generation_token` (409 if held), and insert the turn.
   - **Outside any transaction:** snapshot (abort on `account_data_unavailable` → 503), embed, retrieve, prompt, generate, normalise. A 90 s deadline from T1's commit is passed to every provider call (GEN-04).
   - **T2:** `SELECT … FOR UPDATE` on the conversation; the token must still match (else 409 and discard), then insert the answer and `answer_sources` (each `chunk_id` resolved inside the insert, GEN-05) and clear the lock.
   - Failure: no answer saved, lock cleared only if the token matches, error recorded.
-  - `POST /api/conversations/:id/regenerate` re-runs the latest turn.
-  - `GET /api/conversations/:id` returns turns, the latest answer per turn, facts, evidence cards with status badges, flags and the derived state (I1).
+  - `POST /api/conversations/:id/regenerate` re-runs the latest turn (creator only).
+  - `GET /api/conversations/:id` (any employee) returns turns, the latest answer per turn, facts, evidence cards with status badges, flags, the derived state (I1) and `ownedByMe`.
 - **Verify:** `pnpm --filter server test generate`. The test covers:
   - a concurrent second request → 409;
   - an expired, taken-over lock can't save or clear the new owner's lock;
@@ -386,49 +387,51 @@ limit) is still pending.
   - zero passages still calls the model;
   - while a stubbed generate call is blocked, archiving a cited document completes immediately (GEN-01);
   - with every stubbed attempt hanging, the request fails within 110 s and makes no attempt after 90 s (GEN-04);
-  - deleting a retrieved document before T2 still saves the answer, with a null `chunk_id` and the "Source updated" flag (GEN-05).
+  - deleting a retrieved document before T2 still saves the answer, with a null `chunk_id` and the "Source updated" flag (GEN-05);
+  - employee B regenerating A's conversation → 403 `NOT_OWNER`, with no turn, answer or `provider_calls` row created; B's `GET` on it → 200 with `ownedByMe: false`.
 
 ### [ ] T22 · Ask workspace on the API
 - **Goal:** the prototype's three panes driven by the API.
-- **Refs:** §12.2, ANS-01, ANS-07, UI-01.
+- **Refs:** §12.2, ANS-01, ANS-07, WF-04, UI-01.
 - **Depends:** T09, T21.
 - **Acceptance:**
   - `ConversationPanel`, `EvidencePanel` and `WorkspaceView` read the conversation from the API; "Generating…" shows while the request is pending; Retry appears on failure.
   - Suggested questions appear only in stub mode.
+  - `GET /api/conversations?accountId=:id&mine=1` returns my conversations for the account, newest first. Ask shows them as a list beside the new-question box and never loads another employee's conversation (WF-04).
   - No confidence percentages or "verified" labels.
-- **Verify:** manual with the stub: S1, S3, S4 and S5 render as in §13.1. `grep -rn "confidence\|verified" frontend/src` finds no UI text.
+- **Verify:** `pnpm --filter server test conversations-list`: with A and B each owning a conversation on A-1004, A's `mine=1` list contains only A's. Manually with the stub: S1, S3, S4 and S5 render as in §13.1. `grep -rn "confidence\|verified" frontend/src` finds no UI text.
 
 ## Phase 7 — Review flow (M7)
 
 ### [ ] T23 · Clarification replies
 - **Goal:** the S2b round trip on the API.
-- **Refs:** CLR-01–03, §7.1 step 2.
+- **Refs:** CLR-01–03, AUTH-02, §7.1 step 2.
 - **Depends:** T21.
 - **Acceptance:**
-  - `POST /api/conversations/:id/replies {text}` (1–1,000 chars) is allowed only when the latest outcome is `clarification_required` (otherwise 409).
+  - `POST /api/conversations/:id/replies {text}` (1–1,000 chars) is creator-only (403 `NOT_OWNER`) and is allowed only when the latest outcome is `clarification_required` (otherwise 409).
   - The reply is inserted in T1, under the conversation row lock (LCK-02), as a new turn, so the account and prior turns are kept.
   - The next prompt includes the conversation so far, and the retrieval query is turn 1 plus the latest reply.
-- **Verify:** `pnpm --filter server test clarify`: a reply on an `answer_ready` conversation → 409. Manually: S2b ends in Needs review with Exception unclear, and the account is unchanged.
+- **Verify:** `pnpm --filter server test clarify`: a reply on an `answer_ready` conversation → 409; B replying to A's clarification → 403 `NOT_OWNER` and no new turn. Manually: S2b ends in Needs review with Exception unclear, and the account is unchanged.
 
 ### [ ] T24 · Edit and copy
 - **Goal:** edits validated on the server; copy without markers.
-- **Refs:** ANS-02, ANS-03, I6.
+- **Refs:** ANS-02, ANS-03, AUTH-02, I6.
 - **Depends:** T21.
 - **Acceptance:**
   - `PATCH /api/answers/:id {editedText}`:
-    - runs under `SELECT … FOR UPDATE` on the conversation (LCK-02);
+    - runs under `SELECT … FOR UPDATE` on the conversation (LCK-02), creator only (403 `NOT_OWNER`);
     - only on the latest answer of an unsaved conversation;
     - every `[n]` and `[F#]` must exist in the answer (else 400);
     - `answer_text` never changes.
-  - Copy strips markers on the client and falls back to selecting the text (I6).
-- **Verify:** `pnpm --filter server test edit`: `[7]` → 400; `[F99]` → 400; `answer_text` is unchanged after an edit; editing a saved conversation → 409.
+  - Copy strips markers on the client and falls back to selecting the text (I6). It's available to every employee, including in the read-only view.
+- **Verify:** `pnpm --filter server test edit`: `[7]` → 400; `[F99]` → 400; `answer_text` is unchanged after an edit; editing a saved conversation → 409; B editing A's answer → 403 `NOT_OWNER` and `edited_text` unchanged.
 
 ### [ ] T25 · Save reviewed answer, locking and staleness
 - **Goal:** the API enforces every save rule, under document-lifecycle locks.
-- **Refs:** ANS-04, ANS-05, ANS-06, LCK-01, LCK-02, STL-01, §7.5, §7.6, SC-3.
+- **Refs:** ANS-04, ANS-05, ANS-06, LCK-01, LCK-02, AUTH-02, STL-01, §7.5, §7.6, SC-3.
 - **Depends:** T16, T24.
 - **Acceptance:**
-  - `POST /api/conversations/:id/review {answerId, reviewAcknowledged}` returns 409 for:
+  - `POST /api/conversations/:id/review {answerId, reviewAcknowledged}` is creator-only (403 `NOT_OWNER`, checked before the 409s) and returns 409 for:
     - generating, not the latest answer, or already saved;
     - a `clarification_required` or `out_of_scope` outcome;
     - empty text;
@@ -438,6 +441,7 @@ limit) is still pending.
   - Staleness flags use the two §7.6 queries and are included in conversation reads.
 - **Verify:** `pnpm --filter server test review`. The test covers:
   - each 409 case;
+  - B saving A's conversation → 403 `NOT_OWNER` and no `reviewed_answers` row;
   - two concurrent saves → one 200 and one 409;
   - a save racing an activation of a cited document never commits a stale save;
   - a save racing an edit either includes the edit or makes the edit return 409 `ALREADY_SAVED` (LCK-02);
@@ -447,13 +451,15 @@ limit) is still pending.
 
 ### [ ] T26 · History on the API and prototype removal
 - **Goal:** History on real data; no simulated data left in the client.
-- **Refs:** WF-02, WF-03, §12.3, I5.
+- **Refs:** WF-02, WF-03, AUTH-02, §12.3, I5.
 - **Depends:** T22, T23, T25.
 - **Acceptance:**
-  - `GET /api/conversations?accountId&state` returns rows newest first, with derived state, flags and creator.
-  - `HistoryView` and the Save/Edit/Copy actions use the API.
+  - `GET /api/conversations?accountId&state&mine` returns rows newest first, with derived state, flags and creator.
+  - `HistoryView` has a **Mine / All** toggle, defaulting to Mine (WF-03).
+  - Opening my conversation goes to Ask. Opening another employee's goes to a **read-only view** (`/history/:id`): turns, answers, facts and evidence, the banner "Started by another employee — read-only", and Copy answer; no reply box, Edit, Regenerate or Save.
+  - The Save/Edit/Copy actions use the API.
   - `frontend/src/hooks/useJarvis.js` and `frontend/src/data/jarvis.js` are deleted. Rule helpers left in `lib/model.js` are only display helpers (labels, tones); the server owns the rules.
-- **Verify:** manual with the stub: S2a, S2b and S6 end to end (save → replace Refund policy → "Source changed — recheck" → new answer cites v3 with Policy applicability). `grep -rn "useJarvis\|data/jarvis" frontend/src` returns nothing.
+- **Verify:** manual with the stub: S2a, S2b and S6 end to end (save → replace Refund policy → "Source changed — recheck" → new answer cites v3 with Policy applicability). `grep -rn "useJarvis\|data/jarvis" frontend/src` returns nothing. With two seeded employees: *Mine* hides the other's rows, *All* shows them, and the other's conversation opens read-only with no write buttons.
 
 ## Phase 8 — Evaluation (M8)
 
@@ -480,7 +486,7 @@ limit) is still pending.
 - **Depends:** T26.
 - **Acceptance:**
   - A multi-stage Dockerfile; compose runs `db`, `api` and `worker`.
-  - `api` serves the built frontend with an SPA fallback for `/login`, `/ask`, `/history` and `/kb/*`.
+  - `api` serves the built frontend with an SPA fallback for `/login`, `/ask`, `/history/*` and `/kb/*`.
   - Migrations run on start.
   - The app is served on `localhost` (I6).
 - **Verify:** `docker compose up --build -d && docker compose exec api pnpm seed`; `curl -sI localhost:8080/ask | grep -i content-security-policy` matches; log in through the browser.
