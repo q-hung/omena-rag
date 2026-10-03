@@ -81,7 +81,8 @@ these components (§12.3), so nothing is thrown away.
   - `pickScript(accountId, text, docs, conversation)` → the scripted result, the "no script" fallback, or a clarification-round result. It applies §9.3 rule 7 (a third clarification becomes `insufficient_evidence`).
 - **Verify:** `node --test frontend/src/lib/model.test.js` passes, with one test per function, including: archived source → stale; restore clears it; `[7]` rejected; copy text has no `[`; save blocked for `clarification_required`; save blocked without acknowledgement when review reasons exist.
 
-### [ ] P03 · State hook
+### [x] P03 · State hook
+- **Note:** `useSubPilot.js` is deleted in P04, when `App` switches to `useJarvis` (deleting it here would break the running mock).
 - **Goal:** `src/hooks/useJarvis.js` replaces `useSubPilot.js` and holds all prototype state and simulated flows.
 - **Refs:** §4.1, §4.2, WF-01–03, ANS-02–05, CLR-02, KB-03–08.
 - **Depends:** P02.
