@@ -67,7 +67,8 @@ these components (§12.3), so nothing is thrown away.
   - No person names in account data (§16 Remove). Employee: one seeded display name for the sidebar only.
 - **Verify:** `node -e "import('./frontend/src/data/jarvis.js').then(m => console.log(m.factsFor(m.accountById(5)).empty))"` prints the empty webhook section for A-1005.
 
-### [ ] P02 · Rule functions and their check
+### [x] P02 · Rule functions and their check
+- **Note:** `answerStale` and `reviewedChanged` became one `sourcesChanged(cites, docs)` plus `citeStatus` (badge text); `normalise` and `simulateAnswer` were added for §9.3. Old helpers stay until P12 because the old components still import them.
 - **Goal:** the state rules the UI depends on, as pure functions.
 - **Refs:** §4.2, §7.6, §9.3 (rules 1, 5, 6, 7), ANS-02, ANS-03, ANS-04.
 - **Depends:** P01.
