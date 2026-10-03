@@ -113,7 +113,7 @@ limit) is folded in too (IDX-01, T12, T18).
 
 ## Phase 2 — Server baseline, auth and shell (M2)
 
-### [ ] T05 · Fastify baseline
+### [x] T05 · Fastify baseline
 - **Goal:** the hardened HTTP shell every route builds on.
 - **Refs:** SEC-03, SEC-04, SEC-11, DEC-2.
 - **Depends:** T02.
