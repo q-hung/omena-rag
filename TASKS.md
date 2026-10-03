@@ -155,7 +155,7 @@ limit) is folded in too (IDX-01, T12, T18).
 
 ## Phase 3 — Account context (M3)
 
-### [ ] T08 · Account context functions and snapshot
+### [x] T08 · Account context functions and snapshot
 - **Goal:** read-only account facts with derived values computed in code.
 - **Refs:** §5.3, §5.4, §5.5, CTX-01–05, SIG-01.
 - **Depends:** T04.

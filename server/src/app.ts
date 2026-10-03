@@ -68,7 +68,7 @@ export async function buildApp(options: BuildOptions = {}) {
   app.setErrorHandler((raw: unknown, request, reply) => {
     const error = raw as Error & { statusCode?: number; code?: string };
     const { statusCode, code, message } = describe(error);
-    if (statusCode >= 500) request.log.error({ code, err: error.message });
+    if (statusCode >= 500) request.log.error({ code, err: error.message, cause: (error.cause as Error | undefined)?.message });
     else request.log.warn({ code });
     reply.status(statusCode).send({ error: { code, message } });
   });
