@@ -141,7 +141,7 @@ limit) is folded in too (IDX-01, T12, T18).
   - an unauthenticated `GET /api/accounts` returns 401;
   - the `sessions` table contains no raw token.
 
-### [ ] T07 · Frontend shell on real auth
+### [x] T07 · Frontend shell on real auth
 - **Goal:** the prototype shell runs against the API.
 - **Refs:** §12.1, §14, SEC-04, I4.
 - **Depends:** T06.
