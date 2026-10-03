@@ -9,7 +9,8 @@
     "db:migrate": "node src/db/migrate.ts",
     "seed": "node scripts/seed.ts",
     "worker": "node src/worker.ts",
-    "eval": "node eval/run.ts"
+    "eval": "node eval/run.ts",
+    "smoke-embed": "node scripts/smoke-embed.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",

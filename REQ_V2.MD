@@ -706,7 +706,7 @@ Each case: account, question (and replies), expected outcome, expected review re
 | DEC-2 | Validation: REQ v2 implied Fastify JSON Schema; old notes name zod | **zod** for route bodies (via `fastify-type-provider-zod`), function arguments and model-output parsing. One schema language for every trust boundary |
 | DEC-3 | Context strategy | Pre-fetched bounded snapshot (CTX-01). Model-selected tool calling is OPT-1 |
 | DEC-4 | Clarification limits | ≤ 2 questions per round, ≤ 2 rounds |
-| DEC-5 | Embedding text formats (`title: … \| text: …`, `task: search result \| query: …`) are unverified for `gemini-embedding-2` | Kept behind `formatDocumentForEmbedding` / `formatQueryForEmbedding`; verified in the provider spike (M3) and corrected here if the docs disagree |
+| DEC-5 | Embedding text formats (`title: … \| text: …`, `task: search result \| query: …`) for `gemini-embedding-2` | **Verified 3 Oct 2026** against `@google/genai` 2.26.0 and the Gemini embeddings / thinking docs. Model ids stay `gemini-2.5-flash-lite` and `gemini-embedding-2`. `outputDimensionality: 768` is a recommended truncation of the native 3072-d vector (auto-normalised). Embedding-2 does **not** take `taskType`; put the task in the text: documents `title: {title} \| text: {content}` (`title: none` if missing), queries `task: search result \| query: {content}`. Lowest thinking for Flash-Lite is `thinkingConfig.thinkingBudget: 0` (off by default); `thinkingLevel` is a Gemini 3.x control and is not sent. Formats stay behind `formatDocumentForEmbedding` / `formatQueryForEmbedding`. |
 | DEC-6 | Saveable outcomes | `answer` and `insufficient_evidence` |
 | DEC-7 | Future-dated versions | Rejected |
 | DEC-8 | Name "Jarvis" | Internal tool only, which is now the whole product |
@@ -799,6 +799,7 @@ Each milestone ends with a working slice and its tests. Regenerate `TASKS.md` fr
 - Open decisions #1 (approve vs send) and #2 (customer logins); C4, C11, C14 from TASKS.md.
 
 **Changed**
+- DEC-5 embedding formats (3 Oct 2026, T10): confirmed against `@google/genai` 2.26.0 — `gemini-embedding-2` uses in-text task prefixes (not `taskType`); 768-d output; Flash-Lite thinking is `thinkingBudget: 0`.
 - Snapshot format (3 Oct 2026, T08): §5.4 example and CTX-04 match the implementation (prototype `factsFor`): empty sections reuse fact section names (`webhooks`, not `webhook_endpoints`) with the note "No webhook endpoints configured (0 rows)"; values are display-ready (capitalised enums, `30 Sep 2026` dates, "n days before <as_of date>").
 - Stub mode, reuse table, Copy fallback and repo docs (3 Oct 2026, TASKS I4–I7): stub behaviour defined in §14; §12.3 lists the prototype files; ANS-03 falls back to selecting text; `CLAUDE.md` / `AGENTS.md` updated.
 - Clarifications (3 Oct 2026, TASKS I3): `clarification_questions: string[]` → `clarifications[]` with `choose_record` (fact-id options, labels rendered by the server) and `free_text` (markers validated like `answer`); replies carry `selections` and/or `text` (§7.4, §9.3 rule 6, §9.5, CLR-04).

@@ -185,7 +185,7 @@ limit) is folded in too (IDX-01, T12, T18).
 
 ## Phase 4 — Provider and cost (M4)
 
-### [ ] T10 · Provider module (Gemini and stub)
+### [x] T10 · Provider module (Gemini and stub)
 - **Goal:** one interface for embeddings and generation.
 - **Refs:** §7.1 steps 4 and 7, §7.4, §14 LLM configuration, DEC-5, I4.
 - **Depends:** T02.
