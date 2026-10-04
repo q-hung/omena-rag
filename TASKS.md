@@ -568,7 +568,12 @@ limit) is folded in too (IDX-01, T12, T18).
 
 ## Phase 10 — Server layering refactor (M10)
 
-Structure only. No API, behaviour or UI change; every existing test passes unchanged except for import paths. Each task is one PR, done in two commits: `git mv` first, then edits, so `git blame` keeps the history. Bugs found along the way are logged in `BUGS.md`, not fixed here (known: `GET /api/documents/:id` runs one chunk query per version; `presentConversation` runs one source query per answer).
+Structure only. No API, behaviour or UI change; every existing test passes unchanged except for import paths. Bugs found along the way are logged in `BUGS.md`, not fixed here (known: `GET /api/documents/:id` runs one chunk query per version; `presentConversation` runs one source query per answer).
+
+**Two PRs, not one per task (4 Oct 2026).** The moves are renames plus import edits, checked mechanically by the T30 route snapshot and the existing suite, so per-task PRs add rebase and CI rounds without adding safety.
+- **PR 1 — T30.** Merged and green on the *old* layout first; otherwise the snapshot proves nothing.
+- **PR 2 — T31–T37.** One commit group per task, in task order. Within each task: a `git mv` commit first, then an edits commit, so `git blame` keeps the history and the PR can be reviewed commit by commit. The last commit of each task builds and passes `pnpm --filter server test` (a `git mv`-only commit can't, because imports break until the edits commit).
+- PR 2 merges before any `TASKS_V3.md` branch starts (REQ_V3 V3-D7). Don't run M10 and V3 in parallel.
 
 Target layers in `server/src/`:
 - `routes/*.routes.ts`: zod schema + a thin handler (validate, call a service, set the status). No `db/` or `drizzle-orm` import.
@@ -710,7 +715,7 @@ T01 → T13 → T14 ───────────────┴→ T12 → 
                                        T15 → T19 ─┐                 │
                                        T08 → T20 ─┴→ T21 ←──────────┘
 T21 → T22, T23, T24 → T25 (+T16) → T26 → T27 → T28 → T29
-T29 → T30 → T31 → T32 → T33 → T34 → T35 → T36 → T37   (M10, refactor)
+T29 → T30 [PR 1] → T31 → T32 → T33 → T34 → T35 → T36 → T37 [PR 2]   (M10, refactor; PR 2 before any V3 work)
 T27 → T38 → T39   (M11, post-MVP)
 T27 → T40 → T41   (M12, post-MVP)
 ```
