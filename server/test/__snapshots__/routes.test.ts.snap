@@ -1,0 +1,25 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`route inventory > matches the committed printRoutes snapshot 1`] = `
+"├── /api/auth/login (POST)
+├── /api/auth/logout (POST)
+├── /api/accounts (GET, HEAD)
+│   └── /:id/facts (GET, HEAD)
+├── /api/answers/:id (PATCH)
+├── /api/me (GET, HEAD)
+├── /api/documents (GET, HEAD, POST)
+│   ├── /indexing-status (GET, HEAD)
+│   └── /:id (GET, HEAD, DELETE)
+│       ├── /versions (POST)
+│       │   ├── /:vid/retry (POST)
+│       │   └── /:vid/file (GET, HEAD)
+│       ├── /archive (POST)
+│       ├── /restore (POST)
+│       └── /impact (GET, HEAD)
+└── /api/conversations (POST, GET, HEAD)
+    └── /:id (GET, HEAD)
+        ├── /regenerate (POST)
+        ├── /replies (POST)
+        └── /review (POST)
+"
+`;

@@ -228,6 +228,112 @@ describe('KB management API', () => {
     expect(kept?.sources).toEqual(sources);
   });
 
+  it('reports indexing-status busy when a version is queued', async () => {
+    const anon = await app.inject({ method: 'GET', url: '/api/documents/indexing-status' });
+    expect(anon.statusCode).toBe(401);
+
+    await queueDocument({
+      title: 'Still indexing',
+      category: 'FAQ',
+      effectiveAt: utcToday(),
+      filename: 'wait.md',
+      bytes: Buffer.from('# Wait\nQueued.\n', 'utf8'),
+      employeeId,
+    });
+    const busy = await app.inject({ method: 'GET', url: '/api/documents/indexing-status', cookies: cookie });
+    expect(busy.statusCode).toBe(200);
+    expect(busy.json()).toEqual({ busy: true });
+  });
+
+  it('counts unsaved and saved answers that cite a document', async () => {
+    const created = await queueDocument({
+      title: 'Impact me',
+      category: 'Billing',
+      effectiveAt: utcToday(),
+      filename: 'cited.md',
+      bytes: Buffer.from('# Cited\nUsed once.\n', 'utf8'),
+      employeeId,
+    });
+    await db().update(documentVersions).set({ indexingStatus: 'ready' }).where(eq(documentVersions.id, created.version.id));
+    const [chunk] = await db()
+      .insert(documentChunks)
+      .values({
+        versionId: created.version.id,
+        chunkIndex: 0,
+        heading: 'Cited',
+        pageNumber: null,
+        text: 'Used once.',
+        embedding: unit(),
+        embeddingModel: 'gemini-embedding-2',
+      })
+      .returning();
+
+    const empty = await app.inject({
+      method: 'GET',
+      url: `/api/documents/${created.document.id}/impact`,
+      cookies: cookie,
+    });
+    expect(empty.statusCode).toBe(200);
+    expect(empty.json()).toEqual({ unsaved: 0, saved: 0 });
+
+    const missing = await app.inject({ method: 'GET', url: '/api/documents/999999/impact', cookies: cookie });
+    expect(missing.statusCode).toBe(404);
+    expect(missing.json().error.code).toBe('DOCUMENT_NOT_FOUND');
+
+    const anon = await app.inject({ method: 'GET', url: `/api/documents/${created.document.id}/impact` });
+    expect(anon.statusCode).toBe(401);
+
+    const cite = async (reviewed: boolean) => {
+      const [conversation] = await db().insert(conversations).values({ accountId, createdBy: employeeId }).returning();
+      const [turn] = await db()
+        .insert(turns)
+        .values({ conversationId: conversation!.id, seq: 1, kind: 'question', text: 'Why?', createdBy: employeeId })
+        .returning();
+      const [answer] = await db()
+        .insert(answers)
+        .values({
+          conversationId: conversation!.id,
+          turnId: turn!.id,
+          createdBy: employeeId,
+          outcome: 'answer',
+          answerText: 'Because.',
+          factsSnapshot: [],
+          asOf: '2026-10-02',
+          model: 'stub',
+          promptVersion: '1',
+        })
+        .returning();
+      await db().insert(answerSources).values({
+        answerId: answer!.id,
+        rank: 1,
+        chunkId: chunk!.id,
+        score: 0.9,
+        citationNumber: 1,
+      });
+      if (reviewed) {
+        await db().insert(reviewedAnswers).values({
+          conversationId: conversation!.id,
+          answerId: answer!.id,
+          finalText: 'Because.',
+          sources: [{ document_id: created.document.id, version_id: created.version.id }],
+          facts: [],
+          reviewAcknowledged: true,
+          reviewerId: employeeId,
+        });
+      }
+    };
+    await cite(false);
+    await cite(true);
+
+    const impact = await app.inject({
+      method: 'GET',
+      url: `/api/documents/${created.document.id}/impact`,
+      cookies: cookie,
+    });
+    expect(impact.statusCode).toBe(200);
+    expect(impact.json()).toEqual({ unsaved: 1, saved: 1 });
+  });
+
   it('rejects an unauthenticated download', async () => {
     const created = await queueDocument({
       title: 'Private file',

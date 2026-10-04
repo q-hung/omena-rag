@@ -581,13 +581,16 @@ Target layers in `server/src/`:
 - `plugins/`: cross-cutting hooks, kept as plain `registerX(app, config)` functions (no `fastify-plugin`).
 - Entrypoints keep their paths: `api.ts`, `worker.ts`, `db/migrate.ts`.
 
-### [ ] T30 · Safety net
+### [x] T30 · Safety net
+- **Result (4 Oct 2026):** `kb.test.ts` covers `GET /api/documents/indexing-status` (`{ busy: true }` while queued; 401 anonymous) and `GET /api/documents/:id/impact` (zeros, 1/1 unsaved+saved, 404, 401). `routes.test.ts` snapshots `printRoutes({ commonPrefix: false })` on the old layout. `pnpm --filter server test` — 27 files / 149 tests.
 - **Goal:** catch any route or response change before the files move.
 - **Depends:** T29.
 - **Acceptance:**
   - Tests for the two routes that have none: `GET /api/documents/indexing-status`, `GET /api/documents/:id/impact`.
   - A route inventory test that snapshots `app.printRoutes()`.
 - **Verify:** `pnpm --filter server test` passes.
+
+  Covered (4 Oct 2026). Snapshot is the T31–T37 check that the route tree did not change.
 
 ### [ ] T31 · Plugins and shared helpers
 - **Goal:** `app.ts` only wires plugins and routes.
