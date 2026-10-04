@@ -12,14 +12,14 @@ export default function EvidencePanel({ app, conv, state: st }) {
   const showing = conv && a && !['generating', 'failed'].includes(st);
   const cites = !showing ? [] : Object.values(a.cites ?? {});
   const conflictNums = showing ? (a.conflicts ?? []).flatMap((c) => c.nums) : [];
-  const card = (c) => (
+  const card = (cite) => (
     <EvidenceCard
-      key={c.n}
-      c={c}
-      status={c.status}
-      on={String(w.activeCite) === String(c.n)}
-      onToggle={() => w.setActiveCite(String(w.activeCite) === String(c.n) ? null : c.n)}
-      onOpen={() => c.docId && app.openDoc(c.docId, c.v)}
+      key={cite.number}
+      cite={cite}
+      status={cite.status}
+      on={String(w.activeCite) === String(cite.number)}
+      onToggle={() => w.setActiveCite(String(w.activeCite) === String(cite.number) ? null : cite.number)}
+      onOpen={() => cite.documentId && app.openDoc(cite.documentId, cite.version)}
     />
   );
 
@@ -39,39 +39,44 @@ export default function EvidencePanel({ app, conv, state: st }) {
       {conflictNums.length > 0 && (
         <div className="border-2 border-black">
           <div className="bg-alert px-[14px] py-2 text-xs font-bold tracking-caps text-black">CONFLICTING SOURCES</div>
-          <div className="flex flex-col gap-3 p-3">{cites.filter((c) => conflictNums.includes(c.n) || conflictNums.includes(String(c.n))).map(card)}</div>
+          <div className="flex flex-col gap-3 p-3">
+            {cites.filter((cite) => conflictNums.includes(cite.number) || conflictNums.includes(String(cite.number))).map(card)}
+          </div>
           <div className="border-t border-hairline px-[14px] py-3 text-[13px] leading-[1.45] text-secondary">
             Neither source wins automatically. Decide which applies before saving.
           </div>
         </div>
       )}
 
-      {cites.filter((c) => !conflictNums.includes(c.n) && !conflictNums.includes(String(c.n))).map(card)}
+      {cites.filter((cite) => !conflictNums.includes(cite.number) && !conflictNums.includes(String(cite.number))).map(card)}
     </section>
   );
 }
 
-function EvidenceCard({ c, status, on, onToggle, onOpen }) {
+function EvidenceCard({ cite, status, on, onToggle, onOpen }) {
   return (
-    <div id={`cite-${c.n}`} onClick={onToggle}
+    <div id={`cite-${cite.number}`} onClick={onToggle}
       className={`flex cursor-pointer flex-col gap-2 bg-white p-[14px] ${on ? 'border-2 border-black' : 'border border-hairline'}`}>
       <div className="flex items-center gap-2">
-        <CiteNumber n={c.n} active={on} />
-        <span className="flex-1 text-sm font-bold">{c.title}</span>
+        <CiteNumber n={cite.number} active={on} />
+        <span className="flex-1 text-sm font-bold">{cite.title}</span>
         {status && <Badge tone={STATUS_TONE[status]}>{status}</Badge>}
       </div>
       <div className="font-mono text-xs text-secondary">
-        {c.cat}{c.v != null ? ` · v${c.v}` : ''}{c.eff ? ` · Effective ${fmtDate(c.eff)}` : ''}{c.page ? ` · Page ${c.page}` : ''}
+        {cite.category}
+        {cite.version != null ? ` · v${cite.version}` : ''}
+        {cite.effectiveAt ? ` · Effective ${fmtDate(cite.effectiveAt)}` : ''}
+        {cite.page ? ` · Page ${cite.page}` : ''}
       </div>
-      {c.t && (
+      {cite.text && (
         <div className={`-mx-[10px] px-[10px] py-2 text-sm leading-[1.55] ${on ? 'bg-supply-green-tint' : ''}`}>
-          {c.h && <span className="font-bold">{c.h}{/[.?!]$/.test(c.h) ? '' : '.'} </span>}
-          {c.t}
+          {cite.heading && <span className="font-bold">{cite.heading}{/[.?!]$/.test(cite.heading) ? '' : '.'} </span>}
+          {cite.text}
         </div>
       )}
       {status === 'Deleted'
         ? <span className="text-xs text-muted">Document deleted · passage kept in this record</span>
-        : c.docId ? <a href="#" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onOpen(); }} className="text-xs font-semibold">Open document</a> : null}
+        : cite.documentId ? <a href="#" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onOpen(); }} className="text-xs font-semibold">Open document</a> : null}
     </div>
   );
 }

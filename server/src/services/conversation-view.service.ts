@@ -201,15 +201,15 @@ async function presentAnswer(answer: typeof answers.$inferSelect, turnSeq: numbe
     where s.answer_id = ${answer.id}
     order by s.rank
   `);
-  const cites: Record<string, ReturnType<typeof citeCard>> = {};
+  const cites: Record<string, ReturnType<typeof toCitationCard>> = {};
   const categories: string[] = [];
   let sourceUpdated = false;
   for (const row of rowsOf(sources)) {
     if (row.citation_number == null) continue;
-    const card = citeCard(row);
-    cites[card.n] = card;
+    const card = toCitationCard(row);
+    cites[card.number] = card;
     if (card.status) sourceUpdated = true;
-    if (card.cat) categories.push(card.cat);
+    if (card.category) categories.push(card.category);
   }
   const clarifications = (answer.clarifications ?? []) as {
     kind: string;
@@ -243,22 +243,23 @@ async function presentAnswer(answer: typeof answers.$inferSelect, turnSeq: numbe
   };
 }
 
-function citeCard(row: Record<string, unknown>) {
-  const n = String(row.citation_number);
+function toCitationCard(row: Record<string, unknown>) {
   const chunkId = row.chunk_id == null ? null : Number(row.chunk_id);
   let status: 'Deleted' | 'Archived' | 'Superseded' | null = null;
   if (chunkId == null) status = 'Deleted';
   else if (row.archived_at) status = 'Archived';
-  else if (row.active_version_id != null && Number(row.active_version_id) !== Number(row.version_id)) status = 'Superseded';
+  else if (row.active_version_id != null && Number(row.active_version_id) !== Number(row.version_id)) {
+    status = 'Superseded';
+  }
   return {
-    n,
-    docId: row.document_id == null ? null : Number(row.document_id),
+    number: String(row.citation_number),
+    documentId: row.document_id == null ? null : Number(row.document_id),
     title: row.title == null ? 'Deleted source' : String(row.title),
-    cat: row.category == null ? '' : String(row.category),
-    v: row.version_number == null ? null : Number(row.version_number),
-    eff: row.effective_at ? isoDate(String(row.effective_at)) : '',
-    h: row.heading == null ? '' : String(row.heading),
-    t: row.text == null ? '' : String(row.text),
+    category: row.category == null ? '' : String(row.category),
+    version: row.version_number == null ? null : Number(row.version_number),
+    effectiveAt: row.effective_at ? isoDate(String(row.effective_at)) : '',
+    heading: row.heading == null ? '' : String(row.heading),
+    text: row.text == null ? '' : String(row.text),
     page: row.page_number == null ? null : Number(row.page_number),
     status,
   };
