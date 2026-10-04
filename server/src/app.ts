@@ -1,27 +1,22 @@
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import cookie from '@fastify/cookie';
-import helmet from '@fastify/helmet';
-import multipart from '@fastify/multipart';
-import fastifyStatic from '@fastify/static';
 import Fastify, { LogController, type FastifyServerOptions } from 'fastify';
-import {
-  hasZodFastifySchemaValidationErrors,
-  serializerCompiler,
-  validatorCompiler,
-  type ZodTypeProvider,
-} from 'fastify-type-provider-zod';
-import { config as loadConfig, type Config } from './config.ts';
+import { serializerCompiler, validatorCompiler, type ZodTypeProvider } from 'fastify-type-provider-zod';
 import { registerAccounts } from './accounts.ts';
 import { registerAuth } from './auth.ts';
+import { config as loadConfig, type Config } from './config.ts';
 import { registerConversations } from './conversations.ts';
 import { registerDocuments } from './documents.ts';
-import { AppError } from './errors.ts';
 import type { GenerateDeps } from './generate.ts';
-import { FILE_SIZE_LIMIT } from './upload.ts';
+import { registerErrors } from './plugins/errors.ts';
+import { registerRequestLog } from './plugins/request-log.ts';
+import { registerSecurity } from './plugins/security.ts';
 
 export type App = Awaited<ReturnType<typeof buildApp>>;
+export type BuildOptions = {
+  config?: Config;
+  logger?: FastifyServerOptions['logger'];
+  generate?: GenerateDeps;
+};
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -29,99 +24,22 @@ declare module 'fastify' {
   }
 }
 
-const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
-
-export type BuildOptions = {
-  config?: Config;
-  logger?: FastifyServerOptions['logger'];
-  generate?: GenerateDeps;
-};
-
 export async function buildApp(options: BuildOptions = {}) {
   const config = options.config ?? loadConfig();
-
   const app = Fastify({
     genReqId: () => randomUUID(),
     bodyLimit: 4 * 1024 * 1024,
     logger: options.logger ?? { level: process.env.LOG_LEVEL ?? 'info' },
-    // SEC-11: Fastify's own request/response lines would echo query strings and
-    // headers. One allow-listed line per request is emitted below instead.
     logController: new LogController({ disableRequestLogging: true }),
   }).withTypeProvider<ZodTypeProvider>();
-
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
-
-  await app.register(helmet, {
-    contentSecurityPolicy: { useDefaults: false, directives: { 'default-src': ["'self'"] } },
-  });
-  await app.register(cookie);
-  await app.register(multipart, { limits: { fileSize: FILE_SIZE_LIMIT, files: 1 } });
-
-  app.addHook('onRequest', async (request, reply) => {
-    reply.header('x-request-id', request.id);
-    // SEC-03: a browser always sends Origin on cross-site mutations, so an
-    // absent one is treated as untrusted rather than same-origin.
-    if (!SAFE_METHODS.has(request.method) && request.headers.origin !== config.APP_ORIGIN) {
-      throw new AppError(403, 'FORBIDDEN_ORIGIN', 'This request did not come from the app.');
-    }
-  });
-
+  await registerSecurity(app, config);
   registerAuth(app, config);
   registerAccounts(app);
   registerDocuments(app);
   registerConversations(app, config, options.generate ?? {});
-
-  const spa = process.env.STATIC_DIR && existsSync(join(process.env.STATIC_DIR, 'index.html')) ? process.env.STATIC_DIR : null;
-  if (spa) {
-    await app.register(fastifyStatic, { root: spa, wildcard: false });
-  }
-
-  app.addHook('onResponse', async (request, reply) => {
-    // `reqId` is already bound on the request logger.
-    request.log.info({
-      route: request.routeOptions.url ?? request.url.split('?')[0],
-      method: request.method,
-      employeeId: request.employeeId,
-      status: reply.statusCode,
-      latencyMs: Math.round(reply.elapsedTime),
-    });
-  });
-
-  app.setErrorHandler((raw: unknown, request, reply) => {
-    const error = raw as Error & { statusCode?: number; code?: string };
-    const { statusCode, code, message } = describe(error);
-    if (statusCode >= 500) request.log.error({ code, err: error.message, cause: (error.cause as Error | undefined)?.message });
-    else request.log.warn({ code });
-    const conversationId = raw instanceof AppError ? raw.conversationId : undefined;
-    reply.status(statusCode).send({
-      error: { code, message },
-      ...(conversationId != null ? { conversationId } : {}),
-    });
-  });
-
-  app.setNotFoundHandler((request, reply) => {
-    if (spa && (request.method === 'GET' || request.method === 'HEAD') && !request.url.startsWith('/api')) {
-      return reply.sendFile('index.html');
-    }
-    reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'No such route.' } });
-  });
-
+  registerRequestLog(app);
+  await registerErrors(app);
   return app;
-}
-
-function describe(error: Error & { statusCode?: number; code?: string }) {
-  if (error instanceof AppError) {
-    return { statusCode: error.statusCode, code: error.code, message: error.message };
-  }
-  if (hasZodFastifySchemaValidationErrors(error)) {
-    return { statusCode: 400, code: 'VALIDATION_FAILED', message: 'The request body is invalid.' };
-  }
-  if (error.statusCode === 413) {
-    return { statusCode: 413, code: 'FILE_TOO_LARGE', message: 'Files must be 3 MB or smaller.' };
-  }
-  if (error.statusCode && error.statusCode < 500) {
-    return { statusCode: error.statusCode, code: error.code ?? 'BAD_REQUEST', message: error.message };
-  }
-  return { statusCode: 500, code: 'INTERNAL', message: 'Something went wrong.' };
 }
