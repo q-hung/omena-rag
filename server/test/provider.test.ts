@@ -1,3 +1,6 @@
+import { mkdtempSync, readdirSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { loadConfig } from '../src/config.ts';
 import { formatDocumentForEmbedding, formatQueryForEmbedding } from '../src/llm/format.ts';
@@ -158,6 +161,41 @@ describe('gemini provider', () => {
       { role: 'user', parts: [{ text: 'title: A | text: one' }] },
       { role: 'user', parts: [{ text: 'title: none | text: two' }] },
     ]);
+  });
+});
+
+describe('LLM_DEBUG_DIR', () => {
+  it('writes the raw prompt, request config and response of each attempt', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'llm-debug-'));
+    const debugCfg = { ...cfg, LLM_DEBUG_DIR: dir };
+    let attempts = 0;
+    const models = fake(async () => {
+      attempts += 1;
+      if (attempts === 1) throw http(500);
+      return { text: JSON.stringify(valid), candidates: [{ finishReason: 'STOP' }], usageMetadata: { promptTokenCount: 7 } };
+    });
+    await geminiProvider(debugCfg, models).generate({ prompt: 'the prompt' }, deadline());
+    await geminiProvider(debugCfg, models).embedQuery('q', deadline());
+
+    const entries = readdirSync(dir).map((f) => JSON.parse(readFileSync(join(dir, f), 'utf8')));
+    const generates = entries.filter((e) => e.kind === 'generate');
+    expect(generates).toHaveLength(2);
+    expect(generates.find((e) => e.error)?.error).toBe('HTTP 500');
+    const ok = generates.find((e) => e.response)!;
+    expect(ok.request.contents).toBe('the prompt');
+    expect(ok.request.config.responseJsonSchema).toBeDefined();
+    expect(ok.request.config.abortSignal).toBeUndefined();
+    expect(ok.response).toMatchObject({ text: JSON.stringify(valid), finishReason: 'STOP', usage: { promptTokenCount: 7 } });
+    const embed = entries.find((e) => e.kind === 'embed')!;
+    expect(embed.request.contents[0].parts[0].text).toBe(formatQueryForEmbedding('q'));
+    expect(embed.response[0]).toMatchObject({ dims: 768 });
+    expect(embed.response[0].head).toHaveLength(8);
+  });
+
+  it('is refused when COOKIE_SECURE=true', () => {
+    expect(() =>
+      loadConfig({ DATABASE_URL: cfg.DATABASE_URL, COOKIE_SECURE: 'true', LLM_DEBUG_DIR: '.llm-debug' }),
+    ).toThrow(/LLM_DEBUG_DIR/);
   });
 });
 

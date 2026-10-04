@@ -601,6 +601,7 @@ Expected spend (Oct 2026 list prices, Flash-Lite tier): ≈ $0.003–0.007 per g
 
 **Logging**
 - **SEC-11** Log request id, route, employee id, status, latency, model, token counts, error codes. Never log question text, replies, answers, document text or account facts.
+  *Exception (4 Oct 2026):* `LLM_DEBUG_DIR` (off by default, refused with `COOKIE_SECURE=true`, not passed by Compose) writes each raw Gemini request and response to a local JSON file for debugging. Never the app log or the database.
   *AC:* logs from a full flow contain none of the seeded question strings.
 
 ---

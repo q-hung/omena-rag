@@ -1,3 +1,6 @@
+import { randomUUID } from 'node:crypto';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { GoogleGenAI } from '@google/genai';
 import type { Config } from '../config.ts';
 import { ProviderError, statusOf } from './errors.ts';
@@ -33,6 +36,7 @@ export function geminiModels(config: Config): GeminiModels {
 }
 
 export function geminiProvider(config: Config, models: GeminiModels = geminiModels(config)): Provider {
+  if (config.LLM_DEBUG_DIR) models = withDebugLog(models, config.LLM_DEBUG_DIR);
   const noSdkRetry = { attempts: 1 };
 
   const embed = async (texts: string[], timeoutMs: number, deadline: number): Promise<EmbedResult> => {
@@ -110,6 +114,47 @@ export function geminiProvider(config: Config, models: GeminiModels = geminiMode
         },
       };
     },
+  };
+}
+
+// SEC-11 exception, local development only: one JSON file per raw SDK call (every attempt),
+// never the app log or the database.
+export function withDebugLog(models: GeminiModels, dir: string): GeminiModels {
+  mkdirSync(dir, { recursive: true });
+  const record = async <T>(
+    kind: string,
+    params: { config?: Record<string, unknown> },
+    call: () => Promise<T>,
+    view: (response: T) => unknown,
+  ): Promise<T> => {
+    const { abortSignal: _signal, httpOptions: _http, ...sent } = params.config ?? {};
+    const entry: Record<string, unknown> = { at: new Date().toISOString(), kind, request: { ...params, config: sent } };
+    const started = Date.now();
+    try {
+      const response = await call();
+      entry.response = view(response);
+      return response;
+    } catch (error) {
+      entry.error = error instanceof Error ? error.message : String(error);
+      throw error;
+    } finally {
+      entry.ms = Date.now() - started;
+      const name = `${String(entry.at).replace(/[:.]/g, '-')}-${kind}-${randomUUID().slice(0, 8)}.json`;
+      writeFileSync(join(dir, name), JSON.stringify(entry, null, 2));
+    }
+  };
+  return {
+    generateContent: (params) =>
+      record('generate', params, () => models.generateContent(params), (r) => ({
+        text: r.text,
+        finishReason: r.candidates?.[0]?.finishReason,
+        usage: r.usageMetadata,
+      })),
+    // ponytail: vectors are cut to their first 8 values; the full 768 add nothing to read.
+    embedContent: (params) =>
+      record('embed', params, () => models.embedContent(params), (r) =>
+        r.embeddings?.map((e) => ({ dims: e.values?.length, head: e.values?.slice(0, 8) })),
+      ),
   };
 }
 

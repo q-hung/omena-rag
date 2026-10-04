@@ -29,6 +29,9 @@ const schema = z
     SESSION_HOURS: z.coerce.number().positive().default(12),
 
     SEED_EMPLOYEE_PASSWORD: z.string().min(1).default('jarvis-demo'),
+
+    // SEC-11 exception: raw Gemini requests/responses written to files here. Local development only.
+    LLM_DEBUG_DIR: z.string().min(1).optional(),
   })
   .superRefine((cfg, ctx) => {
     if (cfg.LLM_PROVIDER === 'gemini' && !cfg.GEMINI_API_KEY) {
@@ -36,6 +39,13 @@ const schema = z
         code: 'custom',
         path: ['GEMINI_API_KEY'],
         message: 'GEMINI_API_KEY is required when LLM_PROVIDER=gemini',
+      });
+    }
+    if (cfg.LLM_DEBUG_DIR && cfg.COOKIE_SECURE) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['LLM_DEBUG_DIR'],
+        message: 'LLM_DEBUG_DIR is for local development only (requires COOKIE_SECURE=false)',
       });
     }
   });
