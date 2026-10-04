@@ -36,3 +36,9 @@ Do not silently expand the MVP.
   `api.ts`, `worker.ts`, `db/migrate.ts`.
 
 `pnpm check:layers` fails if a route imports `db/` or `drizzle-orm`.
+
+## Code style
+
+Always use explicit `{}` on `if`, `else`, `for` and `while` bodies, with
+`} else {` on one line. No single-line `if (x) return;`. `pnpm lint`
+(Biome `useBlockStatements`) fails CI otherwise.

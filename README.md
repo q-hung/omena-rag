@@ -165,6 +165,7 @@ docker/           Postgres init, api/worker entrypoint
 pnpm test
 pnpm build
 pnpm check:layers
+pnpm lint
 pnpm --filter server test generate
 LLM_PROVIDER=gemini pnpm eval
 ```
@@ -172,7 +173,8 @@ LLM_PROVIDER=gemini pnpm eval
 `pnpm test` runs all tests and needs the `db` container running.
 `pnpm build` runs the server typecheck (`tsc --noEmit`) and the frontend
 build. `pnpm check:layers` fails if a route imports `db/` or `drizzle-orm`
-(see [CLAUDE.md](CLAUDE.md)); CI runs it. Pass a test file name to run one server test file, as in the last
+(see [CLAUDE.md](CLAUDE.md)). `pnpm lint` (Biome) requires `{}` on every
+`if`/`else`/loop body. CI runs both. Pass a test file name to run one server test file, as in the last
 command.
 
 Notes:
