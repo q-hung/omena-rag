@@ -538,7 +538,8 @@ limit) is folded in too (IDX-01, T12, T18).
 
 ## Phase 9 — Delivery (M9)
 
-### [ ] T28 · Docker delivery
+### [x] T28 · Docker delivery
+- **Result (4 Oct 2026):** Multi-stage `Dockerfile` (`node:22-bookworm-slim`, pnpm 11.24.0) builds the frontend then a prod image. Compose runs `db`, `api` (:8080) and `worker`. `STATIC_DIR` + `@fastify/static` serve the SPA; GET/HEAD outside `/api` fall back to `index.html`. Entrypoint runs migrations. `APP_ORIGIN=http://localhost:8080`. Browser login Ada → `/ask`. CSP `default-src 'self'`.
 - **Goal:** `docker compose up` runs the full demo.
 - **Refs:** §14 deploy, SEC-04.
 - **Depends:** T26.
@@ -549,7 +550,10 @@ limit) is folded in too (IDX-01, T12, T18).
   - The app is served on `localhost` (I6).
 - **Verify:** `docker compose up --build -d && docker compose exec api pnpm seed`; `curl -sI localhost:8080/ask | grep -i content-security-policy` matches; log in through the browser.
 
-### [ ] T29 · Release check
+  Covered (4 Oct 2026). Image healthy; seed via `docker compose exec api pnpm seed`; `/ask` and `/login` return 200 with `Content-Security-Policy: default-src 'self'`.
+
+### [x] T29 · Release check
+- **Result (4 Oct 2026):** `pnpm test` — frontend 2/2, server 26 files / 141 tests. SC-1/2/4 from T27; SC-3 from T25 `review.test.ts` (stale save / race). Compose logs after login + generate: allow-listed fields only; `grep -c "eligible for a refund"` = 0. §16 ticked. Budget estimate test now uses `cfg` prices (T27 Flash-Lite $0.25/$1.50).
 - **Goal:** confirm the MVP is done.
 - **Refs:** §1 SC-1–4, SEC-11, §13.3, §16.
 - **Depends:** T27, T28.
@@ -559,6 +563,8 @@ limit) is folded in too (IDX-01, T12, T18).
   - A log sample from a full flow contains no question, answer, document or fact text.
   - Every §16 item is ticked.
 - **Verify:** `pnpm test`; `docker compose logs api worker | grep -c "eligible for a refund"` returns 0; review the §16 checklist.
+
+  Covered (4 Oct 2026). MVP complete. Optional §15 items stay unscheduled.
 
 ---
 

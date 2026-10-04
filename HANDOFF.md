@@ -2,11 +2,12 @@
 
 Internal Product Support Copilot. Source of truth: `REQ_V2.MD`, `TASKS.md`.
 
-## Done (T00–T27)
+## Done (T00–T29)
 
-Phases 0–8. Employees can sign in, generate answers, reply to clarifications,
-edit and copy, save a reviewed internal answer, and browse History on the API.
-`pnpm eval` measures the golden set on Gemini.
+Phases 0–9. MVP is complete. Employees can sign in, generate answers, reply to
+clarifications, edit and copy, save a reviewed internal answer, and browse
+History. `pnpm eval` measures the golden set on Gemini. `docker compose up`
+runs the full demo.
 
 | Area | Where |
 |---|---|
@@ -22,11 +23,14 @@ edit and copy, save a reviewed internal answer, and browse History on the API.
 | Review | `POST /api/conversations/:id/review` `{answerId, reviewAcknowledged}` |
 | History | `GET /api/conversations?accountId&state&mine&signal&topic` |
 | Eval | `server/eval/run.ts`, `server/eval/golden.json` — `pnpm eval` |
+| Docker | `Dockerfile`, `docker-compose.yml` (`db`, `api`, `worker`), `STATIC_DIR` SPA |
 | Ask UI | `frontend/src/hooks/useAsk.js` |
 | History UI | `frontend/src/hooks/useHistory.js` |
 | KB UI | `frontend/src/hooks/useDocuments.js` |
 
 ## Run
+
+Local (Vite on :5173):
 
 ```bash
 pnpm db:migrate && pnpm seed && pnpm worker --once
@@ -35,11 +39,19 @@ pnpm worker       # leave running to index uploads
 LLM_PROVIDER=gemini pnpm eval   # seeds jarvis_eval, calls Gemini
 ```
 
-Login: `ada@omena.example` or `rei@omena.example` / `jarvis-demo` (from `SEED_EMPLOYEE_PASSWORD`). Open **5173** only — `APP_ORIGIN` rejects other ports.
+Full demo (SPA on :8080):
 
 ```bash
-pnpm --filter server test
-pnpm --filter server test eval clarify edit review history-state conversations-list generate
+docker compose up --build -d
+docker compose exec api pnpm seed
+# open http://localhost:8080
+```
+
+Login: `ada@omena.example` or `rei@omena.example` / `jarvis-demo` (from `SEED_EMPLOYEE_PASSWORD`). Local: open **5173** only — `APP_ORIGIN` rejects other ports. Compose sets `APP_ORIGIN=http://localhost:8080`.
+
+```bash
+pnpm test
+pnpm --filter server test eval clarify edit review history-state conversations-list generate spa
 ```
 
 After seed + worker: 6 documents Ready (SSO guide warned about page 2) and Failed payment retries Failed (`No page has a text layer. OCR isn't supported.`). `refund-policy-v3.md` is in `server/fixtures/kb/` but is not seeded (eval applies it before E13).
@@ -57,12 +69,12 @@ Live generation model: `gemini-3.1-flash-lite`. `RETRIEVAL_MIN_SCORE=0.5`.
 
 ## Next
 
-**T28** — Docker delivery (M9). Then T29 release check.
+Nothing scheduled. Optional §15 items (tool calling, streaming, LLM-judge eval, "Cited in answers", activation toast) stay out of the MVP.
 
 ## Limits
 
 - S6 (replace Refund policy with v3) is a manual stub walkthrough; v3 is not seeded.
 - Smoke-embed and `pnpm eval` against Gemini are manual; CI never calls Gemini.
 - GEN-04 is tested with a shortened deadline (400 ms), not a 90 s hang.
-- Node 26 strip-only mode: no constructor parameter properties; no top-level `return` in `.ts` scripts.
+- Node 26 strip-only mode: no constructor parameter properties; no top-level `return` in `.ts` scripts. The Docker image uses Node 22; the same TypeScript sources run there.
 - Live E04 often answers both payments instead of `choose_record`; E09 often answers instead of `insufficient_evidence`. Golden-set targets still hold.

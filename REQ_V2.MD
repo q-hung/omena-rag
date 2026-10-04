@@ -730,11 +730,44 @@ Each case: account, question (and replies), expected outcome, expected review re
 
 ## 16. Changes to the mock
 
-**Remove:** "Simulate an indexing failure" and the speed setting; "Load demo data"; the Evaluations nav item; "Request review from Payments"; editing after approval, re-approval and "Earlier approvals"; the 3-step generation progress (show "Generating…"); indexing sub-step bars (show the status badge); the inbox of customer-submitted questions; customer names and the "Account manager" context row; all "Approve"/"publish" wording.
+Ticked 4 Oct 2026 (T29).
 
-**Add:** login; account selector; Account facts panel with `F#` ids; clarifications (record choices and questions) and reply box; Copy answer; Save reviewed answer with acknowledgement; outcome badges; gap list; History view; real upload form; Delete with impact count; Download original; page numbers, Archived and Deleted badges on evidence cards; indexing warnings; regenerate-over-edit confirmation.
+**Remove**
+- [x] "Simulate an indexing failure" and the speed setting
+- [x] "Load demo data"
+- [x] the Evaluations nav item
+- [x] "Request review from Payments"
+- [x] editing after approval, re-approval and "Earlier approvals"
+- [x] the 3-step generation progress (show "Generating…")
+- [x] indexing sub-step bars (show the status badge)
+- [x] the inbox of customer-submitted questions
+- [x] customer names and the "Account manager" context row
+- [x] all "Approve"/"publish" wording
 
-**Fix:** archived citations count as stale; after v3 the refund answer must flag policy applicability instead of denying; no draft may promise actions (the Brazil "I have asked our payments team"); header renamed to Jarvis; the context note says what is and isn't sent; the conflict banner must not say the draft "follows" one source.
+**Add**
+- [x] login
+- [x] account selector
+- [x] Account facts panel with `F#` ids
+- [x] clarifications (record choices and questions) and reply box
+- [x] Copy answer
+- [x] Save reviewed answer with acknowledgement
+- [x] outcome badges
+- [x] gap list
+- [x] History view
+- [x] real upload form
+- [x] Delete with impact count
+- [x] Download original
+- [x] page numbers, Archived and Deleted badges on evidence cards
+- [x] indexing warnings
+- [x] regenerate-over-edit confirmation
+
+**Fix**
+- [x] archived citations count as stale
+- [x] after v3 the refund answer must flag policy applicability instead of denying
+- [x] no draft may promise actions (the Brazil "I have asked our payments team")
+- [x] header renamed to Jarvis
+- [x] the context note says what is and isn't sent
+- [x] the conflict banner must not say the draft "follows" one source
 
 ---
 

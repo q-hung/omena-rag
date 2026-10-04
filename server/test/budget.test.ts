@@ -127,8 +127,11 @@ describe.sequential('budget', () => {
   });
 
   it('estimates input as ceil(chars/3) and generate output as maxOutputTokens', () => {
-    expect(estimateCostUsd('embed_query', 10, cfg)).toBeCloseTo(4 * (0.15 / 1e6), 8);
-    expect(estimateCostUsd('generate', 1, cfg)).toBeCloseTo(1 * (0.1 / 1e6) + 2048 * (0.4 / 1e6), 8);
+    expect(estimateCostUsd('embed_query', 10, cfg)).toBeCloseTo(4 * (cfg.PRICE_EMBEDDING_INPUT_USD_PER_MTOK / 1e6), 8);
+    expect(estimateCostUsd('generate', 1, cfg)).toBeCloseTo(
+      1 * (cfg.PRICE_GENERATION_INPUT_USD_PER_MTOK / 1e6) + 2048 * (cfg.PRICE_GENERATION_OUTPUT_USD_PER_MTOK / 1e6),
+      8,
+    );
   });
 });
 

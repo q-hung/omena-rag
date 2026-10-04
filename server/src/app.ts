@@ -1,7 +1,10 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import cookie from '@fastify/cookie';
 import helmet from '@fastify/helmet';
 import multipart from '@fastify/multipart';
+import fastifyStatic from '@fastify/static';
 import Fastify, { LogController, type FastifyServerOptions } from 'fastify';
 import {
   hasZodFastifySchemaValidationErrors,
@@ -69,6 +72,11 @@ export async function buildApp(options: BuildOptions = {}) {
   registerDocuments(app);
   registerConversations(app, config, options.generate ?? {});
 
+  const spa = process.env.STATIC_DIR && existsSync(join(process.env.STATIC_DIR, 'index.html')) ? process.env.STATIC_DIR : null;
+  if (spa) {
+    await app.register(fastifyStatic, { root: spa, wildcard: false });
+  }
+
   app.addHook('onResponse', async (request, reply) => {
     // `reqId` is already bound on the request logger.
     request.log.info({
@@ -92,7 +100,10 @@ export async function buildApp(options: BuildOptions = {}) {
     });
   });
 
-  app.setNotFoundHandler((_request, reply) => {
+  app.setNotFoundHandler((request, reply) => {
+    if (spa && (request.method === 'GET' || request.method === 'HEAD') && !request.url.startsWith('/api')) {
+      return reply.sendFile('index.html');
+    }
     reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'No such route.' } });
   });
 

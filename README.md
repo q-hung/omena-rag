@@ -24,7 +24,7 @@ synthetic.
 - **server/**: Node 26 (native TypeScript, strip-only), Fastify, Drizzle ORM,
   PostgreSQL 16 + pgvector, Zod, Vitest
 - **frontend/**: React 18, Vite, Tailwind 4, React Router (plain JS)
-- **LLM**: Google Gemini (`gemini-2.5-flash-lite`, `gemini-embedding-2`), or a
+- **LLM**: Google Gemini (`gemini-3.1-flash-lite`, `gemini-embedding-2`), or a
   deterministic stub
 - pnpm workspace
 
@@ -48,6 +48,13 @@ knowledge base. `pnpm dev` starts the API on :8080 and the UI on :5173.
 
 Open **http://localhost:5173**. Requests from any other origin are rejected
 (`APP_ORIGIN`).
+
+Or run the full stack (API, worker, and built UI) on **http://localhost:8080**:
+
+```bash
+docker compose up --build -d
+docker compose exec api pnpm seed
+```
 
 Sign in as `ada@omena.example` or `rei@omena.example` with the password from
 `SEED_EMPLOYEE_PASSWORD` in `.env`.
@@ -153,10 +160,5 @@ Notes:
 
 ## Status
 
-Phases 0–6 are done: auth, account facts, knowledge base upload and indexing,
-cost controls, retrieval and generation.
-
-Next is Phase 7: clarification replies, edit, copy, save reviewed answer, and
-History on the API. History currently reads prototype data. After that come
-evaluation (`pnpm eval`, not yet implemented) and Docker delivery. See
-[TASKS.md](TASKS.md).
+MVP complete (M0–M9). Auth, facts, KB, generation, review, History, `pnpm eval`,
+and Docker delivery. See [TASKS.md](TASKS.md).

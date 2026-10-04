@@ -16,5 +16,47 @@ services:
       timeout: 3s
       retries: 30
 
+  api:
+    build: .
+    ports:
+      - '8080:8080'
+    environment:
+      DATABASE_URL: postgres://jarvis:jarvis@db:5432/jarvis
+      APP_ORIGIN: http://localhost:8080
+      COOKIE_SECURE: 'false'
+      LLM_PROVIDER: ${LLM_PROVIDER:-stub}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      SEED_EMPLOYEE_PASSWORD: ${SEED_EMPLOYEE_PASSWORD:-jarvis-demo}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:8080/api/me').then((r)=>process.exit(r.status===401?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  worker:
+    build: .
+    command: ['node', 'server/src/worker.ts']
+    environment:
+      DATABASE_URL: postgres://jarvis:jarvis@db:5432/jarvis
+      APP_ORIGIN: http://localhost:8080
+      COOKIE_SECURE: 'false'
+      LLM_PROVIDER: ${LLM_PROVIDER:-stub}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      SEED_EMPLOYEE_PASSWORD: ${SEED_EMPLOYEE_PASSWORD:-jarvis-demo}
+    depends_on:
+      db:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+
 volumes:
   db-data:
