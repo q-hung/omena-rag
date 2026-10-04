@@ -31,7 +31,8 @@ the check passes.
   the scope list, rate-limit table and `Authorization` code block render
   correctly; a file containing `<script>` shows the text, not an element.
 
-### [ ] B02 · Replacing a document blanks the page
+### [x] B02 · Replacing a document blanks the page
+- **Result (4 Oct 2026):** `presentDetail` maps `staged` from the full latest row in `d.versions` (same fields as ready versions, including `eff`). Upload button shows "Uploading…" while busy. `App` has a top-level error boundary. Replace Refund policy with v3: page stayed up, v3 showed "Indexing · not active" with its effective date, then became Active.
 
 - **Symptom:** on the document page, Replace → Upload and index → the page goes
   blank. No spinner and no error message appear. Reloading shows the document with v(n+1) indexing.

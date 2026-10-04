@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Component, useEffect, useState } from 'react';
 import { History, Library, MessageSquare } from 'lucide-react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAccounts } from './hooks/useAccounts';
@@ -18,11 +18,30 @@ import WorkspaceView from './features/workspace/WorkspaceView';
 import HistoryView from './features/history/HistoryView';
 import HistoryReadView from './features/history/HistoryReadView';
 
+class ErrorBoundary extends Component {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    if (this.state.failed) {
+      return (
+        <div className="grid h-screen place-items-center bg-almost-white font-sans">
+          <p>Something went wrong — reload</p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   return (
-    <BrowserRouter>
-      <Root />
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Root />
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }
 

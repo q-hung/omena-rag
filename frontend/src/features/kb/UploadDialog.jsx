@@ -91,7 +91,7 @@ function VersionDialog({ app, doc, onClose }) {
         {error && <div role="alert" className="text-sm font-semibold text-negative">{error}</div>}
         <div className="flex justify-end gap-2 border-t border-hairline pt-2">
           <Button size="sm" variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button size="sm" disabled={busy} onClick={submit}>Upload and index</Button>
+          <Button size="sm" disabled={busy} onClick={submit}>{busy ? 'Uploading…' : 'Upload and index'}</Button>
         </div>
       </div>
     </Dialog>
