@@ -1,5 +1,5 @@
 import { asc } from 'drizzle-orm';
-import { buildAccountSnapshot, getAccountSignals } from '../context.ts';
+import { buildAccountSnapshot, getAccountSignals } from '../services/account-context.service.ts';
 import { db } from '../db/index.ts';
 import { accounts } from '../db/schema.ts';
 

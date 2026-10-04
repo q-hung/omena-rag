@@ -1,4 +1,4 @@
-import '../src/env.ts';
+import '../src/config/env.ts';
 
 // Every server test runs against jarvis_test with the stub provider (§13.3).
 process.env.NODE_ENV = 'test';

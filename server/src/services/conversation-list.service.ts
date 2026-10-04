@@ -1,9 +1,9 @@
 import { inArray, sql } from 'drizzle-orm';
-import { getAccountSignals } from '../context.ts';
+import { getAccountSignals } from '../services/account-context.service.ts';
 import { db } from '../db/index.ts';
 import { rowsOf } from '../db/rows.ts';
 import { conversations } from '../db/schema.ts';
-import { STATE_FROM, STATE_SQL } from '../state.ts';
+import { STATE_FROM, STATE_SQL } from '../services/state.service.ts';
 import { presentSummaries } from './conversation-view.service.ts';
 
 export const HISTORY_LIMIT = 200;

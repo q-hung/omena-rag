@@ -2,7 +2,7 @@ import { mkdtempSync, readdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { loadConfig } from '../src/config.ts';
+import { loadConfig } from '../src/config/config.ts';
 import { formatDocumentForEmbedding, formatQueryForEmbedding } from '../src/llm/format.ts';
 import { geminiProvider, type GeminiModels } from '../src/llm/gemini.ts';
 import { createProvider } from '../src/llm/provider.ts';

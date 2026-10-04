@@ -1,4 +1,4 @@
-import '../env.ts';
+import '../config/env.ts';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';

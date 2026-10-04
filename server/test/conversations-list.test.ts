@@ -5,7 +5,7 @@ import { db } from '../src/db/index.ts';
 import { accounts, documentChunks, documentVersions, documents, employees } from '../src/db/schema.ts';
 import { stubProvider } from '../src/llm/stub.ts';
 import { utcToday } from '../src/lib/format.ts';
-import type { Passage } from '../src/retrieve.ts';
+import type { Passage } from '../src/rag/retrieve.ts';
 import { seed } from '../src/seed.ts';
 import { queueDocument } from '../src/services/document-upload.service.ts';
 import { asBrowser, buildTestApp } from './helpers/app.ts';

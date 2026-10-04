@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { App } from '../app.ts';
-import type { Config } from '../config.ts';
+import type { Config } from '../config/config.ts';
 import {
   createConversation,
   regenerateConversation,
@@ -10,7 +10,7 @@ import {
 import { editAnswer, reviewConversation } from '../services/review.service.ts';
 import { listConversations } from '../services/conversation-list.service.ts';
 import { presentConversation } from '../services/conversation-view.service.ts';
-import { STATES } from '../state.ts';
+import { STATES } from '../services/state.service.ts';
 
 const questionBody = z.object({
   accountId: z.number().int().positive(),

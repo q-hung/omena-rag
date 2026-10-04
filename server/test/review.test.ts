@@ -14,7 +14,7 @@ import {
 import { stubProvider } from '../src/llm/stub.ts';
 import type { Provider } from '../src/llm/types.ts';
 import { utcToday } from '../src/lib/format.ts';
-import type { Passage } from '../src/retrieve.ts';
+import type { Passage } from '../src/rag/retrieve.ts';
 import { seed } from '../src/seed.ts';
 import { queueDocument, queueVersion } from '../src/services/document-upload.service.ts';
 import { activateVersion } from '../src/worker.ts';

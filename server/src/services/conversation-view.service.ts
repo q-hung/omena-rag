@@ -1,5 +1,5 @@
 import { and, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
-import { getAccountSignals } from '../context.ts';
+import { getAccountSignals } from '../services/account-context.service.ts';
 import { db } from '../db/index.ts';
 import { rowsOf } from '../db/rows.ts';
 import {
@@ -18,7 +18,7 @@ import { notFound } from '../errors.ts';
 import { isoDate } from '../lib/format.ts';
 import { generationLockHeld } from './generate.service.ts';
 import { reviewedSourceChanged, reviewedSourceChangedByConversation, unsavedSourceUpdated } from './review.service.ts';
-import { conversationStatesById, deriveState, topicsOf } from '../state.ts';
+import { conversationStatesById, deriveState, topicsOf } from '../services/state.service.ts';
 
 export async function presentConversation(id: number, employeeId: number) {
   const [conv] = await db().select().from(conversations).where(eq(conversations.id, id));

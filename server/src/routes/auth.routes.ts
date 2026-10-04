@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { App } from '../app.ts';
-import type { Config } from '../config.ts';
+import type { Config } from '../config/config.ts';
 import { getEmployee, login, logout, SESSION_COOKIE } from '../services/auth.service.ts';
 
 export function registerAuth(app: App, config: Config): void {

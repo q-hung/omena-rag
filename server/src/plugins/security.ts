@@ -2,7 +2,7 @@ import cookie from '@fastify/cookie';
 import helmet from '@fastify/helmet';
 import multipart from '@fastify/multipart';
 import type { App } from '../app.ts';
-import type { Config } from '../config.ts';
+import type { Config } from '../config/config.ts';
 import { AppError } from '../errors.ts';
 import { FILE_SIZE_LIMIT } from '../services/document-upload.service.ts';
 

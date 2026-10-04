@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { hash, verify } from '@node-rs/argon2';
 import { and, eq, gt } from 'drizzle-orm';
-import type { Config } from '../config.ts';
+import type { Config } from '../config/config.ts';
 import { db } from '../db/index.ts';
 import { employees, sessions } from '../db/schema.ts';
 import { tooManyRequests, unauthorized } from '../errors.ts';

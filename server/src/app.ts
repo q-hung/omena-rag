@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import Fastify, { LogController, type FastifyServerOptions } from 'fastify';
 import { serializerCompiler, validatorCompiler, type ZodTypeProvider } from 'fastify-type-provider-zod';
 import { registerAccounts } from './routes/accounts.routes.ts';
-import { config as loadConfig, type Config } from './config.ts';
+import { config as loadConfig, type Config } from './config/config.ts';
 import { registerConversations } from './routes/conversations.routes.ts';
 import { registerDocuments } from './routes/documents.routes.ts';
 import type { GenerateDeps } from './services/generate.service.ts';

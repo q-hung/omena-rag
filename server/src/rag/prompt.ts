@@ -1,4 +1,4 @@
-import type { AccountSnapshot, Fact } from './context.ts';
+import type { AccountSnapshot, Fact } from '../services/account-context.service.ts';
 import type { Passage } from './retrieve.ts';
 
 // REQ §7.3, PRM-01. Estimated tokens = characters ÷ 4. Facts are never dropped.

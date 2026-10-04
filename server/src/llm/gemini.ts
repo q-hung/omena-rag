@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { GoogleGenAI } from '@google/genai';
-import type { Config } from '../config.ts';
+import type { Config } from '../config/config.ts';
 import { ProviderError, statusOf } from './errors.ts';
 import { formatDocumentForEmbedding, formatQueryForEmbedding } from './format.ts';
 import { withRetries } from './retry.ts';

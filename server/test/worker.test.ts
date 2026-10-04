@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { db } from '../src/db/index.ts';
 import { budgetDays, documentChunks, documentVersions, documents } from '../src/db/schema.ts';
-import { buildPdf } from '../src/extract/pdfBytes.ts';
+import { buildPdf } from '../src/ingest/extract/pdfBytes.ts';
 import { utcToday } from '../src/lib/format.ts';
 import { seed } from '../src/seed.ts';
 import { queueDocument, queueVersion } from '../src/services/document-upload.service.ts';

@@ -1,5 +1,5 @@
 import { and, eq, lt, sql } from 'drizzle-orm';
-import { config as loadCached, type Config } from '../config.ts';
+import { config as loadCached, type Config } from '../config/config.ts';
 import { db } from '../db/index.ts';
 import { budgetDays, CALL_KINDS, CALL_PURPOSES, providerCalls } from '../db/schema.ts';
 import { budgetReached, generationQuota } from '../errors.ts';
