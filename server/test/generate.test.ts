@@ -180,6 +180,14 @@ async function waitForLock() {
   throw new Error('lock was never taken');
 }
 
+async function waitUntil(check: () => boolean | Promise<boolean>, what: string) {
+  for (let i = 0; i < 250; i++) {
+    if (await check()) return;
+    await new Promise((r) => setTimeout(r, 20));
+  }
+  throw new Error(`timed out waiting for ${what}`);
+}
+
 describe.sequential('generation', () => {
   it('returns 409 when a second request arrives while the lock is held', async () => {
     hang = deferred();
@@ -195,8 +203,12 @@ describe.sequential('generation', () => {
 
   it('does not let an expired taken-over lock save or clear the new lock', async () => {
     hang = deferred();
+    const calls = generateCalls;
     const first = ask(ada.cookie, 'Takeover question');
     const locked = await waitForLock();
+    // The lock is taken before retrieval, so wait until the first request is parked on
+    // `original` before swapping `hang`; otherwise it parks on secondHang and never returns.
+    await waitUntil(() => generateCalls > calls, 'first generate call');
     await db()
       .update(conversations)
       .set({ generationStartedAt: new Date(Date.now() - 3 * 60_000) })
@@ -206,7 +218,10 @@ describe.sequential('generation', () => {
     const original = hang;
     hang = secondHang;
     const second = regen(ada.cookie, locked.id);
-    await waitForLock();
+    await waitUntil(async () => {
+      const [row] = await db().select().from(conversations).where(eq(conversations.id, locked.id));
+      return !!row?.generationToken && row.generationToken !== locked.generationToken;
+    }, 'second request to take over the lock');
     original.resolve(null);
     const stale = await first;
     expect(stale.statusCode).toBe(409);
