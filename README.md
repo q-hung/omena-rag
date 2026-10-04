@@ -9,13 +9,14 @@ grounded in two sources:
 
 Employees inspect the evidence, then edit, copy and save the answer as a
 reviewed internal answer. Nothing is sent to customers. All demo data is
-synthetic. MVP is complete (M0–M9).
+synthetic. MVP is complete (M0–M9), and the server layering refactor (M10) is done.
 
 | Doc | Purpose |
 |---|---|
 | [REQ_V2.MD](REQ_V2.MD) | Product requirements (source of truth) |
 | [TASKS.md](TASKS.md) | Implementation tasks and progress |
 | [HANDOFF.md](HANDOFF.md) | Current state and limits |
+| [BUGS.md](BUGS.md) | Post-MVP defects with cause, fix and check |
 | [docs/DESIGN.md](docs/DESIGN.md) | Design notes |
 | [CLAUDE.md](CLAUDE.md) | Repository working rules |
 
@@ -62,7 +63,12 @@ indexes the seed set. `pnpm dev` starts the API on :8080 and Vite on :5173.
 Open **http://localhost:5173**. `.env` sets `APP_ORIGIN=http://localhost:5173`;
 other origins are rejected.
 
-Keep `pnpm worker` running if you upload documents.
+Don't point Vite at the Docker `api` container. Compose sets its `APP_ORIGIN`
+to `:8080`, so every sign-in or upload from `:5173` gets 403 `FORBIDDEN_ORIGIN`.
+Run `docker compose stop api` before `pnpm dev`, or use http://localhost:8080.
+
+Keep `pnpm worker` running if you upload documents. Sample files to upload are in
+[docs/sample-uploads/](docs/sample-uploads/).
 
 `pnpm seed -- --date=YYYY-MM-DD` reseeds relative to a fixed date.
 
@@ -90,7 +96,7 @@ cost estimate first. CI never calls Gemini.
 ## Configuration
 
 See [.env.example](.env.example). The full schema is in
-[server/src/config.ts](server/src/config.ts).
+[server/src/config/config.ts](server/src/config/config.ts).
 
 | Variable | Default | Notes |
 |---|---|---|
@@ -124,15 +130,22 @@ See [.env.example](.env.example). The full schema is in
    sources, and release the lock. If a lock was taken over, its owner can't
    save.
 
-The code is in [server/src/generate.ts](server/src/generate.ts),
-[retrieve.ts](server/src/retrieve.ts), [prompt.ts](server/src/prompt.ts) and
-[normalise.ts](server/src/normalise.ts).
+The code is in [server/src/services/generate.service.ts](server/src/services/generate.service.ts),
+[rag/retrieve.ts](server/src/rag/retrieve.ts), [rag/prompt.ts](server/src/rag/prompt.ts) and
+[rag/normalise.ts](server/src/rag/normalise.ts).
 
 ## Layout
 
 ```
 server/
-  src/            API (Fastify), generation, retrieval, worker, db schema
+  src/            Entrypoints: api.ts, worker.ts, app.ts (wiring)
+  src/routes/     Zod schemas and thin handlers; no db/ or drizzle-orm imports
+  src/services/   Business logic and Drizzle queries (generate, review, documents, …)
+  src/plugins/    Cross-cutting hooks: security, auth, request log, errors
+  src/rag/        Chunking, retrieval, prompt, citation normalisation
+  src/ingest/     Text extraction and the indexing loop the worker runs
+  src/config/     Env loading and config schema
+  src/db/         Schema, migrations runner, connection
   src/llm/        Provider (Gemini + stub), budget, retry
   drizzle/        SQL migrations
   eval/           golden set and `pnpm eval`
@@ -151,13 +164,15 @@ docker/           Postgres init, api/worker entrypoint
 ```bash
 pnpm test
 pnpm build
+pnpm check:layers
 pnpm --filter server test generate
 LLM_PROVIDER=gemini pnpm eval
 ```
 
 `pnpm test` runs all tests and needs the `db` container running.
 `pnpm build` runs the server typecheck (`tsc --noEmit`) and the frontend
-build. Pass a test file name to run one server test file, as in the last
+build. `pnpm check:layers` fails if a route imports `db/` or `drizzle-orm`
+(see [CLAUDE.md](CLAUDE.md)); CI runs it. Pass a test file name to run one server test file, as in the last
 command.
 
 Notes:
