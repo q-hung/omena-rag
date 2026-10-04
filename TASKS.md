@@ -594,6 +594,33 @@ Eval only (§13.4). Nothing in the request path or the UI changes.
   - Below 85% agreement, or with any hand-labelled `unsupported` item judged `supported`, the report prints "Judge not calibrated — support rate not trusted" (JDG-04, stub test).
 - **Verify:** `LLM_PROVIDER=gemini pnpm eval --judge` on a calibrated judge reports support rate ≥ 90% (SC-5). Paste the report into this task and record a hand verdict for every `unsupported` sentence.
 
+## Phase 11 — Hybrid retrieval with RRF (M11, post-MVP)
+
+Retrieval only (§7.7). Prompt, normaliser and UI are unchanged. Independent of M10.
+
+### [ ] T32 · Lexical index, RRF fusion and retrieval mode
+- **Goal:** add full-text search beside vector search and fuse them by rank, so exact tokens (codes, currencies, feature names) are found.
+- **Refs:** §7.7, RET-01/02, HYB-01–04.
+- **Depends:** T27.
+- **Acceptance:**
+  - Migration: `document_chunks.search_tsv` generated column (`english`, heading + text) + GIN index. Existing chunks are covered without re-indexing.
+  - `server/src/retrieve.ts`: lexical list (top 20, `websearch_to_tsquery` with `&` → `|`, `ts_rank_cd`) and vector list (top 20, cosine ≥ `RETRIEVAL_MIN_SCORE`), both with the RET-01 joins. Pure `rrf(lists, k = 60)` returns the top 8; ties break by chunk id.
+  - Config: `RETRIEVAL_MODE=vector|hybrid`, default `vector`. Vector mode keeps the T19 query unchanged. Stub mode keeps token overlap.
+  - `answer_sources.score` stores the fused score in hybrid mode.
+  - Vitest: HYB-02 (pure `rrf`); HYB-01 and HYB-03 against `jarvis_test` with the lexical SQL (no embeddings needed); HYB-04.
+- **Verify:** `pnpm --filter server test retrieve` passes; `RETRIEVAL_MODE=vector pnpm test` is green with no test changes.
+
+### [ ] T33 · Golden cases E16–E20 and vector-vs-hybrid baseline
+- **Goal:** measure whether hybrid helps before turning it on.
+- **Refs:** §7.7, §13.2, SC-1, SC-2, SC-6, EVAL-01.
+- **Depends:** T32.
+- **Acceptance:**
+  - `server/eval/golden.json` gains E16–E20 (§13.2) with expected documents.
+  - The eval report prints `RETRIEVAL_MODE`. The cost estimate is unchanged (no extra provider calls; lexical search is SQL only).
+  - Run `pnpm eval` once per mode on the same seed. Paste both reports here, with a per-case diff of retrieval hits.
+  - If SC-6 holds, set the default to `hybrid` and record it in REQ_V2 §7.7 and §18. If not, keep `vector` and record why (e.g. lexical noise on E11).
+- **Verify:** `RETRIEVAL_MODE=vector LLM_PROVIDER=gemini pnpm eval` and `RETRIEVAL_MODE=hybrid LLM_PROVIDER=gemini pnpm eval` both complete; the chosen default is backed by the pasted numbers.
+
 ---
 
 ## Dependency order
@@ -608,6 +635,7 @@ T01 → T13 → T14 ───────────────┴→ T12 → 
                                        T08 → T20 ─┴→ T21 ←──────────┘
 T21 → T22, T23, T24 → T25 (+T16) → T26 → T27 → T28 → T29
 T27 → T30 → T31   (M10, post-MVP)
+T27 → T32 → T33   (M11, post-MVP)
 ```
 
 **Optional (§15), not scheduled:** OPT-1 tool calling, OPT-2 streaming,
