@@ -1,5 +1,5 @@
-import type { Fact } from './context.ts';
-import type { ModelOutput } from './llm/schema.ts';
+import type { Fact } from '../services/account-context.service.ts';
+import type { ModelOutput } from '../llm/schema.ts';
 import type { Passage } from './retrieve.ts';
 
 // REQ §9.3, NRM-01, I2, I3.

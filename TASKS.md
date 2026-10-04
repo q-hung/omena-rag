@@ -592,7 +592,8 @@ Target layers in `server/src/`:
 
   Covered (4 Oct 2026). Snapshot is the T31–T37 check that the route tree did not change.
 
-### [ ] T31 · Plugins and shared helpers
+### [x] T31 · Plugins and shared helpers
+- **Result (4 Oct 2026):** `plugins/security.ts`, `plugins/errors.ts`, `plugins/request-log.ts`; `rowsOf` in `db/rows.ts`; `app.ts` wires plugins + routes only. Route snapshot unchanged. 149 tests green.
 - **Goal:** `app.ts` only wires plugins and routes.
 - **Depends:** T30.
 - **Acceptance:**
@@ -601,13 +602,19 @@ Target layers in `server/src/`:
   - `app.ts` ≤ ~30 lines.
 - **Verify:** `pnpm --filter server build && pnpm --filter server test`; the route snapshot is unchanged.
 
-### [ ] T32 · Accounts (pilot)
+  Covered (4 Oct 2026).
+
+### [x] T32 · Accounts (pilot)
+- **Result (4 Oct 2026):** `services/account.service.ts` + `routes/accounts.routes.ts`; `accounts.ts` removed. Snapshot + suite green.
 - **Goal:** set the routes → services pattern on the smallest module.
 - **Depends:** T31.
 - **Acceptance:** `services/account.service.ts` (`listAccounts`, `getAccountFacts`); `routes/accounts.routes.ts` calls them; `accounts.ts` is deleted.
 - **Verify:** as T31.
 
-### [ ] T33 · Auth
+  Covered (4 Oct 2026).
+
+### [x] T33 · Auth
+- **Result (4 Oct 2026):** `services/auth.service.ts`, `plugins/auth.ts`, `routes/auth.routes.ts`; tests import `SESSION_COOKIE` / `hashToken` from the service. Suite green.
 - **Goal:** move session checks and login out of route code.
 - **Depends:** T32.
 - **Acceptance:**
@@ -616,7 +623,10 @@ Target layers in `server/src/`:
   - `routes/auth.routes.ts`. Test imports of `SESSION_COOKIE` / `hashToken` are updated in the same PR (no re-export shim).
 - **Verify:** as T31; `auth.test.ts` passes.
 
-### [ ] T34 · Documents
+  Covered (4 Oct 2026).
+
+### [x] T34 · Documents
+- **Result (4 Oct 2026):** `services/document.service.ts`, `services/document-upload.service.ts`, `routes/documents.routes.ts` (`readMultipart` stays in routes). `kb` / `upload` tests green.
 - **Goal:** take the SQL out of the KB routes.
 - **Depends:** T33.
 - **Acceptance:**
@@ -624,7 +634,10 @@ Target layers in `server/src/`:
   - `upload.ts` → `services/document-upload.service.ts`. `readMultipart` stays in `routes/documents.routes.ts` (HTTP only).
 - **Verify:** as T31; `kb`, `upload` tests pass.
 
-### [ ] T35 · Conversations
+  Covered (4 Oct 2026).
+
+### [x] T35 · Conversations
+- **Result (4 Oct 2026):** `conversation-view.service.ts`, `conversation-list.service.ts`, `generate.service.ts`, `review.service.ts`, `routes/conversations.routes.ts` (7 handlers). Generate/review/edit/clarify/list/history-state green.
 - **Goal:** take the SQL and presentation logic out of the conversation routes.
 - **Depends:** T34.
 - **Acceptance:**
@@ -634,7 +647,10 @@ Target layers in `server/src/`:
   - `generate.ts`, `review.ts` → `services/` (rename only).
 - **Verify:** as T31; `generate`, `review`, `edit`, `clarify`, `conversations-list`, `history-state` tests pass.
 
-### [ ] T36 · Domain folders
+  Covered (4 Oct 2026).
+
+### [x] T36 · Domain folders
+- **Result (4 Oct 2026):** `rag/`, `ingest/`, `config/`; `account-context.service.ts`, `state.service.ts`. Scripts/Docker/eval imports retargeted. Stub `pnpm eval` refuses; Docker `/ask` serves with CSP self. Snapshot + 149 tests green.
 - **Goal:** group the remaining modules by job.
 - **Depends:** T35.
 - **Acceptance:**
@@ -642,13 +658,18 @@ Target layers in `server/src/`:
   - `package.json` scripts, `Dockerfile`, `docker/entrypoint.sh`, `eval/` and `scripts/` imports are updated if paths change.
 - **Verify:** as T31; `pnpm eval` starts in stub mode up to its refusal; `docker compose up --build` serves `/ask`.
 
-### [ ] T37 · Layer guardrail
+  Covered (4 Oct 2026).
+
+### [x] T37 · Layer guardrail
+- **Result (4 Oct 2026):** `pnpm check:layers` (`rg` over `server/src/routes/`) in CI; layer rules in `CLAUDE.md` / `AGENTS.md`. Bad `db` import fails; clean tree passes.
 - **Goal:** stop SQL from creeping back into routes.
 - **Depends:** T36.
 - **Acceptance:**
   - A CI step fails if `server/src/routes/` imports `db/` or `drizzle-orm`.
   - The layer rules are added to `CLAUDE.md` and `AGENTS.md`.
 - **Verify:** adding a `db` import to a route file fails CI locally (`grep` step); removing it passes.
+
+  Covered (4 Oct 2026). M10 complete.
 
 ## Phase 11 — LLM-judge support check (M11, post-MVP)
 

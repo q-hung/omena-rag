@@ -1,9 +1,7 @@
 import { and, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
-import { z } from 'zod';
-import type { App } from './app.ts';
-import type { Config } from './config.ts';
-import { getAccountSignals } from './context.ts';
-import { db } from './db/index.ts';
+import { getAccountSignals } from '../services/account-context.service.ts';
+import { db } from '../db/index.ts';
+import { rowsOf } from '../db/rows.ts';
 import {
   accounts,
   answerSources,
@@ -15,135 +13,12 @@ import {
   employees,
   reviewedAnswers,
   turns,
-} from './db/schema.ts';
-import { notFound } from './errors.ts';
-import { isoDate } from './lib/format.ts';
-import {
-  createConversation,
-  generationLockHeld,
-  regenerateConversation,
-  replyConversation,
-  type GenerateDeps,
-} from './generate.ts';
-import { editAnswer, reviewConversation, reviewedSourceChanged, reviewedSourceChangedByConversation, unsavedSourceUpdated } from './review.ts';
-import { conversationStatesById, deriveState, STATE_FROM, STATE_SQL, STATES, topicsOf } from './state.ts';
-import { rowsOf } from './upload.ts';
-
-const questionBody = z.object({
-  accountId: z.number().int().positive(),
-  question: z.string().trim().min(1).max(2_000),
-});
-/** History returns the newest rows only; filters narrow the list before the limit. */
-export const HISTORY_LIMIT = 200;
-
-const idParam = z.object({ id: z.coerce.number().int().positive() });
-// Empty and over-long replies are rejected by replyConversation (EMPTY_REPLY, REPLY_TOO_LONG).
-const replyBody = z.object({
-  selections: z.array(z.string().trim().min(1)).max(4).optional(),
-  text: z.string().optional(),
-});
-const editBody = z.object({ editedText: z.string() });
-const reviewBody = z.object({
-  answerId: z.number().int().positive(),
-  reviewAcknowledged: z.boolean().optional(),
-});
-const listQuery = z.object({
-  accountId: z.coerce.number().int().positive().optional(),
-  mine: z.enum(['0', '1']).default('1'),
-  state: z.enum(STATES).optional(),
-  signal: z.string().optional(),
-  topic: z.string().optional(),
-});
-
-export function registerConversations(app: App, config: Config, deps: GenerateDeps = {}): void {
-  app.post('/api/conversations', { schema: { body: questionBody } }, async (request, reply) => {
-    const id = await createConversation({
-      accountId: request.body.accountId,
-      question: request.body.question,
-      employeeId: request.employeeId!,
-      config,
-      deps,
-      log: request.log,
-    });
-    return reply.status(201).send(await presentConversation(id, request.employeeId!));
-  });
-
-  app.post('/api/conversations/:id/regenerate', { schema: { params: idParam } }, async (request) => {
-    const id = await regenerateConversation({
-      conversationId: request.params.id,
-      employeeId: request.employeeId!,
-      config,
-      deps,
-      log: request.log,
-    });
-    return presentConversation(id, request.employeeId!);
-  });
-
-  app.post('/api/conversations/:id/replies', { schema: { params: idParam, body: replyBody } }, async (request) => {
-    const id = await replyConversation({
-      conversationId: request.params.id,
-      employeeId: request.employeeId!,
-      selections: request.body.selections,
-      text: request.body.text,
-      config,
-      deps,
-      log: request.log,
-    });
-    return presentConversation(id, request.employeeId!);
-  });
-
-  app.patch('/api/answers/:id', { schema: { params: idParam, body: editBody } }, async (request) => {
-    const conversationId = await editAnswer({
-      answerId: request.params.id,
-      employeeId: request.employeeId!,
-      editedText: request.body.editedText,
-    });
-    return presentConversation(conversationId, request.employeeId!);
-  });
-
-  app.post('/api/conversations/:id/review', { schema: { params: idParam, body: reviewBody } }, async (request) => {
-    const id = await reviewConversation({
-      conversationId: request.params.id,
-      employeeId: request.employeeId!,
-      answerId: request.body.answerId,
-      reviewAcknowledged: request.body.reviewAcknowledged,
-    });
-    return presentConversation(id, request.employeeId!);
-  });
-
-  app.get('/api/conversations/:id', { schema: { params: idParam } }, async (request) => {
-    return presentConversation(request.params.id, request.employeeId!);
-  });
-
-  app.get('/api/conversations', { schema: { querystring: listQuery } }, async (request) => {
-    const { accountId, mine, state, signal, topic } = request.query;
-    const filters = [];
-    if (accountId) filters.push(sql`c.account_id = ${accountId}`);
-    if (mine === '1') filters.push(sql`c.created_by = ${request.employeeId!}`);
-    if (signal) {
-      const withSignal = await accountsWithSignal(signal, filters);
-      if (!withSignal.length) return { conversations: [] };
-      filters.push(sql`c.account_id in (${sql.join(withSignal.map((id) => sql`${id}`), sql`, `)})`);
-    }
-    if (state) filters.push(sql`${STATE_SQL} = ${state}`);
-    const where = filters.length ? sql`where ${sql.join(filters, sql` and `)}` : sql``;
-    // ponytail: topics are derived from cited sources in TS, so a topic filter runs over every
-    // matching row before the limit. Move topicsOf into SQL if topic-filtered History gets slow.
-    const limit = topic ? sql`` : sql`limit ${HISTORY_LIMIT}`;
-    const ids = rowsOf(
-      await db().execute(sql`select c.id from ${STATE_FROM} ${where} order by c.created_at desc, c.id desc ${limit}`),
-    ).map((r) => Number(r.id));
-    if (!ids.length) return { conversations: [] };
-
-    const byId = new Map(
-      (await db().select().from(conversations).where(inArray(conversations.id, ids))).map((r) => [r.id, r]),
-    );
-    const listed = await presentSummaries(ids.map((id) => byId.get(id)!), request.employeeId!);
-    return {
-      conversations: topic ? listed.filter((row) => row.topics.includes(topic)).slice(0, HISTORY_LIMIT) : listed,
-    };
-  });
-}
+} from '../db/schema.ts';
+import { notFound } from '../errors.ts';
+import { isoDate } from '../lib/format.ts';
+import { generationLockHeld } from './generate.service.ts';
+import { reviewedSourceChanged, reviewedSourceChangedByConversation, unsavedSourceUpdated } from './review.service.ts';
+import { conversationStatesById, deriveState, topicsOf } from '../services/state.service.ts';
 
 export async function presentConversation(id: number, employeeId: number) {
   const [conv] = await db().select().from(conversations).where(eq(conversations.id, id));
@@ -205,7 +80,7 @@ export async function presentConversation(id: number, employeeId: number) {
 }
 
 // One query per table for the whole list, not per row.
-async function presentSummaries(
+export async function presentSummaries(
   rows: (typeof conversations.$inferSelect)[],
   employeeId: number,
 ) {
@@ -390,13 +265,3 @@ function citeCard(row: Record<string, unknown>) {
 }
 
 /** Accounts among the listed conversations that currently show `signal` (matched by key or label). */
-async function accountsWithSignal(signal: string, filters: ReturnType<typeof sql>[]): Promise<number[]> {
-  const where = filters.length ? sql`where ${sql.join(filters, sql` and `)}` : sql``;
-  const accountIds = rowsOf(await db().execute(sql`select distinct c.account_id from conversations c ${where}`)).map(
-    (r) => Number(r.account_id),
-  );
-  const matches = await Promise.all(
-    accountIds.map(async (id) => ((await getAccountSignals(id)).some((s) => s.key === signal || s.label === signal) ? id : null)),
-  );
-  return matches.filter((id): id is number => id != null);
-}

@@ -1,6 +1,6 @@
-import './env.ts';
+import './config/env.ts';
 import { buildApp } from './app.ts';
-import { config } from './config.ts';
+import { config } from './config/config.ts';
 
 const cfg = config();
 const app = await buildApp({ config: cfg });

@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { loadConfig } from '../src/config.ts';
+import { loadConfig } from '../src/config/config.ts';
 import { db } from '../src/db/index.ts';
 import { budgetDays, providerCalls } from '../src/db/schema.ts';
 import { ProviderError } from '../src/llm/errors.ts';

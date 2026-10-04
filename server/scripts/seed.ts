@@ -1,4 +1,4 @@
-import '../src/env.ts';
+import '../src/config/env.ts';
 import { closeDb, db } from '../src/db/index.ts';
 import { runMigrations } from '../src/db/migrate.ts';
 import { seed } from '../src/seed.ts';

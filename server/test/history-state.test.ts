@@ -1,11 +1,11 @@
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { SESSION_COOKIE } from '../src/auth.ts';
+import { SESSION_COOKIE } from '../src/services/auth.service.ts';
 import { db } from '../src/db/index.ts';
 import { accounts, answers, conversations, employees, reviewedAnswers, turns } from '../src/db/schema.ts';
 import { seed } from '../src/seed.ts';
-import { HISTORY_LIMIT } from '../src/conversations.ts';
-import { conversationStatesById, deriveState, STATES, type ConversationState } from '../src/state.ts';
+import { HISTORY_LIMIT } from '../src/services/conversation-list.service.ts';
+import { conversationStatesById, deriveState, STATES, type ConversationState } from '../src/services/state.service.ts';
 import { asBrowser, buildTestApp } from './helpers/app.ts';
 
 const PASSWORD = 'test-password';

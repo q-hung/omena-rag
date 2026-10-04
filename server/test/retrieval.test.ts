@@ -3,9 +3,9 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { db } from '../src/db/index.ts';
 import { documentChunks, documentVersions, documents } from '../src/db/schema.ts';
 import { utcToday } from '../src/lib/format.ts';
-import { retrieve } from '../src/retrieve.ts';
+import { retrieve } from '../src/rag/retrieve.ts';
 import { seedEmployees } from '../src/seed.ts';
-import { queueDocument, queueVersion } from '../src/upload.ts';
+import { queueDocument, queueVersion } from '../src/services/document-upload.service.ts';
 
 const MODEL = 'gemini-embedding-2';
 const axis = (i: number, value = 1) => {

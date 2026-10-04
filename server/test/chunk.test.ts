@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { chunk } from '../src/chunk.ts';
-import { extractMarkdown } from '../src/extract/markdown.ts';
+import { chunk } from '../src/rag/chunk.ts';
+import { extractMarkdown } from '../src/ingest/extract/markdown.ts';
 
 const asMd = (source: string) => ({
   kind: 'md' as const,

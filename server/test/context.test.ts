@@ -5,7 +5,7 @@ import {
   getAccountSignals,
   getRecentPayments,
   getWebhookStatus,
-} from '../src/context.ts';
+} from '../src/services/account-context.service.ts';
 import { db } from '../src/db/index.ts';
 import { accounts, payments, webhookDeliveries, webhookEndpoints } from '../src/db/schema.ts';
 import { seed } from '../src/seed.ts';

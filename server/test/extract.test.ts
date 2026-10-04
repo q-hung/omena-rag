@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { extract } from '../src/extract.ts';
-import { buildPdf } from '../src/extract/pdfBytes.ts';
+import { extract } from '../src/ingest/extract.ts';
+import { buildPdf } from '../src/ingest/extract/pdfBytes.ts';
 
 const THREE_PAGE = buildPdf([
   'SAML single sign-on is available on the Enterprise plan.',
@@ -34,7 +34,7 @@ describe('extractors', () => {
   it("starts the child with an empty process.env", async () => {
     const { spawn } = await import('node:child_process');
     const { join } = await import('node:path');
-    const child = spawn(process.execPath, [join(import.meta.dirname, '../src/extract-child.ts')], {
+    const child = spawn(process.execPath, [join(import.meta.dirname, '../src/ingest/extract-child.ts')], {
       env: {},
       stdio: ['pipe', 'pipe', 'pipe'],
     });

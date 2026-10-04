@@ -1,4 +1,4 @@
-import type { Config } from '../config.ts';
+import type { Config } from '../config/config.ts';
 import { geminiProvider } from './gemini.ts';
 import { stubProvider } from './stub.ts';
 import type { Provider } from './types.ts';

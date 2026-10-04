@@ -1,7 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildPdf } from '../src/extract/pdfBytes.ts';
+import { buildPdf } from '../src/ingest/extract/pdfBytes.ts';
 
 const dir = join(dirname(fileURLToPath(import.meta.url)), '../fixtures/kb');
 

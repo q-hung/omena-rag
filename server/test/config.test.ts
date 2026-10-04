@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loadConfig } from '../src/config.ts';
+import { loadConfig } from '../src/config/config.ts';
 
 const base = { DATABASE_URL: 'postgres://jarvis:jarvis@localhost:5433/jarvis' };
 

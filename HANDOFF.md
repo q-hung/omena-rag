@@ -2,12 +2,12 @@
 
 Internal Product Support Copilot. Source of truth: `REQ_V2.MD`, `TASKS.md`.
 
-## Done (T00–T29)
+## Done (T00–T37)
 
-Phases 0–9. MVP is complete. Employees can sign in, generate answers, reply to
-clarifications, edit and copy, save a reviewed internal answer, and browse
-History. `pnpm eval` measures the golden set on Gemini. `docker compose up`
-runs the full demo.
+Phases 0–9 (MVP) and M10 (server layering). Employees can sign in, generate
+answers, reply to clarifications, edit and copy, save a reviewed internal
+answer, and browse History. `pnpm eval` measures the golden set on Gemini.
+`docker compose up` runs the full demo.
 
 | Area | Where |
 |---|---|
@@ -15,8 +15,9 @@ runs the full demo.
 | Accounts | `GET /api/accounts`, `GET /api/accounts/:id/facts` |
 | Provider | `server/src/llm/` — `createProvider(config)` |
 | Budget | `server/src/llm/budget.ts` — `reserve`, `reconcile`, `paidAttempt` |
-| Retrieval | `server/src/retrieve.ts` — SQL access filter; stub uses token overlap |
-| Prompt / normalise | `server/src/prompt.ts`, `server/src/normalise.ts` |
+| Layers | `routes/` → `services/` → `db/`; `plugins/`; `rag/`, `ingest/`, `config/` |
+| Retrieval | `server/src/rag/retrieve.ts` — SQL access filter; stub uses token overlap |
+| Prompt / normalise | `server/src/rag/prompt.ts`, `server/src/rag/normalise.ts` |
 | Generation | `POST /api/conversations`, `POST /api/conversations/:id/regenerate` |
 | Replies | `POST /api/conversations/:id/replies` `{selections?, text?}` |
 | Edit | `PATCH /api/answers/:id` `{editedText}` |
@@ -27,6 +28,7 @@ runs the full demo.
 | Ask UI | `frontend/src/hooks/useAsk.js` |
 | History UI | `frontend/src/hooks/useHistory.js` |
 | KB UI | `frontend/src/hooks/useDocuments.js` |
+| Layer check | `pnpm check:layers` — routes must not import `db/` or `drizzle-orm` |
 
 ## Run
 
@@ -69,7 +71,7 @@ Live generation model: `gemini-3.1-flash-lite`. `RETRIEVAL_MIN_SCORE=0.5`.
 
 ## Next
 
-**T31–T37 (M10 PR 2)** — move files into `plugins/`, `routes/`, `services/` on the old layout. The T30 route snapshot must stay unchanged. Do not start V3 in parallel.
+**M10 done (T30–T37).** Next is post-MVP M11 (T38+) or REQ_V3 work — not both in parallel with unfinished layering. Routes stay thin; `pnpm check:layers` enforces it.
 
 ## Limits
 

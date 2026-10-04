@@ -1,11 +1,11 @@
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { SESSION_COOKIE } from '../src/auth.ts';
+import { SESSION_COOKIE } from '../src/services/auth.service.ts';
 import { db } from '../src/db/index.ts';
 import { documentFiles, documentVersions, documents } from '../src/db/schema.ts';
 import { utcToday } from '../src/lib/format.ts';
 import { addDays } from '../src/lib/format.ts';
-import { FILE_SIZE_LIMIT } from '../src/upload.ts';
+import { FILE_SIZE_LIMIT } from '../src/services/document-upload.service.ts';
 import { seed } from '../src/seed.ts';
 import { asBrowser, buildTestApp } from './helpers/app.ts';
 import { multipart } from './helpers/multipart.ts';

@@ -1,7 +1,7 @@
 import type { InjectOptions } from 'fastify';
 import { buildApp } from '../../src/app.ts';
-import { loadConfig } from '../../src/config.ts';
-import type { GenerateDeps } from '../../src/generate.ts';
+import { loadConfig } from '../../src/config/config.ts';
+import type { GenerateDeps } from '../../src/services/generate.service.ts';
 
 export const TEST_ORIGIN = 'http://localhost:5173';
 

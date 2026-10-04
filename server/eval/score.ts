@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
-import type { Config } from '../src/config.ts';
+import type { Config } from '../src/config/config.ts';
 import { estimateCostUsd } from '../src/llm/budget.ts';
 
 export const EVAL_DATE = '2026-10-02';

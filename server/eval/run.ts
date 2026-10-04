@@ -1,20 +1,20 @@
-import '../src/env.ts';
+import '../src/config/env.ts';
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { desc, eq } from 'drizzle-orm';
 import pg from 'pg';
-import { loadConfig } from '../src/config.ts';
-import { presentConversation } from '../src/conversations.ts';
+import { loadConfig } from '../src/config/config.ts';
+import { presentConversation } from '../src/services/conversation-view.service.ts';
 import { db, closeDb } from '../src/db/index.ts';
 import { runMigrations } from '../src/db/migrate.ts';
 import { accounts, documents, employees, providerCalls } from '../src/db/schema.ts';
-import { createConversation, replyConversation } from '../src/generate.ts';
+import { createConversation, replyConversation } from '../src/services/generate.service.ts';
 import { remainingBudgetUsd } from '../src/llm/budget.ts';
 import { utcToday } from '../src/lib/format.ts';
-import type { Passage } from '../src/retrieve.ts';
+import type { Passage } from '../src/rag/retrieve.ts';
 import { seed } from '../src/seed.ts';
-import { queueVersion } from '../src/upload.ts';
+import { queueVersion } from '../src/services/document-upload.service.ts';
 import { runWorker } from '../src/worker.ts';
 import {
   EVAL_DATE,

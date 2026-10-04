@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
-import type { Config } from './config.ts';
-import { buildAccountSnapshot, type AccountSnapshot } from './context.ts';
-import { db } from './db/index.ts';
+import type { Config } from '../config/config.ts';
+import { buildAccountSnapshot, type AccountSnapshot } from '../services/account-context.service.ts';
+import { db } from '../db/index.ts';
 import {
   accounts,
   answers,
@@ -12,7 +12,7 @@ import {
   documents,
   providerCalls,
   turns,
-} from './db/schema.ts';
+} from '../db/schema.ts';
 import {
   AppError,
   badRequest,
@@ -20,19 +20,19 @@ import {
   generationQuota,
   notFound,
   notOwner,
-} from './errors.ts';
-import { GENERATE_QUOTA, money, paidAttempt, type CallPurpose } from './llm/budget.ts';
-import { ProviderError, isRetryable } from './llm/errors.ts';
-import { formatQueryForEmbedding } from './llm/format.ts';
-import { createProvider } from './llm/provider.ts';
-import { MAX_RETRIES } from './llm/retry.ts';
-import type { GenerateInput, Provider } from './llm/types.ts';
-import { utcToday } from './lib/format.ts';
-import { normalise, type Normalised } from './normalise.ts';
-import { buildPrompt, type PromptTurn } from './prompt.ts';
-import { retrieve, type Passage } from './retrieve.ts';
-import { lockHeld } from './state.ts';
-import { rowsOf } from './upload.ts';
+} from '../errors.ts';
+import { GENERATE_QUOTA, money, paidAttempt, type CallPurpose } from '../llm/budget.ts';
+import { ProviderError, isRetryable } from '../llm/errors.ts';
+import { formatQueryForEmbedding } from '../llm/format.ts';
+import { createProvider } from '../llm/provider.ts';
+import { MAX_RETRIES } from '../llm/retry.ts';
+import type { GenerateInput, Provider } from '../llm/types.ts';
+import { utcToday } from '../lib/format.ts';
+import { normalise, type Normalised } from '../rag/normalise.ts';
+import { buildPrompt, type PromptTurn } from '../rag/prompt.ts';
+import { retrieve, type Passage } from '../rag/retrieve.ts';
+import { lockHeld } from '../services/state.service.ts';
+import { rowsOf } from '../db/rows.ts';
 
 export const REQUEST_DEADLINE_MS = 90_000;
 

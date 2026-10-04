@@ -1,4 +1,4 @@
-import type { ExtractResult } from './extract/run.ts';
+import type { ExtractResult } from '../ingest/extract/run.ts';
 
 export const TOKEN_TARGET = 500;
 const maxChars = TOKEN_TARGET * 4;

@@ -1,9 +1,9 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { buildAccountSnapshot } from '../src/context.ts';
+import { buildAccountSnapshot } from '../src/services/account-context.service.ts';
 import { db } from '../src/db/index.ts';
 import { accounts } from '../src/db/schema.ts';
-import { I2_TEXT, normalise, stripMarkers } from '../src/normalise.ts';
-import type { Passage } from '../src/retrieve.ts';
+import { I2_TEXT, normalise, stripMarkers } from '../src/rag/normalise.ts';
+import type { Passage } from '../src/rag/retrieve.ts';
 import { seed } from '../src/seed.ts';
 
 const D = '2026-10-02';

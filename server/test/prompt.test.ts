@@ -1,9 +1,9 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { buildAccountSnapshot } from '../src/context.ts';
+import { buildAccountSnapshot } from '../src/services/account-context.service.ts';
 import { db } from '../src/db/index.ts';
 import { accounts, employees } from '../src/db/schema.ts';
-import { PROMPT_VERSION, TOKEN_BUDGET, buildPrompt, estimateTokens } from '../src/prompt.ts';
-import type { Passage } from '../src/retrieve.ts';
+import { PROMPT_VERSION, TOKEN_BUDGET, buildPrompt, estimateTokens } from '../src/rag/prompt.ts';
+import type { Passage } from '../src/rag/retrieve.ts';
 import { seed } from '../src/seed.ts';
 
 const D = '2026-10-02';

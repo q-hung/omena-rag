@@ -1,10 +1,10 @@
 import { createHash } from 'node:crypto';
 import { extname } from 'node:path';
 import { and, eq, inArray, max } from 'drizzle-orm';
-import { db } from './db/index.ts';
-import { CATEGORIES, documentFiles, documentVersions, documents } from './db/schema.ts';
-import { badRequest, conflict, notFound } from './errors.ts';
-import { utcToday } from './lib/format.ts';
+import { db } from '../db/index.ts';
+import { CATEGORIES, documentFiles, documentVersions, documents } from '../db/schema.ts';
+import { badRequest, conflict, notFound } from '../errors.ts';
+import { utcToday } from '../lib/format.ts';
 
 export const FILE_SIZE_LIMIT = 3 * 1024 * 1024;
 export const MD_CHAR_LIMIT = 300_000;
@@ -144,12 +144,4 @@ export async function queueVersion(documentId: number, input: QueueInput) {
     await tx.insert(documentFiles).values({ versionId: version!.id, bytes: input.bytes });
     return { document: doc, version: version! };
   });
-}
-
-export function rowsOf(result: unknown): Record<string, unknown>[] {
-  if (Array.isArray(result)) return result as Record<string, unknown>[];
-  if (result && typeof result === 'object' && 'rows' in result) {
-    return (result as { rows: Record<string, unknown>[] }).rows;
-  }
-  return [];
 }
