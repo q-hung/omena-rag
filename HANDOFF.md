@@ -69,7 +69,7 @@ Live generation model: `gemini-3.1-flash-lite`. `RETRIEVAL_MIN_SCORE=0.5`.
 
 ## Next
 
-Nothing scheduled. Optional §15 items (tool calling, streaming, LLM-judge eval, "Cited in answers", activation toast) stay out of the MVP.
+**T31–T37 (M10 PR 2)** — move files into `plugins/`, `routes/`, `services/` on the old layout. The T30 route snapshot must stay unchanged. Do not start V3 in parallel.
 
 ## Limits
 
