@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { SESSION_COOKIE } from '../src/auth.ts';
+import { SESSION_COOKIE } from '../src/services/auth.service.ts';
 import { db } from '../src/db/index.ts';
 import { accounts, employees, turns } from '../src/db/schema.ts';
 import { stubProvider } from '../src/llm/stub.ts';

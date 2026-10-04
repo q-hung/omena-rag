@@ -2,14 +2,15 @@ import { randomUUID } from 'node:crypto';
 import Fastify, { LogController, type FastifyServerOptions } from 'fastify';
 import { serializerCompiler, validatorCompiler, type ZodTypeProvider } from 'fastify-type-provider-zod';
 import { registerAccounts } from './routes/accounts.routes.ts';
-import { registerAuth } from './auth.ts';
 import { config as loadConfig, type Config } from './config.ts';
 import { registerConversations } from './conversations.ts';
 import { registerDocuments } from './documents.ts';
 import type { GenerateDeps } from './generate.ts';
+import { registerAuthHook } from './plugins/auth.ts';
 import { registerErrors } from './plugins/errors.ts';
 import { registerRequestLog } from './plugins/request-log.ts';
 import { registerSecurity } from './plugins/security.ts';
+import { registerAuth } from './routes/auth.routes.ts';
 
 export type App = Awaited<ReturnType<typeof buildApp>>;
 export type BuildOptions = {
@@ -35,6 +36,7 @@ export async function buildApp(options: BuildOptions = {}) {
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
   await registerSecurity(app, config);
+  registerAuthHook(app);
   registerAuth(app, config);
   registerAccounts(app);
   registerDocuments(app);
