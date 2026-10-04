@@ -7,7 +7,7 @@ import { SEED_EMPLOYEES, seedAccounts } from '../fixtures/accounts.ts';
 import { FEATURES, accountFeatures, accounts, employees, payments, webhookDeliveries, webhookEndpoints } from './db/schema.ts';
 import type { Db } from './db/index.ts';
 import { addDays, utcToday } from './lib/format.ts';
-import { queueDocument } from './upload.ts';
+import { queueDocument } from './services/document-upload.service.ts';
 
 export async function resetDatabase(db: Db): Promise<void> {
   await db.execute(sql`

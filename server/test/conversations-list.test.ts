@@ -7,7 +7,7 @@ import { stubProvider } from '../src/llm/stub.ts';
 import { utcToday } from '../src/lib/format.ts';
 import type { Passage } from '../src/retrieve.ts';
 import { seed } from '../src/seed.ts';
-import { queueDocument } from '../src/upload.ts';
+import { queueDocument } from '../src/services/document-upload.service.ts';
 import { asBrowser, buildTestApp } from './helpers/app.ts';
 
 const PASSWORD = 'test-password';

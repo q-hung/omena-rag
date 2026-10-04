@@ -5,7 +5,7 @@ import { budgetDays, documentChunks, documentVersions, documents } from '../src/
 import { buildPdf } from '../src/extract/pdfBytes.ts';
 import { utcToday } from '../src/lib/format.ts';
 import { seed } from '../src/seed.ts';
-import { queueDocument, queueVersion } from '../src/upload.ts';
+import { queueDocument, queueVersion } from '../src/services/document-upload.service.ts';
 import { activateVersion, claimVersion, failStaleProcessing, processVersion, runWorker } from '../src/worker.ts';
 
 const unit = () => {

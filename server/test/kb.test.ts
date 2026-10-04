@@ -17,7 +17,7 @@ import {
 } from '../src/db/schema.ts';
 import { utcToday } from '../src/lib/format.ts';
 import { seed } from '../src/seed.ts';
-import { queueDocument, queueVersion } from '../src/upload.ts';
+import { queueDocument, queueVersion } from '../src/services/document-upload.service.ts';
 import { asBrowser, buildTestApp } from './helpers/app.ts';
 
 const PASSWORD = 'test-password';

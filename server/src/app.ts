@@ -4,7 +4,7 @@ import { serializerCompiler, validatorCompiler, type ZodTypeProvider } from 'fas
 import { registerAccounts } from './routes/accounts.routes.ts';
 import { config as loadConfig, type Config } from './config.ts';
 import { registerConversations } from './conversations.ts';
-import { registerDocuments } from './documents.ts';
+import { registerDocuments } from './routes/documents.routes.ts';
 import type { GenerateDeps } from './generate.ts';
 import { registerAuthHook } from './plugins/auth.ts';
 import { registerErrors } from './plugins/errors.ts';

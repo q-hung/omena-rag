@@ -1,10 +1,10 @@
 import { createHash } from 'node:crypto';
 import { extname } from 'node:path';
 import { and, eq, inArray, max } from 'drizzle-orm';
-import { db } from './db/index.ts';
-import { CATEGORIES, documentFiles, documentVersions, documents } from './db/schema.ts';
-import { badRequest, conflict, notFound } from './errors.ts';
-import { utcToday } from './lib/format.ts';
+import { db } from '../db/index.ts';
+import { CATEGORIES, documentFiles, documentVersions, documents } from '../db/schema.ts';
+import { badRequest, conflict, notFound } from '../errors.ts';
+import { utcToday } from '../lib/format.ts';
 
 export const FILE_SIZE_LIMIT = 3 * 1024 * 1024;
 export const MD_CHAR_LIMIT = 300_000;

@@ -4,7 +4,7 @@ import multipart from '@fastify/multipart';
 import type { App } from '../app.ts';
 import type { Config } from '../config.ts';
 import { AppError } from '../errors.ts';
-import { FILE_SIZE_LIMIT } from '../upload.ts';
+import { FILE_SIZE_LIMIT } from '../services/document-upload.service.ts';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 

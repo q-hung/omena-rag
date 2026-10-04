@@ -14,7 +14,7 @@ import { remainingBudgetUsd } from '../src/llm/budget.ts';
 import { utcToday } from '../src/lib/format.ts';
 import type { Passage } from '../src/retrieve.ts';
 import { seed } from '../src/seed.ts';
-import { queueVersion } from '../src/upload.ts';
+import { queueVersion } from '../src/services/document-upload.service.ts';
 import { runWorker } from '../src/worker.ts';
 import {
   EVAL_DATE,

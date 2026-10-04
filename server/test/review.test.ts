@@ -16,7 +16,7 @@ import type { Provider } from '../src/llm/types.ts';
 import { utcToday } from '../src/lib/format.ts';
 import type { Passage } from '../src/retrieve.ts';
 import { seed } from '../src/seed.ts';
-import { queueDocument, queueVersion } from '../src/upload.ts';
+import { queueDocument, queueVersion } from '../src/services/document-upload.service.ts';
 import { activateVersion } from '../src/worker.ts';
 import { asBrowser, buildTestApp } from './helpers/app.ts';
 
