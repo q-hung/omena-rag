@@ -4,7 +4,7 @@ import { SESSION_COOKIE } from '../src/services/auth.service.ts';
 import { db } from '../src/db/index.ts';
 import { accounts, answers, conversations, employees, reviewedAnswers, turns } from '../src/db/schema.ts';
 import { seed } from '../src/seed.ts';
-import { HISTORY_LIMIT } from '../src/conversations.ts';
+import { HISTORY_LIMIT } from '../src/services/conversation-list.service.ts';
 import { conversationStatesById, deriveState, STATES, type ConversationState } from '../src/state.ts';
 import { asBrowser, buildTestApp } from './helpers/app.ts';
 
