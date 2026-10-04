@@ -23,7 +23,7 @@ describe('chunker', () => {
   });
 
   it('leaves markdown syntax in the section body', () => {
-    const [section] = extractMarkdown([
+    const section = extractMarkdown([
       '# Create an API key',
       '',
       '- **Read only** — customers.',
@@ -35,7 +35,7 @@ describe('chunker', () => {
       '```',
       'Authorization: Bearer sp_live_...',
       '```',
-    ].join('\n'));
+    ].join('\n'))[0]!;
     expect(section.heading).toBe('Create an API key');
     expect(section.text).toContain('**Read only**');
     expect(section.text).toContain('| Plan | Requests per minute |');
