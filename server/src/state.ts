@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { CATEGORIES } from './db/schema.ts';
 import { db } from './db/index.ts';
-import { rowsOf } from './upload.ts';
+import { rowsOf } from './db/rows.ts';
 
 // REQ §4.2 (WF-05) and ANS-09. Derived, never stored.
 

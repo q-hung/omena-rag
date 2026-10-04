@@ -27,7 +27,7 @@ import {
 } from './generate.ts';
 import { editAnswer, reviewConversation, reviewedSourceChanged, reviewedSourceChangedByConversation, unsavedSourceUpdated } from './review.ts';
 import { conversationStatesById, deriveState, STATE_FROM, STATE_SQL, STATES, topicsOf } from './state.ts';
-import { rowsOf } from './upload.ts';
+import { rowsOf } from './db/rows.ts';
 
 const questionBody = z.object({
   accountId: z.number().int().positive(),

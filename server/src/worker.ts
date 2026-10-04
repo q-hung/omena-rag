@@ -7,7 +7,7 @@ import { AppError } from './errors.ts';
 import { extract } from './extract.ts';
 import { paidAttempt, sweepAbandonedReservations } from './llm/budget.ts';
 import { createProvider } from './llm/provider.ts';
-import { rowsOf } from './upload.ts';
+import { rowsOf } from './db/rows.ts';
 
 const STALE_MS = 10 * 60 * 1000;
 const BUDGET_FAIL = 'Daily budget reached — retry later';

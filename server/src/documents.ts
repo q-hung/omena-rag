@@ -14,7 +14,8 @@ import {
   reviewedAnswers,
 } from './db/schema.ts';
 import { badRequest, conflict, notFound } from './errors.ts';
-import { parseEffectiveDate, queueDocument, queueVersion, rowsOf } from './upload.ts';
+import { rowsOf } from './db/rows.ts';
+import { parseEffectiveDate, queueDocument, queueVersion } from './upload.ts';
 
 const idParam = z.object({ id: z.coerce.number().int().positive() });
 const versionParams = z.object({

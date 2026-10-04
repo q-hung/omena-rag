@@ -3,7 +3,7 @@ import { db } from './db/index.ts';
 import { answers, reviewedAnswers } from './db/schema.ts';
 import { badRequest, conflict, notFound } from './errors.ts';
 import { generationLockHeld, requireOwner } from './generate.ts';
-import { rowsOf } from './upload.ts';
+import { rowsOf } from './db/rows.ts';
 
 const MARKER = /\[(F)?(\d+)\]/g;
 

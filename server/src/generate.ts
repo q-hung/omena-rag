@@ -32,7 +32,7 @@ import { normalise, type Normalised } from './normalise.ts';
 import { buildPrompt, type PromptTurn } from './prompt.ts';
 import { retrieve, type Passage } from './retrieve.ts';
 import { lockHeld } from './state.ts';
-import { rowsOf } from './upload.ts';
+import { rowsOf } from './db/rows.ts';
 
 export const REQUEST_DEADLINE_MS = 90_000;
 

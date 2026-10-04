@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { db } from './db/index.ts';
 import { isoDate } from './lib/format.ts';
-import { rowsOf } from './upload.ts';
+import { rowsOf } from './db/rows.ts';
 
 // REQ §7.2, RET-01/02. The access filter lives in SQL.
 
