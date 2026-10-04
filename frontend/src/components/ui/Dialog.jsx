@@ -3,13 +3,17 @@ import { X } from 'lucide-react';
 
 export default function Dialog({ open, title, description, onClose, width = 520, children }) {
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      return;
+    }
     const onKey = (e) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open) {
+    return null;
+  }
   return (
     <div className="fixed inset-0 z-100 flex items-center justify-center p-6">
       <div onClick={onClose} className="absolute inset-0 bg-black/72" />

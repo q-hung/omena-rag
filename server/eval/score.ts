@@ -70,7 +70,9 @@ export function outcomesOf(spec: GoldenCase): string[] {
 }
 
 export function matchesForbidden(text: string, pattern: string): boolean {
-  if (/^\w+$/.test(pattern)) return new RegExp(`\\b${pattern}\\b`, 'i').test(text);
+  if (/^\w+$/.test(pattern)) {
+    return new RegExp(`\\b${pattern}\\b`, 'i').test(text);
+  }
   return text.toLowerCase().includes(pattern.toLowerCase());
 }
 
@@ -98,7 +100,9 @@ export function scoreCase(spec: GoldenCase, got: CaseGot): CaseScore {
 }
 
 export function p95(values: number[]): number {
-  if (!values.length) return 0;
+  if (!values.length) {
+    return 0;
+  }
   const sorted = [...values].sort((a, b) => a - b);
   return sorted[Math.min(sorted.length - 1, Math.ceil(0.95 * sorted.length) - 1)]!;
 }
@@ -161,7 +165,9 @@ export function estimateEvalCostUsd(
 }
 
 export function liveEvalGuard(provider: string): string | null {
-  if (provider === 'stub') return 'pnpm eval refuses stub mode. Set LLM_PROVIDER=gemini.';
+  if (provider === 'stub') {
+    return 'pnpm eval refuses stub mode. Set LLM_PROVIDER=gemini.';
+  }
   return null;
 }
 

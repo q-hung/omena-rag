@@ -22,7 +22,9 @@ import { conversationStatesById, deriveState, topicsOf } from '../services/state
 
 export async function presentConversation(id: number, employeeId: number) {
   const [conv] = await db().select().from(conversations).where(eq(conversations.id, id));
-  if (!conv) throw notFound('CONVERSATION_NOT_FOUND', 'No such conversation.');
+  if (!conv) {
+    throw notFound('CONVERSATION_NOT_FOUND', 'No such conversation.');
+  }
   const [creator] = await db()
     .select({ id: employees.id, name: employees.name })
     .from(employees)
@@ -31,7 +33,9 @@ export async function presentConversation(id: number, employeeId: number) {
   const answerRows = await db().select().from(answers).where(eq(answers.conversationId, id)).orderBy(answers.id);
   const [reviewed] = await db().select().from(reviewedAnswers).where(eq(reviewedAnswers.conversationId, id));
   const latestByTurn = new Map<number, (typeof answerRows)[number]>();
-  for (const a of answerRows) latestByTurn.set(a.turnId, a);
+  for (const a of answerRows) {
+    latestByTurn.set(a.turnId, a);
+  }
 
   const seqById = new Map(turnRows.map((t) => [t.id, t.seq]));
   const presented = [];
@@ -84,7 +88,9 @@ export async function presentSummaries(
   rows: (typeof conversations.$inferSelect)[],
   employeeId: number,
 ) {
-  if (!rows.length) return [];
+  if (!rows.length) {
+    return [];
+  }
   const ids = rows.map((r) => r.id);
   const accountIds = [...new Set(rows.map((r) => r.accountId))];
   const [questions, latestAnswers, reviewed, creators, accountRows, sqlStates] = await Promise.all([
@@ -135,7 +141,9 @@ export async function presentSummaries(
   const creatorBy = new Map(creators.map((e) => [e.id, e]));
   const accountBy = new Map(accountRows.map((a) => [a.id, a]));
   const categoriesBy = new Map<number, string[]>();
-  for (const c of cited) categoriesBy.set(c.answerId, [...(categoriesBy.get(c.answerId) ?? []), c.category]);
+  for (const c of cited) {
+    categoriesBy.set(c.answerId, [...(categoriesBy.get(c.answerId) ?? []), c.category]);
+  }
 
   const signalsBy = new Map<number, Awaited<ReturnType<typeof getAccountSignals>>>();
   await Promise.all(
@@ -205,11 +213,17 @@ async function presentAnswer(answer: typeof answers.$inferSelect, turnSeq: numbe
   const categories: string[] = [];
   let sourceUpdated = false;
   for (const row of rowsOf(sources)) {
-    if (row.citation_number == null) continue;
+    if (row.citation_number == null) {
+      continue;
+    }
     const card = toCitationCard(row);
     cites[card.number] = card;
-    if (card.status) sourceUpdated = true;
-    if (card.category) categories.push(card.category);
+    if (card.status) {
+      sourceUpdated = true;
+    }
+    if (card.category) {
+      categories.push(card.category);
+    }
   }
   const clarifications = (answer.clarifications ?? []) as {
     kind: string;
@@ -246,9 +260,11 @@ async function presentAnswer(answer: typeof answers.$inferSelect, turnSeq: numbe
 function toCitationCard(row: Record<string, unknown>) {
   const chunkId = row.chunk_id == null ? null : Number(row.chunk_id);
   let status: 'Deleted' | 'Archived' | 'Superseded' | null = null;
-  if (chunkId == null) status = 'Deleted';
-  else if (row.archived_at) status = 'Archived';
-  else if (row.active_version_id != null && Number(row.active_version_id) !== Number(row.version_id)) {
+  if (chunkId == null) {
+    status = 'Deleted';
+  } else if (row.archived_at) {
+    status = 'Archived';
+  } else if (row.active_version_id != null && Number(row.active_version_id) !== Number(row.version_id)) {
     status = 'Superseded';
   }
   return {

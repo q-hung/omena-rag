@@ -15,7 +15,9 @@ export async function api(path, { method = 'GET', body, form } = {}) {
     headers: form ? undefined : (body === undefined ? undefined : { 'content-type': 'application/json' }),
     body: form ?? (body === undefined ? undefined : JSON.stringify(body)),
   });
-  if (res.status === 204) return null;
+  if (res.status === 204) {
+    return null;
+  }
   const data = await res.json().catch(() => null);
   if (!res.ok) {
     const e = data?.error;

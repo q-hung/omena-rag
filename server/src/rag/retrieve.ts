@@ -44,7 +44,9 @@ export async function retrieve(queryEmbedding: number[], opts: RetrieveOpts): Pr
   const kept: Passage[] = [];
   for (const row of scored) {
     const score = Number(row.score);
-    if (!(score >= opts.minScore)) continue;
+    if (!(score >= opts.minScore)) {
+      continue;
+    }
     const heading = row.heading == null ? null : String(row.heading);
     const pageNumber = row.page_number == null ? null : Number(row.page_number);
     const title = String(row.title);
@@ -81,36 +83,76 @@ export function scriptKeyFor(title: string, heading: string | null, page: number
             : /webhook/i.test(title)
               ? 'webhooks'
               : null;
-  if (!doc) return undefined;
+  if (!doc) {
+    return undefined;
+  }
   const h = (heading ?? '').trim();
   if (doc === 'plans') {
-    if (/^basic$/i.test(h)) return 'plans:a';
-    if (/^pro$/i.test(h)) return 'plans:b';
-    if (/^enterprise$/i.test(h)) return 'plans:c';
+    if (/^basic$/i.test(h)) {
+      return 'plans:a';
+    }
+    if (/^pro$/i.test(h)) {
+      return 'plans:b';
+    }
+    if (/^enterprise$/i.test(h)) {
+      return 'plans:c';
+    }
   }
   if (doc === 'refund') {
-    if (/monthly/i.test(h)) return 'refund:a';
-    if (/annual/i.test(h)) return 'refund:b';
-    if (/processing/i.test(h)) return 'refund:c';
-    if (/exception/i.test(h)) return 'refund:d';
+    if (/monthly/i.test(h)) {
+      return 'refund:a';
+    }
+    if (/annual/i.test(h)) {
+      return 'refund:b';
+    }
+    if (/processing/i.test(h)) {
+      return 'refund:c';
+    }
+    if (/exception/i.test(h)) {
+      return 'refund:d';
+    }
   }
-  if (doc === 'faq' && /how long/i.test(h)) return 'faq:a';
+  if (doc === 'faq' && /how long/i.test(h)) {
+    return 'faq:a';
+  }
   if (doc === 'regions') {
-    if (/countries|supported/i.test(h)) return 'regions:a';
-    if (/currenc/i.test(h)) return 'regions:b';
-    if (/declined/i.test(h)) return 'regions:c';
+    if (/countries|supported/i.test(h)) {
+      return 'regions:a';
+    }
+    if (/currenc/i.test(h)) {
+      return 'regions:b';
+    }
+    if (/declined/i.test(h)) {
+      return 'regions:c';
+    }
   }
   if (doc === 'sso') {
-    if (/requirement/i.test(h) || page === 1) return 'sso:a';
-    if (/enable/i.test(h) || page === 3) return 'sso:b';
+    if (/requirement/i.test(h) || page === 1) {
+      return 'sso:a';
+    }
+    if (/enable/i.test(h) || page === 3) {
+      return 'sso:b';
+    }
   }
   if (doc === 'webhooks') {
-    if (/^availability$/i.test(h)) return 'webhooks:a';
-    if (/create an endpoint/i.test(h)) return 'webhooks:b';
-    if (/authentication/i.test(h)) return 'webhooks:c';
-    if (/timeout/i.test(h)) return 'webhooks:d';
-    if (/\btls\b/i.test(h)) return 'webhooks:e';
-    if (/disabl/i.test(h)) return 'webhooks:f';
+    if (/^availability$/i.test(h)) {
+      return 'webhooks:a';
+    }
+    if (/create an endpoint/i.test(h)) {
+      return 'webhooks:b';
+    }
+    if (/authentication/i.test(h)) {
+      return 'webhooks:c';
+    }
+    if (/timeout/i.test(h)) {
+      return 'webhooks:d';
+    }
+    if (/\btls\b/i.test(h)) {
+      return 'webhooks:e';
+    }
+    if (/disabl/i.test(h)) {
+      return 'webhooks:f';
+    }
   }
   return undefined;
 }
@@ -161,11 +203,15 @@ function tokensOf(text: string): string[] {
 
 function tokenOverlap(query: string, text: string): number {
   const q = [...new Set(tokensOf(query))];
-  if (!q.length) return 0;
+  if (!q.length) {
+    return 0;
+  }
   const words = new Set(tokensOf(text));
   let hit = 0;
   for (const token of q) {
-    if (words.has(token) || [...words].some((w) => stemEq(token, w))) hit += 1;
+    if (words.has(token) || [...words].some((w) => stemEq(token, w))) {
+      hit += 1;
+    }
   }
   return hit / q.length;
 }

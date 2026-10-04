@@ -182,14 +182,22 @@ export function pickScript(
   if (opts.previousScriptId) {
     const prev = SCRIPTS.find((s) => s.id === opts.previousScriptId);
     const reply = prev?.replies?.find((r) => hit(r.match));
-    if (reply) return SCRIPTS.find((s) => s.id === reply.scriptId) ?? prev ?? FALLBACK;
-    if (prev) return prev;
+    if (reply) {
+      return SCRIPTS.find((s) => s.id === reply.scriptId) ?? prev ?? FALLBACK;
+    }
+    if (prev) {
+      return prev;
+    }
   }
 
   return (
     SCRIPTS.find((s) => {
-      if (s.account !== '*' && s.account !== accountId) return false;
-      if (s.when === 'refund_v3' && !opts.refundV3) return false;
+      if (s.account !== '*' && s.account !== accountId) {
+        return false;
+      }
+      if (s.when === 'refund_v3' && !opts.refundV3) {
+        return false;
+      }
       return hit(s.match);
     }) ?? FALLBACK
   );

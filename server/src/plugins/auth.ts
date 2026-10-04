@@ -11,12 +11,18 @@ export function registerAuthHook(app: App): void {
   // percent-escapes, so /%61pi/accounts reaches /api/accounts.
   app.addHook('onRequest', async (request) => {
     const path = request.routeOptions.url ?? request.url.split('?')[0]!;
-    if (!path.startsWith('/api/') || PUBLIC_ROUTES.has(path)) return;
+    if (!path.startsWith('/api/') || PUBLIC_ROUTES.has(path)) {
+      return;
+    }
 
     const token = request.cookies[SESSION_COOKIE];
-    if (!token) throw unauthorized();
+    if (!token) {
+      throw unauthorized();
+    }
     const employeeId = await findSessionEmployee(token);
-    if (employeeId == null) throw unauthorized();
+    if (employeeId == null) {
+      throw unauthorized();
+    }
     request.employeeId = employeeId;
   });
 }

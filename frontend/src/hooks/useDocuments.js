@@ -17,9 +17,15 @@ export function useDocuments({ onToast } = {}) {
 
   const refresh = useCallback(async () => {
     const params = new URLSearchParams();
-    if (q.trim()) params.set('q', q.trim());
-    if (cat !== 'All') params.set('category', cat);
-    if (showArchived) params.set('archived', '1');
+    if (q.trim()) {
+      params.set('q', q.trim());
+    }
+    if (cat !== 'All') {
+      params.set('category', cat);
+    }
+    if (showArchived) {
+      params.set('archived', '1');
+    }
     const qs = params.toString();
     const data = await api(`/documents${qs ? `?${qs}` : ''}`);
     setDocs(data.documents);
@@ -35,7 +41,9 @@ export function useDocuments({ onToast } = {}) {
   const busy = docs.some((d) => d.latest && (d.latest.status === 'queued' || d.latest.status === 'processing'));
 
   useEffect(() => {
-    if (!busy) return undefined;
+    if (!busy) {
+      return undefined;
+    }
     const tick = async () => {
       const status = await api('/documents/indexing-status');
       if (status.busy || busy) {
@@ -58,10 +66,16 @@ export function useDocuments({ onToast } = {}) {
   };
 
   const uploadForm = (file, fields) => {
-    if (file.size > LIMIT) throw new Error('Files must be 3 MB or smaller');
+    if (file.size > LIMIT) {
+      throw new Error('Files must be 3 MB or smaller');
+    }
     const form = new FormData();
     form.append('file', file);
-    for (const [k, v] of Object.entries(fields)) if (v != null) form.append(k, v);
+    for (const [k, v] of Object.entries(fields)) {
+      if (v != null) {
+        form.append(k, v);
+      }
+    }
     return form;
   };
 
@@ -74,23 +88,31 @@ export function useDocuments({ onToast } = {}) {
   const replace = async (id, { file, effectiveDate, note }) => {
     await api(`/documents/${id}/versions`, { method: 'POST', form: uploadForm(file, { effectiveDate, note }) });
     await refresh();
-    if (detailId.current === Number(id)) await load(id);
+    if (detailId.current === Number(id)) {
+      await load(id);
+    }
     onToast?.('New version queued for indexing.');
   };
 
   const retry = async (id) => {
     const row = docs.find((d) => d.id === id) ?? detail;
     const vid = row?.latest?.id ?? row?.versions?.[0]?.id;
-    if (!vid) return;
+    if (!vid) {
+      return;
+    }
     await api(`/documents/${id}/versions/${vid}/retry`, { method: 'POST' });
     await refresh();
-    if (detailId.current === Number(id)) await load(id);
+    if (detailId.current === Number(id)) {
+      await load(id);
+    }
   };
 
   const toggleArchive = async (d) => {
     await api(`/documents/${d.id}/${d.archived ? 'restore' : 'archive'}`, { method: 'POST' });
     await refresh();
-    if (detailId.current === Number(d.id)) await load(d.id);
+    if (detailId.current === Number(d.id)) {
+      await load(d.id);
+    }
     onToast?.(
       d.archived
         ? `${d.title} restored. It can be retrieved again.`

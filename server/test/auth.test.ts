@@ -95,7 +95,9 @@ describe('authentication', () => {
 
   it('limits login to 5 attempts per minute per email + IP', async () => {
     const email = 'limit@omena.example';
-    for (let i = 0; i < 5; i++) expect((await login(email, 'x')).statusCode).toBe(401);
+    for (let i = 0; i < 5; i++) {
+      expect((await login(email, 'x')).statusCode).toBe(401);
+    }
     const sixth = await login(email, 'x');
     expect(sixth.statusCode).toBe(429);
     expect(sixth.json().error.code).toBe('TOO_MANY_ATTEMPTS');

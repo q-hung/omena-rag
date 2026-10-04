@@ -40,7 +40,9 @@ describe('extractors', () => {
     });
     child.stdin.end(JSON.stringify({ probe: 'env' }));
     const out: Buffer[] = [];
-    for await (const chunk of child.stdout) out.push(chunk);
+    for await (const chunk of child.stdout) {
+      out.push(chunk);
+    }
     const parsed = JSON.parse(Buffer.concat(out).toString()) as { env: NodeJS.ProcessEnv };
     expect(parsed.env).toEqual({});
   });

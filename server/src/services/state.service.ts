@@ -25,13 +25,27 @@ export function deriveState(input: {
   outcome?: string | null;
   reviewReasons?: string[];
 }): ConversationState {
-  if (input.generating) return 'generating';
-  if (input.saved) return 'saved';
-  if (!input.hasAnswer) return 'failed';
-  if (input.outcome === 'clarification_required') return 'awaiting_clarification';
-  if (input.outcome === 'out_of_scope') return 'out_of_scope';
-  if (input.reviewReasons?.length) return 'needs_review';
-  if (input.outcome === 'insufficient_evidence') return 'insufficient_evidence';
+  if (input.generating) {
+    return 'generating';
+  }
+  if (input.saved) {
+    return 'saved';
+  }
+  if (!input.hasAnswer) {
+    return 'failed';
+  }
+  if (input.outcome === 'clarification_required') {
+    return 'awaiting_clarification';
+  }
+  if (input.outcome === 'out_of_scope') {
+    return 'out_of_scope';
+  }
+  if (input.reviewReasons?.length) {
+    return 'needs_review';
+  }
+  if (input.outcome === 'insufficient_evidence') {
+    return 'insufficient_evidence';
+  }
   return 'answer_ready';
 }
 
@@ -68,7 +82,9 @@ export const STATE_FROM = sql`
 
 export async function conversationStatesById(ids: number[]): Promise<Map<number, ConversationState>> {
   const states = new Map<number, ConversationState>();
-  if (!ids.length) return states;
+  if (!ids.length) {
+    return states;
+  }
   const rows = rowsOf(
     await db().execute(sql`
       select c.id, ${STATE_SQL} as state
@@ -76,7 +92,9 @@ export async function conversationStatesById(ids: number[]): Promise<Map<number,
       where c.id in (${sql.join(ids.map((id) => sql`${id}`), sql`, `)})
     `),
   );
-  for (const row of rows) states.set(Number(row.id), row.state as ConversationState);
+  for (const row of rows) {
+    states.set(Number(row.id), row.state as ConversationState);
+  }
   return states;
 }
 
@@ -84,15 +102,17 @@ export function lockHeld(startedAt: Date | null | undefined, now = Date.now()): 
   return !!startedAt && now - startedAt.getTime() < 2 * 60_000;
 }
 
-export function topicsOf(input: {
-  outcome?: string | null;
-  citedCategories: string[];
-  citedFacts: boolean;
-}): string[] {
-  if (!input.outcome || input.outcome === 'out_of_scope') return [];
+export function topicsOf(input: { outcome?: string | null; citedCategories: string[]; citedFacts: boolean }): string[] {
+  if (!input.outcome || input.outcome === 'out_of_scope') {
+    return [];
+  }
   const have = new Set(input.citedCategories);
   const ordered = CATEGORIES.filter((c) => have.has(c));
-  if (ordered.length) return [...ordered];
-  if (input.citedFacts) return ['Account data'];
+  if (ordered.length) {
+    return [...ordered];
+  }
+  if (input.citedFacts) {
+    return ['Account data'];
+  }
   return [];
 }

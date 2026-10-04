@@ -22,7 +22,11 @@ function limitLogin(key: string): void {
   const now = Date.now();
   const entry = attempts.get(key);
   if (!entry || entry.resetAt <= now) {
-    for (const [k, v] of attempts) if (v.resetAt <= now) attempts.delete(k);
+    for (const [k, v] of attempts) {
+      if (v.resetAt <= now) {
+        attempts.delete(k);
+      }
+    }
     attempts.set(key, { count: 1, resetAt: now + WINDOW_MS });
     return;
   }
@@ -47,7 +51,9 @@ export async function login(
 
   const [employee] = await db().select().from(employees).where(eq(employees.email, input.email));
   const ok = await verify(employee?.passwordHash ?? (await dummyHash), input.password);
-  if (!employee || !ok) throw unauthorized('Email or password is incorrect.');
+  if (!employee || !ok) {
+    throw unauthorized('Email or password is incorrect.');
+  }
 
   const token = randomBytes(32).toString('base64url');
   const expiresAt = new Date(Date.now() + config.SESSION_HOURS * 3_600_000);
@@ -60,8 +66,12 @@ export async function login(
 }
 
 export async function logout(token: string | undefined): Promise<void> {
-  if (!token) return;
-  await db().delete(sessions).where(eq(sessions.tokenHash, hashToken(token)));
+  if (!token) {
+    return;
+  }
+  await db()
+    .delete(sessions)
+    .where(eq(sessions.tokenHash, hashToken(token)));
 }
 
 export async function getEmployee(employeeId: number) {

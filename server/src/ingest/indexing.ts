@@ -24,7 +24,9 @@ export async function claimVersion() {
       `),
     );
     const id = found[0]?.id;
-    if (id == null) return null;
+    if (id == null) {
+      return null;
+    }
     const [row] = await tx
       .update(documentVersions)
       .set({ indexingStatus: 'processing', processingStartedAt: new Date(), indexingError: null })
@@ -57,7 +59,9 @@ export async function activateVersion(
   extras: { warnings: string[]; pageCount: number | null; model: string },
 ): Promise<void> {
   const [version] = await db().select().from(documentVersions).where(eq(documentVersions.id, versionId));
-  if (!version) throw new Error('Version disappeared during activation.');
+  if (!version) {
+    throw new Error('Version disappeared during activation.');
+  }
 
   await db().transaction(async (tx) => {
     await tx.execute(sql`select id from documents where id = ${version.documentId} for update`);
@@ -93,7 +97,9 @@ export async function activateVersion(
         .select({ versionNumber: documentVersions.versionNumber })
         .from(documentVersions)
         .where(eq(documentVersions.id, doc.activeVersionId));
-      if (active && active.versionNumber >= version.versionNumber) activate = false;
+      if (active && active.versionNumber >= version.versionNumber) {
+        activate = false;
+      }
     }
     if (activate) {
       await tx
@@ -105,7 +111,9 @@ export async function activateVersion(
 }
 
 function failMessage(error: unknown): string {
-  if (error instanceof AppError && error.code === 'budget_reached') return BUDGET_FAIL;
+  if (error instanceof AppError && error.code === 'budget_reached') {
+    return BUDGET_FAIL;
+  }
   if (error instanceof Error && error.message && !/\n/.test(error.message) && error.message.length < 200) {
     return error.message;
   }
@@ -116,15 +124,21 @@ export async function processVersion(versionId: number): Promise<void> {
   const cfg = loadConfig();
   try {
     const [version] = await db().select().from(documentVersions).where(eq(documentVersions.id, versionId));
-    if (!version) return;
+    if (!version) {
+      return;
+    }
     const [file] = await db().select().from(documentFiles).where(eq(documentFiles.versionId, versionId));
-    if (!file) throw new Error('The original file is missing.');
+    if (!file) {
+      throw new Error('The original file is missing.');
+    }
 
     await db().delete(documentChunks).where(eq(documentChunks.versionId, versionId));
 
     const extracted = await extract(file.bytes, version.originalFilename);
     const pieces = chunk(extracted);
-    if (!pieces.length) throw new Error('The document has no extractable text.');
+    if (!pieces.length) {
+      throw new Error('The document has no extractable text.');
+    }
 
     const provider = createProvider(cfg);
     const inputChars = pieces.reduce((n, p) => n + p.text.length, 0);
@@ -177,7 +191,9 @@ export async function runWorker(options: { once?: boolean; intervalMs?: number }
       await processVersion(claimed.id);
       continue;
     }
-    if (once) return;
+    if (once) {
+      return;
+    }
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
 }

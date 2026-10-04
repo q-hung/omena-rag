@@ -49,8 +49,12 @@ export function buildPrompt(input: PromptInput): { prompt: string; passages: Pas
   }
 
   const parts = [INSTRUCTIONS, facts];
-  if (rendered) parts.push(rendered);
-  if (history) parts.push(history);
+  if (rendered) {
+    parts.push(rendered);
+  }
+  if (history) {
+    parts.push(history);
+  }
   parts.push(question);
   return { prompt: parts.join('\n\n'), passages, promptVersion: PROMPT_VERSION };
 }
@@ -84,7 +88,9 @@ function renderFacts(snapshot: AccountSnapshot): string {
 }
 
 function renderPassages(passages: Passage[]): string {
-  if (!passages.length) return '';
+  if (!passages.length) {
+    return '';
+  }
   return passages
     .map((p) => {
       const meta = [
@@ -103,14 +109,20 @@ function renderPassages(passages: Passage[]): string {
 }
 
 function renderHistory(turns: PromptTurn[], facts: Fact[]): string {
-  if (turns.length <= 1) return '';
+  if (turns.length <= 1) {
+    return '';
+  }
   const blocks: string[] = ['Conversation so far (clarification rounds):'];
   for (let i = 0; i < turns.length - 1; i++) {
     const turn = turns[i]!;
     const lines = [`<turn seq="${i + 1}">`];
-    if (turn.text) lines.push(`Employee: ${turn.text}`);
+    if (turn.text) {
+      lines.push(`Employee: ${turn.text}`);
+    }
     const selected = renderSelections(turn.selectedFacts, facts);
-    if (selected) lines.push(selected);
+    if (selected) {
+      lines.push(selected);
+    }
     for (const c of turn.clarifications ?? []) {
       lines.push(`Clarification asked: ${c.prompt ?? c.question ?? ''}`);
     }
@@ -121,7 +133,9 @@ function renderHistory(turns: PromptTurn[], facts: Fact[]): string {
 }
 
 function renderSelections(ids: string[] | null | undefined, facts: Fact[]): string {
-  if (!ids?.length) return '';
+  if (!ids?.length) {
+    return '';
+  }
   const byId = new Map(facts.map((f) => [f.id, f]));
   return ids
     .map((id) => {

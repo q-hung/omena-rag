@@ -12,8 +12,12 @@ export class ProviderError extends Error {
 }
 
 export function isRetryable(error: unknown): boolean {
-  if (error instanceof ProviderError) return error.retryable;
-  if (error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError')) return true;
+  if (error instanceof ProviderError) {
+    return error.retryable;
+  }
+  if (error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError')) {
+    return true;
+  }
   const status = statusOf(error);
   return status === 429 || (status !== undefined && status >= 500);
 }

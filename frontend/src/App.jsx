@@ -48,7 +48,9 @@ export default function App() {
 function Root() {
   const { session, signIn, signOut } = useSession();
   const location = useLocation();
-  if (session === undefined) return null;
+  if (session === undefined) {
+    return null;
+  }
 
   if (!session) {
     return location.pathname === '/login'
@@ -90,16 +92,28 @@ function Shell({ session, onSignOut }) {
       selDocV,
     },
     set: (patch) => {
-      if (patch && Object.prototype.hasOwnProperty.call(patch, 'selDocV')) setSelDocV(patch.selDocV);
+      if (patch && Object.prototype.hasOwnProperty.call(patch, 'selDocV')) {
+        setSelDocV(patch.selDocV);
+      }
     },
     kb,
     workspace,
     history,
     simulated: session.simulated,
     toast: toasts.show,
-    go: (view) => { workspace.newQuestion(); navigate(`/${view}`); },
-    openDoc: (id, v) => { setSelDocV(v ?? null); navigate(`/kb/${id}`); },
-    onDeleted: () => { if (pathname.startsWith('/kb/')) navigate('/kb'); },
+    go: (view) => {
+      workspace.newQuestion();
+      navigate(`/${view}`);
+    },
+    openDoc: (id, v) => {
+      setSelDocV(v ?? null);
+      navigate(`/kb/${id}`);
+    },
+    onDeleted: () => {
+      if (pathname.startsWith('/kb/')) {
+        navigate('/kb');
+      }
+    },
   };
 
   const section = pathname.split('/')[1];
@@ -136,9 +150,17 @@ function KbDocument({ app }) {
   const { detail, load } = app.kb;
   useEffect(() => {
     let active = true;
-    load(id).catch(() => { if (active) app.go('kb'); });
-    return () => { active = false; };
+    load(id).catch(() => {
+      if (active) {
+        app.go('kb');
+      }
+    });
+    return () => {
+      active = false;
+    };
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
-  if (!detail || String(detail.id) !== String(id)) return null;
+  if (!detail || String(detail.id) !== String(id)) {
+    return null;
+  }
   return <DocumentView app={app} doc={detail} />;
 }

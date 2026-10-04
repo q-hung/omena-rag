@@ -71,7 +71,9 @@ const provider: Provider = {
       await new Promise((r) => setTimeout(r, wait));
       throw new ProviderError('TIMEOUT', 'hung', true);
     }
-    if (hang) await hang.promise;
+    if (hang) {
+      await hang.promise;
+    }
     if (failNext) {
       failNext = false;
       throw new ProviderError('STUB_FAIL', 'stubbed failure', false);
@@ -174,7 +176,9 @@ async function waitForLock() {
   for (let i = 0; i < 50; i++) {
     const rows = await db().select().from(conversations);
     const row = rows.find((r) => r.generationToken);
-    if (row) return row;
+    if (row) {
+      return row;
+    }
     await new Promise((r) => setTimeout(r, 20));
   }
   throw new Error('lock was never taken');
@@ -182,7 +186,9 @@ async function waitForLock() {
 
 async function waitUntil(check: () => boolean | Promise<boolean>, what: string) {
   for (let i = 0; i < 250; i++) {
-    if (await check()) return;
+    if (await check()) {
+      return;
+    }
     await new Promise((r) => setTimeout(r, 20));
   }
   throw new Error(`timed out waiting for ${what}`);

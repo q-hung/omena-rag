@@ -10,6 +10,10 @@
     "seed": "pnpm --filter server seed",
     "worker": "pnpm --filter server worker",
     "eval": "pnpm --filter server eval",
-    "check:layers": "grep -rnE \"from ['\\\"](drizzle-orm|[^'\\\"]*db/)\" server/src/routes; test $? -eq 1"
+    "check:layers": "grep -rnE \"from ['\\\"](drizzle-orm|[^'\\\"]*db/)\" server/src/routes; test $? -eq 1",
+    "lint": "biome lint ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.15"
   }
 }

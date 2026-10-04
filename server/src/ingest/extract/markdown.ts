@@ -8,7 +8,9 @@ export function extractMarkdown(source: string): MarkdownSection[] {
   let current = { level: 0, heading: '', path: '', lines: [] as string[] };
 
   const push = () => {
-    if (current.heading || current.lines.join('\n').trim()) sections.push(current);
+    if (current.heading || current.lines.join('\n').trim()) {
+      sections.push(current);
+    }
   };
 
   for (const line of source.split(/\r?\n/)) {
@@ -22,7 +24,9 @@ export function extractMarkdown(source: string): MarkdownSection[] {
       push();
       const level = match[1]!.length;
       const heading = match[2]!.trim();
-      while (stack.length && stack.at(-1)!.level >= level) stack.pop();
+      while (stack.length && stack.at(-1)!.level >= level) {
+        stack.pop();
+      }
       stack.push({ level, heading });
       current = { level, heading, path: stack.map((s) => s.heading).join(' > '), lines: [] };
       continue;

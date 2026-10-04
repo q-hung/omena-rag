@@ -10,8 +10,11 @@ export function useSession() {
     try {
       setSession(await api('/me'));
     } catch (e) {
-      if (e.status === 401) setSession(null);
-      else throw e;
+      if (e.status === 401) {
+        setSession(null);
+      } else {
+        throw e;
+      }
     }
   }, []);
 

@@ -13,10 +13,14 @@ export default function DraftText({ text, cites, factIds, activeCite, activeFact
             {label && <strong>{label}</strong>}
             {body.split(/(\[F?\d+\])/).filter(Boolean).map((t, j) => {
               const [, f, n] = t.match(/^\[(F)?(\d+)\]$/) || [];
-              if (!n) return t;
+              if (!n) {
+                return t;
+              }
               if (f) {
                 const id = `F${n}`;
-                if (!factIds?.includes(id)) return t;
+                if (!factIds?.includes(id)) {
+                  return t;
+                }
                 const on = activeFact === id;
                 return (
                   <button key={j} type="button" title="Show account fact" onClick={() => onFact(on ? null : id)}
@@ -25,7 +29,9 @@ export default function DraftText({ text, cites, factIds, activeCite, activeFact
                   </button>
                 );
               }
-              if (!cites?.[n]) return t;
+              if (!cites?.[n]) {
+                return t;
+              }
               const on = String(activeCite) === n;
               return (
                 <button key={j} type="button" title="Show document evidence" onClick={() => onCite(on ? null : n)}

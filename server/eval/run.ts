@@ -35,13 +35,17 @@ const KB_DIR = join(HERE, '../fixtures/kb');
 const PROMPT_CHARS = 24_000;
 
 function evalDatabaseUrl(appUrl: string): string {
-  if (process.env.EVAL_DATABASE_URL) return process.env.EVAL_DATABASE_URL;
+  if (process.env.EVAL_DATABASE_URL) {
+    return process.env.EVAL_DATABASE_URL;
+  }
   return appUrl.replace(/\/[^/?#]+([?#].*)?$/, '/jarvis_eval$1');
 }
 
 function dbNameOf(url: string): string {
   const name = url.replace(/^[a-z]+:\/\/[^/]+\//, '').replace(/[?#].*$/, '');
-  if (!/^[a-z][a-z0-9_]*$/.test(name)) throw new Error(`Invalid eval database name: ${name}`);
+  if (!/^[a-z][a-z0-9_]*$/.test(name)) {
+    throw new Error(`Invalid eval database name: ${name}`);
+  }
   return name;
 }
 
@@ -51,7 +55,9 @@ async function ensureEvalDatabase(fromUrl: string, evalUrl: string): Promise<voi
   await admin.connect();
   try {
     const found = await admin.query('select 1 from pg_database where datname = $1', [name]);
-    if (!found.rowCount) await admin.query(`create database ${name} owner jarvis`);
+    if (!found.rowCount) {
+      await admin.query(`create database ${name} owner jarvis`);
+    }
   } finally {
     await admin.end();
   }
@@ -60,18 +66,24 @@ async function ensureEvalDatabase(fromUrl: string, evalUrl: string): Promise<voi
 async function kbBytes(): Promise<number> {
   const files = await readdir(KB_DIR);
   let n = 0;
-  for (const file of files) n += (await stat(join(KB_DIR, file))).size;
+  for (const file of files) {
+    n += (await stat(join(KB_DIR, file))).size;
+  }
   return n;
 }
 
 function pct(n: number, d: number): string {
-  if (!d) return 'n/a';
+  if (!d) {
+    return 'n/a';
+  }
   return `${((100 * n) / d).toFixed(1)}% (${n}/${d})`;
 }
 
 async function applyRefundV3(employeeId: number): Promise<void> {
   const [doc] = await db().select().from(documents).where(eq(documents.title, 'Refund policy'));
-  if (!doc) throw new Error('Refund policy is missing from the eval seed.');
+  if (!doc) {
+    throw new Error('Refund policy is missing from the eval seed.');
+  }
   await queueVersion(doc.id, {
     effectiveAt: EVAL_DATE,
     note: 'Eval v3: 14-day window.',
@@ -201,7 +213,9 @@ export async function main(): Promise<void> {
   const accountRows = await db().select({ id: accounts.id, ref: accounts.ref }).from(accounts);
   const accountId = (ref: string) => {
     const row = accountRows.find((a) => a.ref === ref);
-    if (!row) throw new Error(`No account ${ref}`);
+    if (!row) {
+      throw new Error(`No account ${ref}`);
+    }
     return row.id;
   };
 

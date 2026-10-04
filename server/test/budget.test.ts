@@ -56,7 +56,9 @@ describe.sequential('budget', () => {
     const run = (attempt: number) =>
       paidAttempt({ ...base, kind: 'generate', attempt, employeeId, inputChars: 9 }, async () => {
         attempts += 1;
-        if (attempts < 3) throw new ProviderError('HTTP_500', 'fail', true);
+        if (attempts < 3) {
+          throw new ProviderError('HTTP_500', 'fail', true);
+        }
         return { value: 'ok', usage: { inputTokens: 3, outputTokens: 10 } };
       }, cfg);
 

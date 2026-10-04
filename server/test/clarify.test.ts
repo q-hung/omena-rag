@@ -21,8 +21,12 @@ beforeAll(async () => {
   await seed(db(), { date: '2026-10-02', password: PASSWORD });
   const [adaRow] = await db().select().from(employees).where(eq(employees.email, 'ada@omena.example'));
   for (const row of await db().select().from(accounts)) {
-    if (row.ref === 'A-1002') a1002 = row.id;
-    if (row.ref === 'A-1003') a1003 = row.id;
+    if (row.ref === 'A-1002') {
+      a1002 = row.id;
+    }
+    if (row.ref === 'A-1003') {
+      a1003 = row.id;
+    }
   }
   const stub = stubProvider();
   const provider: Provider = {

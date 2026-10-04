@@ -60,9 +60,13 @@ export function normalise(
   const ordered: Passage[] = [];
   const numOf = new Map<number, number>();
   const cite = (passage: Passage | undefined): number | null => {
-    if (!passage) return null;
+    if (!passage) {
+      return null;
+    }
     const existing = numOf.get(passage.chunkId);
-    if (existing) return existing;
+    if (existing) {
+      return existing;
+    }
     const n = ordered.length + 1;
     ordered.push(passage);
     numOf.set(passage.chunkId, n);
@@ -70,14 +74,20 @@ export function normalise(
   };
 
   const resolvePassage = (token: string): Passage | undefined => {
-    if (/^\d+$/.test(token)) return passageByS.get(Number(token));
-    if (/^S\d+$/i.test(token)) return passageByS.get(Number(token.slice(1)));
+    if (/^\d+$/.test(token)) {
+      return passageByS.get(Number(token));
+    }
+    if (/^S\d+$/i.test(token)) {
+      return passageByS.get(Number(token.slice(1)));
+    }
     return passageByKey.get(token) ?? passageByKey.get(token.replace(/^S:/, ''));
   };
 
   const resolveFact = (token: string): string | null => {
     const id = token.startsWith('F') ? token : `F${token}`;
-    if (factById.has(id)) return id;
+    if (factById.has(id)) {
+      return id;
+    }
     return factByKey.get(token)?.id ?? factByKey.get(token.replace(/^F:/, ''))?.id ?? null;
   };
 
@@ -112,7 +122,9 @@ export function normalise(
     }))
     .filter((c) => c.nums.length > 1);
 
-  if (conflicts.length) reasons.add('conflict');
+  if (conflicts.length) {
+    reasons.add('conflict');
+  }
 
   const gaps = [...(raw.gaps ?? [])];
   let outcome = raw.outcome;
@@ -126,8 +138,9 @@ export function normalise(
   }
 
   if (outcome === 'clarification_required') {
-    if (!clarifications.length) outcome = 'insufficient_evidence';
-    else if ((opts.clarificationRounds ?? 0) >= 2) {
+    if (!clarifications.length) {
+      outcome = 'insufficient_evidence';
+    } else if ((opts.clarificationRounds ?? 0) >= 2) {
       outcome = 'insufficient_evidence';
       gaps.push(
         ...clarifications.map((c) => ({
@@ -176,9 +189,15 @@ function shapeClarification(
   for (const option of raw.options) {
     const id = option.startsWith('F') ? option : `F${option}`;
     const fact = byId.get(id);
-    if (!fact) continue;
-    if (!valid.length || fact.section === valid[0]!.section) valid.push(fact);
-    if (valid.length === 4) break;
+    if (!fact) {
+      continue;
+    }
+    if (!valid.length || fact.section === valid[0]!.section) {
+      valid.push(fact);
+    }
+    if (valid.length === 4) {
+      break;
+    }
   }
   if (valid.length >= 2) {
     return {
@@ -187,6 +206,8 @@ function shapeClarification(
       options: valid.map((f) => ({ fact: f.id, label: f.value })),
     };
   }
-  if (!raw.prompt.trim()) return null;
+  if (!raw.prompt.trim()) {
+    return null;
+  }
   return { kind: 'free_text', question: resolve(raw.prompt).trim() };
 }

@@ -14,7 +14,9 @@ export function useAsk({ accountId, onToast, onChange } = {}) {
   const [editError, setEditError] = useState(null);
 
   const refreshList = useCallback(async () => {
-    if (!accountId) return;
+    if (!accountId) {
+      return;
+    }
     const data = await api(`/conversations?accountId=${accountId}&mine=1`);
     setList(data.conversations);
   }, [accountId]);
@@ -64,10 +66,13 @@ export function useAsk({ accountId, onToast, onChange } = {}) {
       await refreshList();
       await onChange?.();
     } catch (error) {
-      if (error.conversationId) await open(error.conversationId).catch(() => {});
-      else {
+      if (error.conversationId) {
+        await open(error.conversationId).catch(() => {});
+      } else {
         const row = await api(`/conversations/${id}`).catch(() => null);
-        if (row) setConv(row);
+        if (row) {
+          setConv(row);
+        }
         onToast?.(error.message);
       }
     } finally {
@@ -84,10 +89,13 @@ export function useAsk({ accountId, onToast, onChange } = {}) {
       await refreshList();
       await onChange?.();
     } catch (error) {
-      if (error.conversationId) await open(error.conversationId).catch(() => {});
-      else {
+      if (error.conversationId) {
+        await open(error.conversationId).catch(() => {});
+      } else {
         const row = await api(`/conversations/${id}`).catch(() => null);
-        if (row) setConv(row);
+        if (row) {
+          setConv(row);
+        }
         onToast?.(error.message);
       }
     } finally {

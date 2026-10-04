@@ -28,7 +28,9 @@ export function inspectFile(filename: string, bytes: Buffer): { mimeType: string
     } catch {
       throw badRequest('INVALID_FILE', 'Markdown must be valid UTF-8.');
     }
-    if (text.includes('\0')) throw badRequest('INVALID_FILE', 'Markdown cannot contain NUL bytes.');
+    if (text.includes('\0')) {
+      throw badRequest('INVALID_FILE', 'Markdown cannot contain NUL bytes.');
+    }
     if (text.length > MD_CHAR_LIMIT) {
       throw badRequest('INVALID_FILE', `Markdown cannot exceed ${MD_CHAR_LIMIT.toLocaleString()} characters.`);
     }
@@ -41,7 +43,9 @@ export function parseEffectiveDate(value: string | undefined): string {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     throw badRequest('INVALID_DATE', 'Provide an effective date as YYYY-MM-DD.');
   }
-  if (value > utcToday()) throw badRequest('INVALID_DATE', 'The effective date must be today or earlier.');
+  if (value > utcToday()) {
+    throw badRequest('INVALID_DATE', 'The effective date must be today or earlier.');
+  }
   return value;
 }
 
@@ -56,7 +60,9 @@ export type QueueInput = {
 };
 
 export async function queueDocument(input: QueueInput & { title: string; category: string }) {
-  if (!input.title.trim()) throw badRequest('INVALID_TITLE', 'Enter a title.');
+  if (!input.title.trim()) {
+    throw badRequest('INVALID_TITLE', 'Enter a title.');
+  }
   if (!(CATEGORIES as readonly string[]).includes(input.category)) {
     throw badRequest('INVALID_CATEGORY', 'Choose a valid category.');
   }
@@ -96,7 +102,9 @@ export async function queueVersion(documentId: number, input: QueueInput) {
   const hash = contentHash(input.bytes);
   return db().transaction(async (tx) => {
     const [doc] = await tx.select().from(documents).where(eq(documents.id, documentId));
-    if (!doc) throw notFound('DOCUMENT_NOT_FOUND', 'No such document.');
+    if (!doc) {
+      throw notFound('DOCUMENT_NOT_FOUND', 'No such document.');
+    }
 
     const inflight = await tx
       .select({ id: documentVersions.id })

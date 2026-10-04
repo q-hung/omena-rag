@@ -61,4 +61,7 @@ jobs:
       # M10 T37: routes stay thin — no Drizzle / db imports.
       - run: pnpm check:layers
 
+      # Explicit {} on every if/else/loop body (biome.json).
+      - run: pnpm lint
+
       - run: pnpm test
