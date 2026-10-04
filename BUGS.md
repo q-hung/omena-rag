@@ -128,3 +128,19 @@ the check passes.
 - **Check:** a provider stub returning fewer vectors than chunks → version
   `failed`, no chunks inserted. A document with more chunks than the batch
   size → several embed calls, and each chunk is stored with its own vector.
+
+### [x] B06 · Errors use Fastify's default shape when the SPA is served
+- **Result (4 Oct 2026):** `registerErrors` sets the error handler before registering `@fastify/static`. `spa.test.ts` covers a hook error (403 `FORBIDDEN_ORIGIN`) and a validation error (400 `VALIDATION_FAILED`) with `STATIC_DIR` set. The test fails without the fix.
+
+- **Symptom:** in Docker (`STATIC_DIR` set), errors come back as
+  `{statusCode, code, error, message}` instead of `{error: {code, message}}`.
+  Validation errors show `FST_ERR_VALIDATION` instead of `VALIDATION_FAILED`.
+  The 404 handler was not affected.
+- **Cause:** `server/src/plugins/errors.ts` (before M10: `app.ts`) ran
+  `await app.register(fastifyStatic)` before `setErrorHandler`. The awaited
+  register boots the plugin queue, and routes declared earlier keep the error
+  handler set at that moment: Fastify's default. Tests didn't set `STATIC_DIR`,
+  so they never saw it.
+- **Fix:** call `setErrorHandler` before the static register.
+- **Check:** `server/test/spa.test.ts` "keeps the app error shape for hook and
+  validation errors".

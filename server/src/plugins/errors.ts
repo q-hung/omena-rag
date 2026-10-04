@@ -7,9 +7,6 @@ import { AppError } from '../errors.ts';
 
 export async function registerErrors(app: App): Promise<void> {
   const spa = process.env.STATIC_DIR && existsSync(join(process.env.STATIC_DIR, 'index.html')) ? process.env.STATIC_DIR : null;
-  if (spa) {
-    await app.register(fastifyStatic, { root: spa, wildcard: false });
-  }
 
   app.setErrorHandler((raw: unknown, request, reply) => {
     const error = raw as Error & { statusCode?: number; code?: string };
@@ -22,6 +19,12 @@ export async function registerErrors(app: App): Promise<void> {
       ...(conversationId != null ? { conversationId } : {}),
     });
   });
+
+  // B06: set the handler before the awaited register below. That register boots
+  // the queue, and routes already declared keep whichever handler is set then.
+  if (spa) {
+    await app.register(fastifyStatic, { root: spa, wildcard: false });
+  }
 
   app.setNotFoundHandler((request, reply) => {
     if (spa && (request.method === 'GET' || request.method === 'HEAD') && !request.url.startsWith('/api')) {
