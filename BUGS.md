@@ -77,3 +77,26 @@ the check passes.
   still end in 404.
 - **Check:** with no cookie, every encoded path above returns 401, and so do
   the existing clean-path cases.
+
+### [ ] B04 · Grouped citations like `[S2, S5]` skip normalisation
+- **Symptom:** a live answer (A-1002, "How do I use developer API? And what
+  is the restriction for my account?") was saved with the raw text
+  `… Retry-After header [S2, S5].` Only 3 passages were retrieved, so `S5`
+  doesn't exist, and `S2` is "Create an API key", not the rate-limit
+  passage. The answer has no `invalid_citation_removed` reason, the evidence
+  panel shows no card for the marker, and Copy answer keeps `[S2, S5]` in
+  the copied text.
+- **Cause:** `MARKER` (`server/src/normalise.ts:11`) matches only single
+  markers (`[S2]`, `[F3]`, `[S:key]`). A grouped marker matches neither
+  branch, so `resolve()` leaves it untouched: no renumbering, no validation,
+  no review reason (NRM-01 rule 1). `stripMarkers` (`normalise.ts:36`) has
+  the same blind spot, so ANS-03 copy doesn't remove it either. The prompt
+  doesn't forbid grouped markers, and the NRM tests only use single ones.
+- **Fix:** in `resolve()`, split grouped markers before the `MARKER` pass:
+  `[S2, S5]` / `[F1, S3]` → `[S2][S5]` / `[F1][S3]` (comma or semicolon,
+  optional spaces). The existing rules then renumber valid ids, drop unknown
+  ones and add `invalid_citation_removed`. Add "one id per marker" to the
+  prompt instructions (`prompt.ts`), bumping `PROMPT_VERSION`.
+- **Check:** NRM unit test: with passages S1–S3, `x [S2, S5].` → `x [1].`
+  plus `invalid_citation_removed`; `[F1, S3]` resolves both. Copy on an
+  answer whose model text contained a grouped marker yields no `[`.
