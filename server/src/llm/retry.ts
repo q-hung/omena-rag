@@ -32,9 +32,13 @@ export async function withRetries<T>(
       return await timed(fn, budget);
     } catch (error) {
       last = error;
-      if (!isRetryable(error) || attempt === maxRetries) throw error;
+      if (!isRetryable(error) || attempt === maxRetries) {
+        throw error;
+      }
       const wait = backoff(attempt);
-      if (now() + wait >= opts.deadline) throw error;
+      if (now() + wait >= opts.deadline) {
+        throw error;
+      }
       await sleep(wait);
     }
   }

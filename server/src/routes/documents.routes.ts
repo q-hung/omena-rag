@@ -37,7 +37,9 @@ async function readMultipart(request: { parts: () => AsyncIterable<unknown> }) {
       fields[part.fieldname] = String(part.value ?? '');
     }
   }
-  if (!file) throw badRequest('MISSING_FILE', 'A file is required.');
+  if (!file) {
+    throw badRequest('MISSING_FILE', 'A file is required.');
+  }
   return { file, fields };
 }
 

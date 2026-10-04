@@ -11,7 +11,9 @@ const ids: Record<string, number> = {};
 
 beforeAll(async () => {
   await seed(db(), { date: D, password: 'test-password' });
-  for (const a of await db().select().from(accounts)) ids[a.ref] = a.id;
+  for (const a of await db().select().from(accounts)) {
+    ids[a.ref] = a.id;
+  }
 });
 
 function passage(over: Partial<Passage> & { text: string; title?: string }): Passage {

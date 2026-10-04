@@ -36,7 +36,9 @@ export function geminiModels(config: Config): GeminiModels {
 }
 
 export function geminiProvider(config: Config, models: GeminiModels = geminiModels(config)): Provider {
-  if (config.LLM_DEBUG_DIR) models = withDebugLog(models, config.LLM_DEBUG_DIR);
+  if (config.LLM_DEBUG_DIR) {
+    models = withDebugLog(models, config.LLM_DEBUG_DIR);
+  }
   const noSdkRetry = { attempts: 1 };
 
   const embed = async (texts: string[], timeoutMs: number, deadline: number): Promise<EmbedResult> => {
@@ -94,7 +96,9 @@ export function geminiProvider(config: Config, models: GeminiModels = geminiMode
         throw new ProviderError('TRUNCATED', 'The model response was cut off by the token limit.');
       }
       const text = response.text;
-      if (!text) throw new ProviderError('INVALID_OUTPUT', 'The model returned an empty response.');
+      if (!text) {
+        throw new ProviderError('INVALID_OUTPUT', 'The model returned an empty response.');
+      }
       let raw: unknown;
       try {
         raw = JSON.parse(text);
@@ -159,7 +163,9 @@ export function withDebugLog(models: GeminiModels, dir: string): GeminiModels {
 }
 
 function wrap(error: unknown): ProviderError {
-  if (error instanceof ProviderError) return error;
+  if (error instanceof ProviderError) {
+    return error;
+  }
   const status = statusOf(error);
   const retryable = status === 429 || (status !== undefined && status >= 500);
   return new ProviderError(

@@ -26,7 +26,9 @@ function suggestions(ref) {
 
 export default function ConversationPanel({ app, conv, account, state: st, readOnly = false }) {
   const { workspace: w } = app;
-  if (!conv) return <Composer app={app} account={account} />;
+  if (!conv) {
+    return <Composer app={app} account={account} />;
+  }
 
   const last = conv.turns[conv.turns.length - 1];
   return (
@@ -133,7 +135,9 @@ function Answer({ app, conv, a, full, readOnly }) {
   const factIds = (a.facts ?? []).map((f) => f.id);
   const focusFact = (id) => {
     w.setActiveFact(id);
-    if (id) document.getElementById(`fact-${id}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    if (id) {
+      document.getElementById(`fact-${id}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
   };
   const textProps = {
     cites: a.cites,
@@ -142,7 +146,9 @@ function Answer({ app, conv, a, full, readOnly }) {
     activeFact: w.activeFact,
     onCite: (n) => {
       w.setActiveCite(n);
-      if (n) document.getElementById(`cite-${n}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      if (n) {
+        document.getElementById(`cite-${n}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
     },
     onFact: focusFact,
   };
@@ -157,7 +163,9 @@ function Answer({ app, conv, a, full, readOnly }) {
   }
 
   const regenerate = () => {
-    if (a.edited && !window.confirm("Your edit won't carry over")) return;
+    if (a.edited && !window.confirm("Your edit won't carry over")) {
+      return;
+    }
     w.regenerate(conv.id);
   };
   const copy = () => copyAnswer(finalText(a), {
@@ -232,7 +240,9 @@ function Answer({ app, conv, a, full, readOnly }) {
 
       {Object.entries(GAP_LABEL).map(([kind, label]) => {
         const gaps = (a.gaps ?? []).filter((g) => g.kind === kind);
-        if (!gaps.length) return null;
+        if (!gaps.length) {
+          return null;
+        }
         return (
           <div key={kind} className={`flex max-w-[72ch] flex-col gap-2 px-6 py-4 ${CARD}`}>
             <div className="eyebrow">{label.toUpperCase()}</div>

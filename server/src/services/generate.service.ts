@@ -49,7 +49,9 @@ export type GenerateDeps = {
 };
 
 export function requireOwner(conversation: { createdBy: number }, employeeId: number): void {
-  if (conversation.createdBy !== employeeId) throw notOwner();
+  if (conversation.createdBy !== employeeId) {
+    throw notOwner();
+  }
 }
 
 export async function createConversation(input: {
@@ -61,11 +63,10 @@ export async function createConversation(input: {
   log?: FastifyBaseLogger;
 }) {
   const token = randomUUID();
-  const [account] = await db()
-    .select({ id: accounts.id })
-    .from(accounts)
-    .where(eq(accounts.id, input.accountId));
-  if (!account) throw notFound('ACCOUNT_NOT_FOUND', 'No such account.');
+  const [account] = await db().select({ id: accounts.id }).from(accounts).where(eq(accounts.id, input.accountId));
+  if (!account) {
+    throw notFound('ACCOUNT_NOT_FOUND', 'No such account.');
+  }
 
   const started = await db().transaction(async (tx) => {
     const [conv] = await tx
@@ -103,7 +104,9 @@ export async function regenerateConversation(input: {
     const [conv] = rowsOf(
       await tx.execute(sql`select * from conversations where id = ${input.conversationId} for update`),
     );
-    if (!conv) throw notFound('CONVERSATION_NOT_FOUND', 'No such conversation.');
+    if (!conv) {
+      throw notFound('CONVERSATION_NOT_FOUND', 'No such conversation.');
+    }
     requireOwner({ createdBy: Number(conv.created_by) }, input.employeeId);
     await assertNotSaved(tx, input.conversationId);
     await assertQuota(tx, input.employeeId);
@@ -116,7 +119,9 @@ export async function regenerateConversation(input: {
       .where(eq(turns.conversationId, input.conversationId))
       .orderBy(desc(turns.seq))
       .limit(1);
-    if (!turn) throw notFound('TURN_NOT_FOUND', 'This conversation has no question yet.');
+    if (!turn) {
+      throw notFound('TURN_NOT_FOUND', 'This conversation has no question yet.');
+    }
     return { conversationId: input.conversationId, turnId: turn.id, token };
   });
 
@@ -134,15 +139,21 @@ export async function replyConversation(input: {
 }) {
   const selections = [...new Set((input.selections ?? []).map((id) => id.trim()).filter(Boolean))];
   const text = input.text?.trim() || null;
-  if (!selections.length && !text) throw badRequest('EMPTY_REPLY', 'Select a record or enter a reply.');
-  if (text && text.length > 1_000) throw badRequest('REPLY_TOO_LONG', 'A reply can be at most 1,000 characters.');
+  if (!selections.length && !text) {
+    throw badRequest('EMPTY_REPLY', 'Select a record or enter a reply.');
+  }
+  if (text && text.length > 1_000) {
+    throw badRequest('REPLY_TOO_LONG', 'A reply can be at most 1,000 characters.');
+  }
 
   const token = randomUUID();
   const started = await db().transaction(async (tx) => {
     const [conv] = rowsOf(
       await tx.execute(sql`select * from conversations where id = ${input.conversationId} for update`),
     );
-    if (!conv) throw notFound('CONVERSATION_NOT_FOUND', 'No such conversation.');
+    if (!conv) {
+      throw notFound('CONVERSATION_NOT_FOUND', 'No such conversation.');
+    }
     requireOwner({ createdBy: Number(conv.created_by) }, input.employeeId);
     await assertNotSaved(tx, input.conversationId);
 
@@ -204,7 +215,9 @@ async function finish(
     if (error instanceof AppError && error.code === 'account_data_unavailable') {
       throw new AppError(503, error.code, error.message, { conversationId: started.conversationId, cause: error });
     }
-    if (error instanceof AppError) throw error;
+    if (error instanceof AppError) {
+      throw error;
+    }
   }
   return started.conversationId;
 }
@@ -237,14 +250,18 @@ async function runOutsideTxn(
   try {
     snapshot = await buildAccountSnapshot(conv!.accountId, deps.asOf ?? utcToday());
   } catch (error) {
-    if (error instanceof AppError) throw error;
+    if (error instanceof AppError) {
+      throw error;
+    }
     throw new AppError(503, 'account_data_unavailable', 'Account data could not be loaded. Try again.', {
       cause: error,
     });
   }
 
   const query = retrievalQuery(turnRows, snapshot.facts);
-  if (now() >= deadline) throw new ProviderError('DEADLINE', 'The request deadline passed before a new attempt could start.');
+  if (now() >= deadline) {
+    throw new ProviderError('DEADLINE', 'The request deadline passed before a new attempt could start.');
+  }
   const formatted = formatQueryForEmbedding(query);
   const vector = await paidAttempt(
     {
@@ -357,9 +374,13 @@ async function paidGenerate(
       );
     } catch (error) {
       last = error;
-      if (!isRetryable(error) || attempt === MAX_RETRIES + 1) throw error;
+      if (!isRetryable(error) || attempt === MAX_RETRIES + 1) {
+        throw error;
+      }
       const wait = Math.min(8_000, 200 * 2 ** (attempt - 1)) * (0.5 + Math.random());
-      if (opts.now() + wait >= deadline) throw error;
+      if (opts.now() + wait >= deadline) {
+        throw error;
+      }
       await sleep(wait);
     }
   }
@@ -454,7 +475,9 @@ async function assertQuota(tx: { execute: (q: ReturnType<typeof sql>) => Promise
       and created_at < ${end}::timestamptz
   `);
   const n = Number(rowsOf(counted)[0]?.n ?? 0);
-  if (n >= GENERATE_QUOTA) throw generationQuota();
+  if (n >= GENERATE_QUOTA) {
+    throw generationQuota();
+  }
 }
 
 async function recordFailure(
@@ -464,13 +487,10 @@ async function recordFailure(
   error: unknown,
   purpose: CallPurpose = 'app',
 ): Promise<void> {
-  if (error instanceof AppError && error.code === 'LOCK_TAKEN') return;
-  const code =
-    error instanceof ProviderError
-      ? error.code
-      : error instanceof AppError
-        ? error.code
-        : 'ERROR';
+  if (error instanceof AppError && error.code === 'LOCK_TAKEN') {
+    return;
+  }
+  const code = error instanceof ProviderError ? error.code : error instanceof AppError ? error.code : 'ERROR';
   // GEN-03 failure marker. attempt 0 keeps it out of the quota, which counts attempt 1
   // only; a failed provider attempt already has its own row from paidAttempt.
   await db().insert(providerCalls).values({
@@ -503,13 +523,19 @@ function validateSelections(ids: string[], raw: unknown): string[] {
   const choose = clarifications.filter((c) => c.kind === 'choose_record');
   const allowed = new Map<string, number>();
   choose.forEach((c, i) => {
-    for (const option of c.options ?? []) allowed.set(option.fact, i);
+    for (const option of c.options ?? []) {
+      allowed.set(option.fact, i);
+    }
   });
   const used = new Set<number>();
   for (const id of ids) {
     const index = allowed.get(id);
-    if (index == null) throw badRequest('INVALID_SELECTION', `${id} is not an option of the current clarification.`);
-    if (used.has(index)) throw badRequest('INVALID_SELECTION', 'Select at most one option per clarification.');
+    if (index == null) {
+      throw badRequest('INVALID_SELECTION', `${id} is not an option of the current clarification.`);
+    }
+    if (used.has(index)) {
+      throw badRequest('INVALID_SELECTION', 'Select at most one option per clarification.');
+    }
     used.add(index);
   }
   return ids;
@@ -522,7 +548,9 @@ async function assertNotSaved(
   const existing = rowsOf(
     await tx.execute(sql`select id from reviewed_answers where conversation_id = ${conversationId}`),
   );
-  if (existing.length) throw conflict('ALREADY_SAVED', 'This conversation is already saved.');
+  if (existing.length) {
+    throw conflict('ALREADY_SAVED', 'This conversation is already saved.');
+  }
 }
 
 function clarificationsFor(prior: { turnId: number; clarifications: unknown }[], turnId: number) {

@@ -34,15 +34,33 @@ export const stripMarkers = (text) =>
     .replace(/ ?\[(?:F?\d+|S\d+)\]/g, '');
 
 export function saveHint(conv, { generating = false, editing = false, acknowledged = false } = {}) {
-  if (generating) return 'Wait for generation to finish.';
-  if (conv?.reviewed) return 'This conversation is already saved.';
-  if (conv?.state === 'failed') return 'The latest question has no answer. Retry first.';
-  if (conv?.state === 'awaiting_clarification') return 'Clarification requests can\'t be saved. Reply first.';
-  if (conv?.state === 'out_of_scope') return 'Out-of-scope answers can\'t be saved.';
-  if (editing) return 'Save or cancel the edit first.';
+  if (generating) {
+    return 'Wait for generation to finish.';
+  }
+  if (conv?.reviewed) {
+    return 'This conversation is already saved.';
+  }
+  if (conv?.state === 'failed') {
+    return 'The latest question has no answer. Retry first.';
+  }
+  if (conv?.state === 'awaiting_clarification') {
+    return 'Clarification requests can\'t be saved. Reply first.';
+  }
+  if (conv?.state === 'out_of_scope') {
+    return 'Out-of-scope answers can\'t be saved.';
+  }
+  if (editing) {
+    return 'Save or cancel the edit first.';
+  }
   const a = latestAnswer(conv);
-  if (!finalText(a).trim()) return 'The answer is empty.';
-  if (conv?.flags?.sourceUpdated) return 'A cited source changed. Regenerate first.';
-  if ((a?.reviewReasons ?? []).length && !acknowledged) return 'Check the flagged items and tick the box first.';
+  if (!finalText(a).trim()) {
+    return 'The answer is empty.';
+  }
+  if (conv?.flags?.sourceUpdated) {
+    return 'A cited source changed. Regenerate first.';
+  }
+  if ((a?.reviewReasons ?? []).length && !acknowledged) {
+    return 'Check the flagged items and tick the box first.';
+  }
   return null;
 }

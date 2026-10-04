@@ -8,13 +8,17 @@ export type Chunk = { heading: string | null; pageNumber: number | null; text: s
 const tokens = (text: string) => Math.ceil(text.length / 4);
 
 function splitOversized(text: string, heading: string | null, pageNumber: number | null): Chunk[] {
-  if (tokens(text) <= TOKEN_TARGET) return [{ heading, pageNumber, text }];
+  if (tokens(text) <= TOKEN_TARGET) {
+    return [{ heading, pageNumber, text }];
+  }
   const parts = text.split(/\n\n+/);
   const out: Chunk[] = [];
   let buf = '';
   const flush = () => {
     const piece = buf.trim();
-    if (piece) out.push({ heading, pageNumber, text: piece });
+    if (piece) {
+      out.push({ heading, pageNumber, text: piece });
+    }
     buf = '';
   };
   for (const part of parts) {
@@ -22,15 +26,18 @@ function splitOversized(text: string, heading: string | null, pageNumber: number
       buf = part;
       continue;
     }
-    if (tokens(`${buf}\n\n${part}`) <= TOKEN_TARGET) buf = `${buf}\n\n${part}`;
-    else {
+    if (tokens(`${buf}\n\n${part}`) <= TOKEN_TARGET) {
+      buf = `${buf}\n\n${part}`;
+    } else {
       flush();
       buf = part;
     }
   }
   flush();
   return out.flatMap((chunk) => {
-    if (tokens(chunk.text) <= TOKEN_TARGET) return [chunk];
+    if (tokens(chunk.text) <= TOKEN_TARGET) {
+      return [chunk];
+    }
     const hard: Chunk[] = [];
     for (let i = 0; i < chunk.text.length; i += maxChars) {
       hard.push({ heading, pageNumber, text: chunk.text.slice(i, i + maxChars).trim() });

@@ -10,30 +10,40 @@ const MARKER = /\[(F)?(\d+)\]/g;
 export async function editAnswer(input: { answerId: number; employeeId: number; editedText: string }): Promise<number> {
   return db().transaction(async (tx) => {
     const [answer] = await tx.select().from(answers).where(eq(answers.id, input.answerId));
-    if (!answer) throw notFound('ANSWER_NOT_FOUND', 'No such answer.');
+    if (!answer) {
+      throw notFound('ANSWER_NOT_FOUND', 'No such answer.');
+    }
     const [conv] = rowsOf(
       await tx.execute(sql`select * from conversations where id = ${answer.conversationId} for update`),
     );
-    if (!conv) throw notFound('CONVERSATION_NOT_FOUND', 'No such conversation.');
+    if (!conv) {
+      throw notFound('CONVERSATION_NOT_FOUND', 'No such conversation.');
+    }
     requireOwner({ createdBy: Number(conv.created_by) }, input.employeeId);
     const [reviewed] = await tx
       .select({ id: reviewedAnswers.id })
       .from(reviewedAnswers)
       .where(eq(reviewedAnswers.conversationId, answer.conversationId));
-    if (reviewed) throw conflict('ALREADY_SAVED', 'This conversation is already saved.');
+    if (reviewed) {
+      throw conflict('ALREADY_SAVED', 'This conversation is already saved.');
+    }
     const [latest] = await tx
       .select({ id: answers.id })
       .from(answers)
       .where(eq(answers.conversationId, answer.conversationId))
       .orderBy(desc(answers.id))
       .limit(1);
-    if (latest?.id !== input.answerId) throw conflict('NOT_LATEST', 'Only the latest answer can be edited.');
+    if (latest?.id !== input.answerId) {
+      throw conflict('NOT_LATEST', 'Only the latest answer can be edited.');
+    }
 
     // ANS-02: markers can be removed but not added, so only the model text's own markers are allowed.
     // The normaliser already checked those against answer_sources and the fact snapshot.
     const allowed = new Set([...answer.answerText.matchAll(MARKER)].map((m) => m[0]));
     for (const [marker] of input.editedText.matchAll(MARKER)) {
-      if (!allowed.has(marker)) throw badRequest('UNKNOWN_CITATION', `${marker} doesn't match a citation in this answer.`);
+      if (!allowed.has(marker)) {
+        throw badRequest('UNKNOWN_CITATION', `${marker} doesn't match a citation in this answer.`);
+      }
     }
 
     await tx
@@ -54,7 +64,9 @@ export async function reviewConversation(input: {
     const [conv] = rowsOf(
       await tx.execute(sql`select * from conversations where id = ${input.conversationId} for update`),
     );
-    if (!conv) throw notFound('CONVERSATION_NOT_FOUND', 'No such conversation.');
+    if (!conv) {
+      throw notFound('CONVERSATION_NOT_FOUND', 'No such conversation.');
+    }
     requireOwner({ createdBy: Number(conv.created_by) }, input.employeeId);
 
     if (
@@ -70,7 +82,9 @@ export async function reviewConversation(input: {
       .select({ id: reviewedAnswers.id })
       .from(reviewedAnswers)
       .where(eq(reviewedAnswers.conversationId, input.conversationId));
-    if (existing) throw conflict('ALREADY_SAVED', 'This conversation is already saved.');
+    if (existing) {
+      throw conflict('ALREADY_SAVED', 'This conversation is already saved.');
+    }
 
     const [answer] = await tx.select().from(answers).where(eq(answers.id, input.answerId));
     if (!answer || answer.conversationId !== input.conversationId) {
@@ -82,7 +96,9 @@ export async function reviewConversation(input: {
       .where(eq(answers.conversationId, input.conversationId))
       .orderBy(desc(answers.id))
       .limit(1);
-    if (latest?.id !== input.answerId) throw conflict('NOT_LATEST', 'This is not the conversation\'s latest answer.');
+    if (latest?.id !== input.answerId) {
+      throw conflict('NOT_LATEST', 'This is not the conversation\'s latest answer.');
+    }
     if (answer.outcome === 'clarification_required') {
       throw conflict('CLARIFICATION_REQUIRED', 'Clarification requests can\'t be saved. Reply first.');
     }
@@ -91,7 +107,9 @@ export async function reviewConversation(input: {
     }
 
     const finalText = (answer.editedText ?? answer.answerText).trim();
-    if (!finalText) throw conflict('EMPTY_TEXT', 'The answer is empty.');
+    if (!finalText) {
+      throw conflict('EMPTY_TEXT', 'The answer is empty.');
+    }
 
     const docRows = rowsOf(
       await tx.execute(sql`
@@ -128,7 +146,9 @@ export async function reviewConversation(input: {
         ) as n
       `),
     );
-    if (stale?.n) throw conflict('SOURCE_STALE', 'A cited source changed. Regenerate first.');
+    if (stale?.n) {
+      throw conflict('SOURCE_STALE', 'A cited source changed. Regenerate first.');
+    }
 
     const reasons = (answer.reviewReasons as string[]) ?? [];
     if (reasons.length && !input.reviewAcknowledged) {
@@ -201,7 +221,9 @@ export async function reviewedSourceChanged(reviewedId: number): Promise<boolean
 
 export async function reviewedSourceChangedByConversation(ids: number[]): Promise<Set<number>> {
   const stale = new Set<number>();
-  if (!ids.length) return stale;
+  if (!ids.length) {
+    return stale;
+  }
   const rows = rowsOf(
     await db().execute(sql`
       select r.conversation_id
@@ -215,13 +237,17 @@ export async function reviewedSourceChangedByConversation(ids: number[]): Promis
         )
     `),
   );
-  for (const row of rows) stale.add(Number(row.conversation_id));
+  for (const row of rows) {
+    stale.add(Number(row.conversation_id));
+  }
   return stale;
 }
 
 export async function unsavedSourceUpdated(answerIds: number[]): Promise<Set<number>> {
   const stale = new Set<number>();
-  if (!answerIds.length) return stale;
+  if (!answerIds.length) {
+    return stale;
+  }
   const rows = rowsOf(
     await db().execute(sql`
       select distinct s.answer_id
@@ -234,6 +260,8 @@ export async function unsavedSourceUpdated(answerIds: number[]): Promise<Set<num
         and (c.id is null or d.archived_at is not null or d.active_version_id is distinct from v.id)
     `),
   );
-  for (const row of rows) stale.add(Number(row.answer_id));
+  for (const row of rows) {
+    stale.add(Number(row.answer_id));
+  }
   return stale;
 }

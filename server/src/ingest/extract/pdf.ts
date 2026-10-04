@@ -3,7 +3,9 @@ import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 export type PdfPage = { page: number; text: string };
 
 export function blankPageWarning(pages: number[]): string {
-  if (pages.length === 1) return `Page ${pages[0]} has no text layer and was not indexed.`;
+  if (pages.length === 1) {
+    return `Page ${pages[0]} has no text layer and was not indexed.`;
+  }
   return `Pages ${pages.join(', ')} have no text layer and were not indexed.`;
 }
 
@@ -26,7 +28,9 @@ export async function extractPdf(bytes: Buffer): Promise<{ pages: PdfPage[]; war
     throw new Error('PDF extraction failed.');
   }
 
-  if (doc.numPages > 100) throw new Error('PDFs cannot have more than 100 pages.');
+  if (doc.numPages > 100) {
+    throw new Error('PDFs cannot have more than 100 pages.');
+  }
   const pages: PdfPage[] = [];
   const blank: number[] = [];
   for (let n = 1; n <= doc.numPages; n++) {
@@ -37,10 +41,15 @@ export async function extractPdf(bytes: Buffer): Promise<{ pages: PdfPage[]; war
       .join(' ')
       .replace(/\s+/g, ' ')
       .trim();
-    if (text) pages.push({ page: n, text });
-    else blank.push(n);
+    if (text) {
+      pages.push({ page: n, text });
+    } else {
+      blank.push(n);
+    }
   }
-  if (!pages.length) throw new Error("No page has a text layer. OCR isn't supported.");
+  if (!pages.length) {
+    throw new Error("No page has a text layer. OCR isn't supported.");
+  }
   return {
     pages,
     warnings: blank.length ? [blankPageWarning(blank)] : [],

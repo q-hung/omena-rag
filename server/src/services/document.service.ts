@@ -90,7 +90,9 @@ export async function indexingBusy() {
 
 export async function get(id: number) {
   const [doc] = await db().select().from(documents).where(eq(documents.id, id));
-  if (!doc) throw notFound('DOCUMENT_NOT_FOUND', 'No such document.');
+  if (!doc) {
+    throw notFound('DOCUMENT_NOT_FOUND', 'No such document.');
+  }
 
   const versions = await db()
     .select()
@@ -157,7 +159,9 @@ export async function get(id: number) {
 export async function remove(id: number) {
   await db().transaction(async (tx) => {
     const locked = rowsOf(await tx.execute(sql`select id from documents where id = ${id} for update`));
-    if (!locked.length) throw notFound('DOCUMENT_NOT_FOUND', 'No such document.');
+    if (!locked.length) {
+      throw notFound('DOCUMENT_NOT_FOUND', 'No such document.');
+    }
     await tx.update(documents).set({ activeVersionId: null }).where(eq(documents.id, id));
     await tx.delete(documents).where(eq(documents.id, id));
   });
@@ -166,7 +170,9 @@ export async function remove(id: number) {
 export async function setArchived(id: number, archivedAt: Date | null) {
   return db().transaction(async (tx) => {
     const locked = rowsOf(await tx.execute(sql`select id from documents where id = ${id} for update`));
-    if (!locked.length) throw notFound('DOCUMENT_NOT_FOUND', 'No such document.');
+    if (!locked.length) {
+      throw notFound('DOCUMENT_NOT_FOUND', 'No such document.');
+    }
     const [doc] = await tx.update(documents).set({ archivedAt }).where(eq(documents.id, id)).returning();
     return { id: doc!.id, archivedAt: doc!.archivedAt };
   });
@@ -175,16 +181,24 @@ export async function setArchived(id: number, archivedAt: Date | null) {
 export async function retryVersion(id: number, vid: number) {
   return db().transaction(async (tx) => {
     const locked = rowsOf(await tx.execute(sql`select id from documents where id = ${id} for update`));
-    if (!locked.length) throw notFound('DOCUMENT_NOT_FOUND', 'No such document.');
+    if (!locked.length) {
+      throw notFound('DOCUMENT_NOT_FOUND', 'No such document.');
+    }
     const versions = await tx
       .select()
       .from(documentVersions)
       .where(eq(documentVersions.documentId, id))
       .orderBy(desc(documentVersions.versionNumber));
     const latest = versions[0];
-    if (!latest) throw notFound('VERSION_NOT_FOUND', 'No such version.');
-    if (latest.id !== vid) throw conflict('NOT_LATEST', 'Only the latest version can be retried.');
-    if (latest.indexingStatus !== 'failed') throw conflict('NOT_FAILED', 'Only a failed version can be retried.');
+    if (!latest) {
+      throw notFound('VERSION_NOT_FOUND', 'No such version.');
+    }
+    if (latest.id !== vid) {
+      throw conflict('NOT_LATEST', 'Only the latest version can be retried.');
+    }
+    if (latest.indexingStatus !== 'failed') {
+      throw conflict('NOT_FAILED', 'Only a failed version can be retried.');
+    }
     const [version] = await tx
       .update(documentVersions)
       .set({ indexingStatus: 'queued', indexingError: null, processingStartedAt: null })
@@ -196,7 +210,9 @@ export async function retryVersion(id: number, vid: number) {
 
 export async function impact(id: number) {
   const [doc] = await db().select({ id: documents.id }).from(documents).where(eq(documents.id, id));
-  if (!doc) throw notFound('DOCUMENT_NOT_FOUND', 'No such document.');
+  if (!doc) {
+    throw notFound('DOCUMENT_NOT_FOUND', 'No such document.');
+  }
 
   const [unsaved] = await db()
     .select({ n: sql<number>`count(distinct ${answers.id})::int` })
@@ -229,9 +245,13 @@ export async function getVersionFile(id: number, vid: number) {
     .select()
     .from(documentVersions)
     .where(and(eq(documentVersions.id, vid), eq(documentVersions.documentId, id)));
-  if (!version) throw notFound('VERSION_NOT_FOUND', 'No such version.');
+  if (!version) {
+    throw notFound('VERSION_NOT_FOUND', 'No such version.');
+  }
   const [file] = await db().select().from(documentFiles).where(eq(documentFiles.versionId, vid));
-  if (!file) throw notFound('FILE_NOT_FOUND', 'The original file is no longer available.');
+  if (!file) {
+    throw notFound('FILE_NOT_FOUND', 'The original file is no longer available.');
+  }
   return {
     bytes: file.bytes,
     mimeType: version.mimeType,

@@ -13,11 +13,15 @@ const LIMIT = 3 * 1024 * 1024;
 
 export default function UploadDialog({ app }) {
   const kb = app.kb;
-  if (!kb.dialog) return null;
+  if (!kb.dialog) {
+    return null;
+  }
   const close = () => kb.setDialog(null);
   const doc = kb.docs.find((d) => d.id === kb.dialog.id) ?? (kb.detail?.id === kb.dialog.id ? kb.detail : null);
   const key = `${kb.dialog.type}-${kb.dialog.id || 'new'}`;
-  if (kb.dialog.type === 'delete') return <DeleteDialog key={key} app={app} doc={doc} onClose={close} />;
+  if (kb.dialog.type === 'delete') {
+    return <DeleteDialog key={key} app={app} doc={doc} onClose={close} />;
+  }
   return <VersionDialog key={key} app={app} doc={kb.dialog.type === 'replace' ? doc : null} onClose={close} />;
 }
 
@@ -31,7 +35,9 @@ function VersionDialog({ app, doc, onClose }) {
 
   const pick = (e) => {
     const next = e.target.files?.[0];
-    if (!next) return;
+    if (!next) {
+      return;
+    }
     if (next.size > LIMIT) {
       setFile(null);
       setError('Files must be 3 MB or smaller');
@@ -43,10 +49,18 @@ function VersionDialog({ app, doc, onClose }) {
   };
 
   const submit = async () => {
-    if (!file) return setError('Choose a PDF or Markdown file.');
-    if (file.size > LIMIT) return setError('Files must be 3 MB or smaller');
-    if (!doc && !form.title.trim()) return setError('Enter a title.');
-    if (!form.eff || form.eff > today) return setError(`The effective date must be ${fmtDate(today)} or earlier.`);
+    if (!file) {
+      return setError('Choose a PDF or Markdown file.');
+    }
+    if (file.size > LIMIT) {
+      return setError('Files must be 3 MB or smaller');
+    }
+    if (!doc && !form.title.trim()) {
+      return setError('Enter a title.');
+    }
+    if (!form.eff || form.eff > today) {
+      return setError(`The effective date must be ${fmtDate(today)} or earlier.`);
+    }
     setBusy(true);
     try {
       if (doc) {
@@ -106,7 +120,9 @@ function DeleteDialog({ app, doc, onClose }) {
     setBusy(true);
     try {
       await app.kb.remove(doc.id);
-      if (app.onDeleted) app.onDeleted();
+      if (app.onDeleted) {
+        app.onDeleted();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Delete failed.');
       setBusy(false);

@@ -18,14 +18,22 @@ export async function listConversations(input: {
 }) {
   const { accountId, mine, state, signal, topic, employeeId } = input;
   const filters = [];
-  if (accountId) filters.push(sql`c.account_id = ${accountId}`);
-  if (mine === '1') filters.push(sql`c.created_by = ${employeeId}`);
+  if (accountId) {
+    filters.push(sql`c.account_id = ${accountId}`);
+  }
+  if (mine === '1') {
+    filters.push(sql`c.created_by = ${employeeId}`);
+  }
   if (signal) {
     const withSignal = await accountsWithSignal(signal, filters);
-    if (!withSignal.length) return { conversations: [] };
+    if (!withSignal.length) {
+      return { conversations: [] };
+    }
     filters.push(sql`c.account_id in (${sql.join(withSignal.map((id) => sql`${id}`), sql`, `)})`);
   }
-  if (state) filters.push(sql`${STATE_SQL} = ${state}`);
+  if (state) {
+    filters.push(sql`${STATE_SQL} = ${state}`);
+  }
   const where = filters.length ? sql`where ${sql.join(filters, sql` and `)}` : sql``;
   // ponytail: topics are derived from cited sources in TS, so a topic filter runs over every
   // matching row before the limit. Move topicsOf into SQL if topic-filtered History gets slow.
@@ -33,7 +41,9 @@ export async function listConversations(input: {
   const ids = rowsOf(
     await db().execute(sql`select c.id from ${STATE_FROM} ${where} order by c.created_at desc, c.id desc ${limit}`),
   ).map((r) => Number(r.id));
-  if (!ids.length) return { conversations: [] };
+  if (!ids.length) {
+    return { conversations: [] };
+  }
 
   const byId = new Map(
     (await db().select().from(conversations).where(inArray(conversations.id, ids))).map((r) => [r.id, r]),

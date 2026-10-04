@@ -107,7 +107,9 @@ beforeAll(async () => {
     ...stubProvider(),
     embedQuery: async () => ({ vectors: [unit()] }),
     generate: async () => {
-      if (hang) await hang.promise;
+      if (hang) {
+        await hang.promise;
+      }
       return { output, model: 'stub:test' };
     },
   };
@@ -157,7 +159,9 @@ describe.sequential('review', () => {
     );
     for (let i = 0; i < 50; i++) {
       const [row] = await db().select().from(conversations).where(eq(conversations.id, id));
-      if (row?.generationToken) break;
+      if (row?.generationToken) {
+        break;
+      }
       await new Promise((r) => setTimeout(r, 20));
     }
     const generating = await review(ada.cookie, id, a1);

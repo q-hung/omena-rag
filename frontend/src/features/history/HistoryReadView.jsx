@@ -19,23 +19,35 @@ export default function HistoryReadView({ app }) {
     let active = true;
     setConv(null);
     setMissing(false);
-    api(`/conversations/${id}`).then((row) => {
-      if (!active) return;
-      if (row.ownedByMe) {
-        app.selectAccount(row.accountId);
-        app.workspace.open(row.id);
-        navigate('/ask', { replace: true });
-        return;
-      }
-      setConv(row);
-    }).catch(() => {
-      if (active) setMissing(true);
-    });
-    return () => { active = false; };
+    api(`/conversations/${id}`)
+      .then((row) => {
+        if (!active) {
+          return;
+        }
+        if (row.ownedByMe) {
+          app.selectAccount(row.accountId);
+          app.workspace.open(row.id);
+          navigate('/ask', { replace: true });
+          return;
+        }
+        setConv(row);
+      })
+      .catch(() => {
+        if (active) {
+          setMissing(true);
+        }
+      });
+    return () => {
+      active = false;
+    };
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (missing) return <Navigate to="/history" replace />;
-  if (!conv) return null;
+  if (missing) {
+    return <Navigate to="/history" replace />;
+  }
+  if (!conv) {
+    return null;
+  }
 
   const account = app.accounts.find((a) => a.id === conv.accountId);
   const workspace = {

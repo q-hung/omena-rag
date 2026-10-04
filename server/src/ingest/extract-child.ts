@@ -1,9 +1,13 @@
 import { extractInProcess } from './extract/run.ts';
 
-for (const key of Object.keys(process.env)) delete process.env[key];
+for (const key of Object.keys(process.env)) {
+  delete process.env[key];
+}
 
 const chunks: Buffer[] = [];
-for await (const chunk of process.stdin) chunks.push(chunk);
+for await (const chunk of process.stdin) {
+  chunks.push(chunk);
+}
 const msg = JSON.parse(Buffer.concat(chunks).toString('utf8')) as {
   hang?: boolean;
   probe?: string;

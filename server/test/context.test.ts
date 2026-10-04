@@ -18,7 +18,9 @@ const values = async (ref: string) =>
 
 beforeAll(async () => {
   await seed(db(), { date: D, password: 'test-password' });
-  for (const a of await db().select().from(accounts)) ids[a.ref] = a.id;
+  for (const a of await db().select().from(accounts)) {
+    ids[a.ref] = a.id;
+  }
 });
 
 describe('account context', () => {

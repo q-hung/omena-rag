@@ -88,7 +88,9 @@ describe('gemini provider', () => {
     let attempts = 0;
     const models = fake(async () => {
       attempts += 1;
-      if (attempts < 3) throw http(500);
+      if (attempts < 3) {
+        throw http(500);
+      }
       return { text: JSON.stringify(valid), candidates: [{ finishReason: 'STOP' }] };
     });
     const result = await geminiProvider(cfg, models).generate({ prompt: 'q' }, deadline());
@@ -171,7 +173,9 @@ describe('LLM_DEBUG_DIR', () => {
     let attempts = 0;
     const models = fake(async () => {
       attempts += 1;
-      if (attempts === 1) throw http(500);
+      if (attempts === 1) {
+        throw http(500);
+      }
       return { text: JSON.stringify(valid), candidates: [{ finishReason: 'STOP' }], usageMetadata: { promptTokenCount: 7 } };
     });
     await geminiProvider(debugCfg, models).generate({ prompt: 'the prompt' }, deadline());

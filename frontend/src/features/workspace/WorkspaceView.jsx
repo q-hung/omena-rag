@@ -12,7 +12,9 @@ export default function WorkspaceView({ app }) {
   const account = s.accounts.find((a) => a.id === s.accountId);
   const st = w.generating ? 'generating' : conv?.state;
 
-  if (!account) return null;
+  if (!account) {
+    return null;
+  }
 
   return (
     <>

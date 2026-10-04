@@ -54,7 +54,9 @@ async function fixture(state: ConversationState) {
       .where(eq(conversations.id, conv!.id));
     return conv!.id;
   }
-  if (state === 'failed') return conv!.id;
+  if (state === 'failed') {
+    return conv!.id;
+  }
   const outcome =
     state === 'awaiting_clarification'
       ? 'clarification_required'
@@ -96,7 +98,9 @@ async function fixture(state: ConversationState) {
 describe('history state', () => {
   it('matches the TypeScript derivation for every WF-05 state', async () => {
     const ids = [];
-    for (const state of CASES) ids.push(await fixture(state));
+    for (const state of CASES) {
+      ids.push(await fixture(state));
+    }
     const sqlStates = await conversationStatesById(ids);
     for (let i = 0; i < CASES.length; i++) {
       const id = ids[i]!;
@@ -142,7 +146,9 @@ describe('history state', () => {
 
   it('filters by state in SQL', async () => {
     const ids = new Map<ConversationState, number>();
-    for (const state of CASES) ids.set(state, await fixture(state));
+    for (const state of CASES) {
+      ids.set(state, await fixture(state));
+    }
     for (const state of CASES) {
       const res = await app.inject({ method: 'GET', url: `/api/conversations?mine=0&state=${state}`, cookies: ada });
       const rows = res.json().conversations as { id: number; state: string }[];

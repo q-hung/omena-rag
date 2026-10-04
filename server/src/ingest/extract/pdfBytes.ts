@@ -17,12 +17,16 @@ function wrap(text: string, width: number): string[] {
       line = next;
     }
   }
-  if (line) lines.push(line);
+  if (line) {
+    lines.push(line);
+  }
   return lines.length ? lines : [''];
 }
 
 function contentStream(text: string): string {
-  if (!text.trim()) return '';
+  if (!text.trim()) {
+    return '';
+  }
   const lines = wrap(escapePdf(text.replace(/\s+/g, ' ').trim()), 90);
   let y = 720;
   let ops = 'BT\n/F1 12 Tf\n';

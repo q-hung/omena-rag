@@ -26,7 +26,9 @@ beforeAll(async () => {
   await seed(db(), { date: '2026-10-02', password: PASSWORD });
   const staff = await db().select().from(employees);
   const ada = staff.find((e) => e.email === 'ada@omena.example')!;
-  for (const row of await db().select().from(accounts)) account[row.ref] = row.id;
+  for (const row of await db().select().from(accounts)) {
+    account[row.ref] = row.id;
+  }
 
   const passages: Passage[] = [];
   const specs = [

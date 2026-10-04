@@ -18,7 +18,9 @@ type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 
 function parseAccountId(accountId: unknown): number {
   const parsed = accountIdSchema.safeParse(accountId);
-  if (!parsed.success) throw badRequest('VALIDATION_FAILED', 'The account id is invalid.');
+  if (!parsed.success) {
+    throw badRequest('VALIDATION_FAILED', 'The account id is invalid.');
+  }
   return parsed.data;
 }
 
@@ -27,7 +29,9 @@ async function readOnly<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
   try {
     return await db().transaction(fn, { accessMode: 'read only' });
   } catch (error) {
-    if (error instanceof AppError) throw error;
+    if (error instanceof AppError) {
+      throw error;
+    }
     throw new AppError(503, 'account_data_unavailable', 'Account data could not be loaded. Try again.', {
       cause: error,
     });
@@ -38,7 +42,9 @@ export async function getAccountDetails(accountId: unknown) {
   const id = parseAccountId(accountId);
   return readOnly(async (tx) => {
     const [account] = await tx.select().from(accounts).where(eq(accounts.id, id));
-    if (!account) throw notFound('ACCOUNT_NOT_FOUND', 'No such account.');
+    if (!account) {
+      throw notFound('ACCOUNT_NOT_FOUND', 'No such account.');
+    }
     const features = await tx
       .select({ feature: accountFeatures.feature, enabled: accountFeatures.enabled })
       .from(accountFeatures)
@@ -177,7 +183,9 @@ export async function buildAccountSnapshot(accountId: unknown, asOf = utcToday()
     add('features', `feat:${f.feature}`, FEATURE_LABEL[f.feature], f.enabled ? 'On' : 'Off', acc);
   }
 
-  if (!pays.length) empty.push({ section: 'payments', note: 'No payments recorded (0 rows)' });
+  if (!pays.length) {
+    empty.push({ section: 'payments', note: 'No payments recorded (0 rows)' });
+  }
   for (const p of pays) {
     const value = [
       fmtDate(isoDate(p.occurredAt)),
@@ -196,7 +204,9 @@ export async function buildAccountSnapshot(accountId: unknown, asOf = utcToday()
     });
   }
 
-  if (!endpoints.length) empty.push({ section: 'webhooks', note: 'No webhook endpoints configured (0 rows)' });
+  if (!endpoints.length) {
+    empty.push({ section: 'webhooks', note: 'No webhook endpoints configured (0 rows)' });
+  }
   endpoints.forEach((e, i) => {
     const record = { table: 'webhook_endpoints', id: e.id };
     const config = [e.scheme, e.enabled ? 'enabled' : 'disabled', e.events.join(', ')].join(' · ');

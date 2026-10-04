@@ -56,7 +56,9 @@ export function embedText(text: string): number[] {
     values[(hash >>> 0) % DIM]! += 1;
   }
   let norm = 0;
-  for (const n of values) norm += n * n;
+  for (const n of values) {
+    norm += n * n;
+  }
   norm = Math.sqrt(norm) || 1;
   return values.map((n) => n / norm);
 }

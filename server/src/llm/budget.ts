@@ -64,7 +64,9 @@ export function estimateCostUsd(kind: CallKind, inputChars: number, cfg: Config)
 export async function reserve(input: ReserveInput, cfg: Config = loadCached()): Promise<Reservation> {
   const day = input.day ?? utcToday();
   const estimatedCostUsd = input.estimatedCostUsd ?? estimateCostUsd(input.kind, input.inputChars, cfg);
-  if (estimatedCostUsd > cfg.DAILY_BUDGET_USD) throw budgetReached();
+  if (estimatedCostUsd > cfg.DAILY_BUDGET_USD) {
+    throw budgetReached();
+  }
 
   return db().transaction(async (tx) => {
     if (input.kind === 'generate' && input.attempt === 1 && input.employeeId) {
@@ -80,7 +82,9 @@ export async function reserve(input: ReserveInput, cfg: Config = loadCached()): 
             and ${providerCalls.createdAt} >= ${start}::timestamptz
             and ${providerCalls.createdAt} < ${end}::timestamptz`,
         );
-      if ((counted[0]?.n ?? 0) >= GENERATE_QUOTA) throw generationQuota();
+      if ((counted[0]?.n ?? 0) >= GENERATE_QUOTA) {
+        throw generationQuota();
+      }
     }
 
     const upserted = await tx.execute(sql`
@@ -90,7 +94,9 @@ export async function reserve(input: ReserveInput, cfg: Config = loadCached()): 
       where budget_days.spent_usd + excluded.spent_usd <= ${money(cfg.DAILY_BUDGET_USD)}::numeric
       returning spent_usd
     `);
-    if (rowsOf(upserted).length === 0) throw budgetReached();
+    if (rowsOf(upserted).length === 0) {
+      throw budgetReached();
+    }
 
     const [row] = await tx
       .insert(providerCalls)
@@ -118,7 +124,9 @@ export async function reconcile(
 ): Promise<void> {
   await db().transaction(async (tx) => {
     const [call] = await tx.select().from(providerCalls).where(eq(providerCalls.id, reservation.id));
-    if (!call || call.status !== 'reserved') return;
+    if (!call || call.status !== 'reserved') {
+      return;
+    }
 
     const known = result.usage && (result.usage.inputTokens != null || result.usage.outputTokens != null);
     const actual = known
@@ -198,7 +206,11 @@ function nextUtcDay(day: string): string {
 }
 
 function rowsOf(result: unknown): unknown[] {
-  if (Array.isArray(result)) return result;
-  if (result && typeof result === 'object' && 'rows' in result) return (result as { rows: unknown[] }).rows;
+  if (Array.isArray(result)) {
+    return result;
+  }
+  if (result && typeof result === 'object' && 'rows' in result) {
+    return (result as { rows: unknown[] }).rows;
+  }
   return [];
 }

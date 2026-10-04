@@ -9,8 +9,12 @@ const COLS = 'grid-cols-[200px_minmax(0,1fr)_220px_200px]';
 const TOPICS = ['Plans', 'Policies', 'Billing', 'FAQ', 'Security', 'Developer', 'Account data'];
 
 function flagOf(row) {
-  if (row.flags?.sourceChanged) return 'Source changed — recheck';
-  if (row.flags?.sourceUpdated) return 'Source updated';
+  if (row.flags?.sourceChanged) {
+    return 'Source changed — recheck';
+  }
+  if (row.flags?.sourceUpdated) {
+    return 'Source updated';
+  }
   return null;
 }
 

@@ -17,8 +17,11 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await app.close();
-  if (prev === undefined) delete process.env.STATIC_DIR;
-  else process.env.STATIC_DIR = prev;
+  if (prev === undefined) {
+    delete process.env.STATIC_DIR;
+  } else {
+    process.env.STATIC_DIR = prev;
+  }
   rmSync(dir, { recursive: true, force: true });
 });
 
