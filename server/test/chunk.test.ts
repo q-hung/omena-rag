@@ -22,6 +22,27 @@ describe('chunker', () => {
     expect(pieces.every((p) => p.heading === 'Section')).toBe(true);
   });
 
+  it('leaves markdown syntax in the section body', () => {
+    const [section] = extractMarkdown([
+      '# Create an API key',
+      '',
+      '- **Read only** — customers.',
+      '',
+      '| Plan | Requests per minute |',
+      '|---|---|',
+      '| Pro | 100 |',
+      '',
+      '```',
+      'Authorization: Bearer sp_live_...',
+      '```',
+    ].join('\n'));
+    expect(section.heading).toBe('Create an API key');
+    expect(section.text).toContain('**Read only**');
+    expect(section.text).toContain('| Plan | Requests per minute |');
+    expect(section.text).toContain('```');
+    expect(section.text).toContain('Authorization: Bearer');
+  });
+
   it('joins nested headings as "A > B"', () => {
     const pieces = chunk(asMd('# A\n\n## B\n\nNested body.\n'));
     expect(pieces).toHaveLength(1);

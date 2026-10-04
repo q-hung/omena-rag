@@ -4,6 +4,7 @@ import Panel from '../../components/ui/Panel';
 import { BackButton, Page } from '../../components/ui/Page';
 import { fmtDate } from '../../lib/format';
 import { INGEST_STATUS, INGEST_TONE } from '../../lib/model';
+import ChunkBody from './ChunkBody';
 
 // Document page (KB-09): any version's content, history with errors and warnings, download.
 export default function DocumentView({ app, doc: dd }) {
@@ -74,7 +75,7 @@ export default function DocumentView({ app, doc: dd }) {
                 <div key={p.k} className="flex max-w-[68ch] flex-col gap-1.5">
                   {p.page && <span className="font-mono text-xs text-muted">Page {p.page}</span>}
                   {p.h && <h3 className="text-lg font-bold">{p.h}</h3>}
-                  <p className="text-base leading-[1.6] text-pretty">{p.t}</p>
+                  <ChunkBody format={vObj.format} text={p.t} />
                 </div>
               ))}
             </div>

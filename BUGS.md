@@ -6,7 +6,8 @@ the check passes.
 
 ---
 
-### [ ] B01 · Document page shows raw Markdown
+### [x] B01 · Document page shows raw Markdown
+- **Result (4 Oct 2026):** `ChunkBody` renders MD through `react-markdown` + `remark-gfm` (no `rehype-raw`). PDF chunks stay `whitespace-pre-line`. `extractMarkdown` still returns raw syntax. Uploaded `api-access-guide.md`: list, rate-limit table, `Authorization` fence render; `<script>` stays text.
 
 - **Symptom:** on `/kb/:id`, a Markdown document shows `**bold**`, `` `code` ``,
   `- list` items, table pipes and fenced code as literal text. Line breaks
