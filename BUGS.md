@@ -101,3 +101,30 @@ the check passes.
 - **Check:** NRM unit test: with passages S1–S3, `x [S2, S5].` → `x [1].`
   plus `invalid_citation_removed`; `[F1, S3]` resolves both. Copy on an
   answer whose model text contained a grouped marker yields no `[`.
+
+### [ ] B05 · Large documents embed in one call and can get the wrong vectors
+- **Symptom:** none seen yet. Found by reading the code while checking how a
+  100-page PDF (the upload maximum) is indexed. Two risks: the embed call is
+  rejected or times out, so the version fails; or the version becomes `ready`
+  while some chunks hold another chunk's vector, so retrieval returns wrong
+  passages and nothing reports an error.
+- **Cause:**
+  - `processVersion` (`server/src/worker.ts:131`) sends every chunk in a
+    single `embedDocuments` call. A 100-page PDF gives ~100–200 chunks
+    (one per page, split past ~500 tokens). The call has a 20 s timeout
+    (`EMBED_DOCS_TIMEOUT_MS`, `server/src/llm/gemini.ts:14`), and Gemini caps
+    how many inputs one request may carry. REQ §6.2 step 5 says "Each batch
+    reserves budget first", so batching was intended.
+  - `server/src/worker.ts:153` sets `embedded.vectors[i] ?? embedded.vectors[0]!`.
+    If fewer vectors come back than chunks were sent, every missing chunk gets
+    chunk 0's vector. Retrieval then matches those chunks on chunk 0's meaning.
+- **Fix:**
+  - Split chunks into batches under the provider's per-request limit (check it
+    for the configured `EMBEDDING_MODEL`). Run each batch through `paidAttempt`,
+    so each one reserves budget and writes its own `provider_calls` row.
+  - Replace the fallback with a hard check: `vectors.length !== inputs.length`
+    → throw, and the version becomes `failed` with a message that contains no
+    document text.
+- **Check:** a provider stub returning fewer vectors than chunks → version
+  `failed`, no chunks inserted. A document with more chunks than the batch
+  size → several embed calls, and each chunk is stored with its own vector.
