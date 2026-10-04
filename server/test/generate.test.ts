@@ -20,7 +20,7 @@ import type { Provider } from '../src/llm/types.ts';
 import { utcToday } from '../src/lib/format.ts';
 import type { Passage } from '../src/rag/retrieve.ts';
 import { seed } from '../src/seed.ts';
-import { queueDocument } from '../src/services/document-upload.service.ts';
+import { queueDocument, queueVersion } from '../src/services/document-upload.service.ts';
 import { asBrowser, buildTestApp, LogCapture } from './helpers/app.ts';
 
 const PASSWORD = 'test-password';
@@ -336,6 +336,83 @@ describe.sequential('generation', () => {
     expect(Date.now() - t0).toBeLessThan(2_000);
     expect(attemptStarts.every((t) => t < t0 + 400)).toBe(true);
     expect(attemptStarts.length).toBeGreaterThanOrEqual(1);
+  });
+
+  // The evidence panel reads these field names; a rename on either side must fail here.
+  it('presents citation cards with their fields and Superseded / Archived status', async () => {
+    const created = await queueDocument({
+      title: 'Card shape',
+      category: 'Billing',
+      effectiveAt: '2026-09-01',
+      filename: 'card.md',
+      bytes: Buffer.from('# Retries\nFailed payments are retried.\n', 'utf8'),
+      employeeId: ada.id,
+    });
+    const v1 = created.version.id;
+    await db().update(documentVersions).set({ indexingStatus: 'ready' }).where(eq(documentVersions.id, v1));
+    await db().update(documents).set({ activeVersionId: v1 }).where(eq(documents.id, created.document.id));
+    const [chunk] = await db()
+      .insert(documentChunks)
+      .values({
+        versionId: v1,
+        chunkIndex: 0,
+        heading: 'Retries',
+        pageNumber: 2,
+        text: 'Failed payments are retried.',
+        embedding: unit(),
+        embeddingModel: 'gemini-embedding-2',
+      })
+      .returning();
+    const cited: Passage = {
+      ...passage,
+      chunkId: chunk!.id,
+      text: chunk!.text,
+      heading: chunk!.heading,
+      pageNumber: chunk!.pageNumber,
+      versionId: v1,
+      effectiveAt: '2026-09-01',
+      documentId: created.document.id,
+      title: 'Card shape',
+      category: 'Billing',
+    };
+    const isolated = await buildTestApp(undefined, undefined, { provider, retrieve: async () => [cited] });
+    const login = await isolated.inject(
+      asBrowser({ method: 'POST', url: '/api/auth/login', payload: { email: 'ada@omena.example', password: PASSWORD } }),
+    );
+    const cookies = { [SESSION_COOKIE]: login.cookies.find((c) => c.name === SESSION_COOKIE)!.value };
+    const res = await isolated.inject(
+      asBrowser({ method: 'POST', url: '/api/conversations', cookies, payload: { accountId, question: 'Card shape' } }),
+    );
+    expect(res.statusCode).toBe(201);
+    expect(res.json().answers[0].cites['1']).toEqual({
+      number: '1',
+      documentId: created.document.id,
+      title: 'Card shape',
+      category: 'Billing',
+      version: 1,
+      effectiveAt: '2026-09-01',
+      heading: 'Retries',
+      text: 'Failed payments are retried.',
+      page: 2,
+      status: null,
+    });
+
+    const cardStatus = async () =>
+      (await isolated.inject({ method: 'GET', url: `/api/conversations/${res.json().id}`, cookies })).json().answers[0]
+        .cites['1'].status;
+
+    const { version: v2 } = await queueVersion(created.document.id, {
+      effectiveAt: '2026-10-01',
+      filename: 'card.md',
+      bytes: Buffer.from('# Retries\nFailed payments are retried twice.\n', 'utf8'),
+      employeeId: ada.id,
+    });
+    await db().update(documents).set({ activeVersionId: v2.id }).where(eq(documents.id, created.document.id));
+    expect(await cardStatus()).toBe('Superseded');
+
+    await db().update(documents).set({ archivedAt: new Date() }).where(eq(documents.id, created.document.id));
+    expect(await cardStatus()).toBe('Archived');
+    await isolated.close();
   });
 
   it('saves a null chunk_id when the retrieved document is deleted before T2', async () => {
