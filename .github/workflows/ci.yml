@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Read-only token; the job uses no repository secrets.
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      # Throwaway database that exists only for this job; credentials are not secrets.
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: jarvis
+          POSTGRES_PASSWORD: jarvis
+          POSTGRES_DB: jarvis_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U jarvis -d jarvis_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+
+    env:
+      # Stub provider only: CI never calls Gemini, so no API key is needed (§13.3).
+      LLM_PROVIDER: stub
+      TEST_DATABASE_URL: postgres://jarvis:jarvis@localhost:5433/jarvis_test
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.24.0
+
+      # Same major as the Docker image.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Same as docker/init-db.sql; migrations assume the extension exists.
+      - name: Enable pgvector
+        run: psql "$TEST_DATABASE_URL" -c 'CREATE EXTENSION IF NOT EXISTS vector'
+
+      - run: pnpm build
+
+      - run: pnpm test
