@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { App } from '../app.ts';
 import { badRequest } from '../errors.ts';
 import {
+  CATEGORIES,
   get,
   getVersionFile,
   impact,
@@ -12,8 +13,6 @@ import {
   setArchived,
 } from '../services/document.service.ts';
 import { parseEffectiveDate, queueDocument, queueVersion } from '../services/document-upload.service.ts';
-
-const CATEGORIES = ['Plans', 'Policies', 'Billing', 'FAQ', 'Security', 'Developer'] as const;
 
 const idParam = z.object({ id: z.coerce.number().int().positive() });
 const versionParams = z.object({

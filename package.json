@@ -10,6 +10,6 @@
     "seed": "pnpm --filter server seed",
     "worker": "pnpm --filter server worker",
     "eval": "pnpm --filter server eval",
-    "check:layers": "! rg -n \"from ['\\\"]drizzle-orm['\\\"]|from ['\\\"][^'\\\"]*db/\" server/src/routes"
+    "check:layers": "grep -rnE \"from ['\\\"](drizzle-orm|[^'\\\"]*db/)\" server/src/routes; test $? -eq 1"
   }
 }

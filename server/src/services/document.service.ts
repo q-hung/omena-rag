@@ -13,6 +13,9 @@ import {
 } from '../db/schema.ts';
 import { conflict, notFound } from '../errors.ts';
 
+// Routes validate against this but may not import db/ (M10).
+export { CATEGORIES } from '../db/schema.ts';
+
 function likePattern(term: string): string {
   return `%${term.replace(/[%_\\]/g, '\\$&')}%`;
 }
