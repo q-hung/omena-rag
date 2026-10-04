@@ -1,7 +1,7 @@
 # Jarvis — Implementation Tasks
 
 Source of truth: `REQ_V2.MD` v2.1 (cited as §n, requirement IDs as `AREA-NN`).
-Regenerated from §17 (milestones M0–M9). It replaces the earlier task list
+Regenerated from §17 (milestones M0–M9; M10 post-MVP). It replaces the earlier task list
 written for the customer-portal design. Mark a task `[x]` only when every
 acceptance check passes.
 
@@ -566,6 +566,34 @@ limit) is folded in too (IDX-01, T12, T18).
 
   Covered (4 Oct 2026). MVP complete. Optional §15 items stay unscheduled.
 
+## Phase 10 — LLM-judge support check (M10, post-MVP)
+
+Eval only (§13.4). Nothing in the request path or the UI changes.
+
+### [ ] T30 · Judge module, claim splitter and calibration set
+- **Goal:** judge whether each answer sentence follows from the sources it cites.
+- **Refs:** §13.4, JDG-02, JDG-03, JDG-05, §10, COST-03.
+- **Depends:** T27. Independent of BUGS B04: grouped markers are caught by the splitter either way.
+- **Acceptance:**
+  - `server/eval/claims.ts`: `splitClaims(text)` splits into sentences and maps `[F#]` / `[n]` markers to snapshot values and passage text; unresolved marker patterns (e.g. `[S2, S5]`) → `malformed_citation`.
+  - `server/eval/judge.ts`: one call per answer through the provider module; zod schema for `{ verdicts[] }`; missing, duplicate or unknown verdicts → `judge_error`.
+  - Config: `JUDGE_MODEL`, `JUDGE_PROMPT_VERSION`; refuses when `JUDGE_MODEL = GENERATION_MODEL`.
+  - Migration: `provider_calls.kind` CHECK gains `judge`. Each judge call reserves and reconciles budget with `purpose = 'eval'`; no text is stored.
+  - `server/eval/judge-labels.json`: ≥ 30 hand-labelled items, including the known-bad cases listed in §13.4.
+  - Vitest with a stubbed judge: JDG-02, JDG-03, JDG-05.
+- **Verify:** `pnpm --filter server test claims judge` passes; `grep -rn "judge" server/src` finds only the `CALL_KINDS` entry.
+
+### [ ] T31 · Judge in `pnpm eval` and baseline run
+- **Goal:** report sentence-level support in the eval and record a baseline.
+- **Refs:** §13.4, SC-5, JDG-01, JDG-04, EVAL-01.
+- **Depends:** T30.
+- **Acceptance:**
+  - `pnpm eval --judge` runs the calibration set first, then judges every `answer` / `insufficient_evidence` case; without `--judge`, output and calls are as in T27.
+  - The cost estimate printed before the run includes judge and calibration calls.
+  - The report adds calibration agreement, support rate, counts per label, malformed citations, judge errors, judge cost, and the `unsupported` / `partial` sentences per case with reasons.
+  - Below 85% agreement, or with any hand-labelled `unsupported` item judged `supported`, the report prints "Judge not calibrated — support rate not trusted" (JDG-04, stub test).
+- **Verify:** `LLM_PROVIDER=gemini pnpm eval --judge` on a calibrated judge reports support rate ≥ 90% (SC-5). Paste the report into this task and record a hand verdict for every `unsupported` sentence.
+
 ---
 
 ## Dependency order
@@ -579,8 +607,9 @@ T01 → T13 → T14 ───────────────┴→ T12 → 
                                        T15 → T19 ─┐                 │
                                        T08 → T20 ─┴→ T21 ←──────────┘
 T21 → T22, T23, T24 → T25 (+T16) → T26 → T27 → T28 → T29
+T27 → T30 → T31   (M10, post-MVP)
 ```
 
 **Optional (§15), not scheduled:** OPT-1 tool calling, OPT-2 streaming,
-OPT-3 LLM-judge eval, OPT-4 "Cited in answers", OPT-5 activation toast,
+OPT-4 "Cited in answers", OPT-5 activation toast,
 OPT-6 follow-up questions, OPT-7 HNSW, OPT-8 fact staleness.
