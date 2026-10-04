@@ -45,8 +45,10 @@ export function registerAuth(app: App, config: Config): void {
 
   // Every /api route except login needs a session, including unknown ones,
   // so a missing route never tells an anonymous caller more than a 401.
+  // B03: check the route Fastify matched, not the raw URL. The router decodes
+  // percent-escapes, so /%61pi/accounts reaches /api/accounts.
   app.addHook('onRequest', async (request) => {
-    const path = request.url.split('?')[0]!;
+    const path = request.routeOptions.url ?? request.url.split('?')[0]!;
     if (!path.startsWith('/api/') || PUBLIC_ROUTES.has(path)) return;
 
     const token = request.cookies[SESSION_COOKIE];

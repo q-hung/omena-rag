@@ -57,3 +57,23 @@ the check passes.
   `staged` that has `eff`. Manually: replace Refund policy v2 with
   `refund-policy-v3.md`. The page stays visible, shows v3 "Indexing · not
   active" with its effective date, and switches to v3 Active when indexing finishes.
+
+### [x] B03 · Percent-encoded paths skip authentication
+- **Result (4 Oct 2026):** the `onRequest` hook in `server/src/auth.ts` checks `request.routeOptions.url` (the matched route), and falls back to the raw path only when no route matched. `/%61pi/me`, `/%61pi/accounts`, `/api/%61ccounts`, `/%61pi/documents` and `POST /%61pi/documents/1/archive` with no cookie → 401. Regression test in `server/test/auth.test.ts`.
+
+- **Symptom:** with no session cookie, `GET /%61pi/accounts` returns 200 with
+  every account, and `GET /%61pi/accounts/1/facts` returns the account's facts.
+  `GET /%61pi/documents` lists the knowledge base, and
+  `POST /%61pi/documents/1/archive` archives a document. The `Origin` check
+  (SEC-03) doesn't stop this: a non-browser client can set any `Origin`.
+- **Cause:** the auth hook (`server/src/auth.ts:49`) decided by the raw URL:
+  `request.url.split('?')[0]` must start with `/api/`. The raw URL isn't
+  decoded, but Fastify's router decodes percent-escapes before matching. So
+  `/%61pi/accounts` fails the `/api/` test and skips the session check, then
+  the router sends it to `/api/accounts`. Handlers then run with
+  `request.employeeId` undefined. The auth tests only used clean paths.
+- **Fix:** decide by the matched route (`request.routeOptions.url`), which is
+  the same string the router used. Unmatched paths keep the raw-path check and
+  still end in 404.
+- **Check:** with no cookie, every encoded path above returns 401, and so do
+  the existing clean-path cases.

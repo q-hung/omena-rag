@@ -69,6 +69,15 @@ describe('authentication', () => {
     expect((await app.inject(asBrowser({ method: 'POST', url: '/api/auth/logout' }))).statusCode).toBe(401);
   });
 
+  it('requires a session when the path is percent-encoded (B03)', async () => {
+    // The router decodes %61 to "a"; the auth check must see the same route.
+    for (const url of ['/%61pi/me', '/%61pi/accounts', '/api/%61ccounts', '/%61pi/documents']) {
+      expect((await app.inject({ method: 'GET', url })).statusCode, url).toBe(401);
+    }
+    const write = await app.inject(asBrowser({ method: 'POST', url: '/%61pi/documents/1/archive' }));
+    expect(write.statusCode).toBe(401);
+  });
+
   it('rejects an expired session', async () => {
     const token = tokenOf(await login('ada@omena.example', PASSWORD));
     await db().update(sessions).set({ expiresAt: new Date(Date.now() - 1000) });
