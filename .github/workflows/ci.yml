@@ -58,4 +58,7 @@ jobs:
 
       - run: pnpm build
 
+      # M10 T37: routes stay thin — no Drizzle / db imports.
+      - run: pnpm check:layers
+
       - run: pnpm test

@@ -9,6 +9,7 @@
     "db:migrate": "pnpm --filter server db:migrate",
     "seed": "pnpm --filter server seed",
     "worker": "pnpm --filter server worker",
-    "eval": "pnpm --filter server eval"
+    "eval": "pnpm --filter server eval",
+    "check:layers": "! rg -n \"from ['\\\"]drizzle-orm['\\\"]|from ['\\\"][^'\\\"]*db/\" server/src/routes"
   }
 }
