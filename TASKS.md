@@ -1,7 +1,7 @@
 # Jarvis — Implementation Tasks
 
 Source of truth: `REQ_V2.MD` v2.1 (cited as §n, requirement IDs as `AREA-NN`).
-Regenerated from §17 (milestones M0–M9; M10 post-MVP). It replaces the earlier task list
+Regenerated from §17 (milestones M0–M9; M10 refactor; M11–M12 post-MVP). It replaces the earlier task list
 written for the customer-portal design. Mark a task `[x]` only when every
 acceptance check passes.
 
@@ -566,11 +566,87 @@ limit) is folded in too (IDX-01, T12, T18).
 
   Covered (4 Oct 2026). MVP complete. Optional §15 items stay unscheduled.
 
-## Phase 10 — LLM-judge support check (M10, post-MVP)
+## Phase 10 — Server layering refactor (M10)
+
+Structure only. No API, behaviour or UI change; every existing test passes unchanged except for import paths. Each task is one PR, done in two commits: `git mv` first, then edits, so `git blame` keeps the history. Bugs found along the way are logged in `BUGS.md`, not fixed here (known: `GET /api/documents/:id` runs one chunk query per version; `presentConversation` runs one source query per answer).
+
+Target layers in `server/src/`:
+- `routes/*.routes.ts`: zod schema + a thin handler (validate, call a service, set the status). No `db/` or `drizzle-orm` import.
+- `services/*.service.ts`: logic and queries. Drizzle is the query layer, so there is no repository layer.
+- `plugins/`: cross-cutting hooks, kept as plain `registerX(app, config)` functions (no `fastify-plugin`).
+- Entrypoints keep their paths: `api.ts`, `worker.ts`, `db/migrate.ts`.
+
+### [ ] T30 · Safety net
+- **Goal:** catch any route or response change before the files move.
+- **Depends:** T29.
+- **Acceptance:**
+  - Tests for the two routes that have none: `GET /api/documents/indexing-status`, `GET /api/documents/:id/impact`.
+  - A route inventory test that snapshots `app.printRoutes()`.
+- **Verify:** `pnpm --filter server test` passes.
+
+### [ ] T31 · Plugins and shared helpers
+- **Goal:** `app.ts` only wires plugins and routes.
+- **Depends:** T30.
+- **Acceptance:**
+  - `plugins/security.ts` (helmet, SEC-03 origin check), `plugins/errors.ts` (error handler, 404 + SPA fallback), `plugins/request-log.ts` (SEC-11 line).
+  - `rowsOf` moves from `upload.ts` to `db/`.
+  - `app.ts` ≤ ~30 lines.
+- **Verify:** `pnpm --filter server build && pnpm --filter server test`; the route snapshot is unchanged.
+
+### [ ] T32 · Accounts (pilot)
+- **Goal:** set the routes → services pattern on the smallest module.
+- **Depends:** T31.
+- **Acceptance:** `services/account.service.ts` (`listAccounts`, `getAccountFacts`); `routes/accounts.routes.ts` calls them; `accounts.ts` is deleted.
+- **Verify:** as T31.
+
+### [ ] T33 · Auth
+- **Goal:** move session checks and login out of route code.
+- **Depends:** T32.
+- **Acceptance:**
+  - `services/auth.service.ts`: `login` (rate limit, verify, create session), `logout`, `findSessionEmployee`, `getEmployee`.
+  - `plugins/auth.ts`: the `onRequest` session hook, keeping the B03 matched-route check as it is.
+  - `routes/auth.routes.ts`. Test imports of `SESSION_COOKIE` / `hashToken` are updated in the same PR (no re-export shim).
+- **Verify:** as T31; `auth.test.ts` passes.
+
+### [ ] T34 · Documents
+- **Goal:** take the SQL out of the KB routes.
+- **Depends:** T33.
+- **Acceptance:**
+  - `services/document.service.ts`: `list`, `indexingBusy`, `get`, `remove`, `setArchived`, `retryVersion`, `impact`, `getVersionFile`.
+  - `upload.ts` → `services/document-upload.service.ts`. `readMultipart` stays in `routes/documents.routes.ts` (HTTP only).
+- **Verify:** as T31; `kb`, `upload` tests pass.
+
+### [ ] T35 · Conversations
+- **Goal:** take the SQL and presentation logic out of the conversation routes.
+- **Depends:** T34.
+- **Acceptance:**
+  - Commit 1: `presentConversation`, `presentSummaries`, `presentAnswer`, `citeCard` → `services/conversation-view.service.ts`.
+  - Commit 2: History filter query and `accountsWithSignal` → `services/conversation-list.service.ts`.
+  - `routes/conversations.routes.ts` keeps the 7 handlers, `PATCH /api/answers/:id` included.
+  - `generate.ts`, `review.ts` → `services/` (rename only).
+- **Verify:** as T31; `generate`, `review`, `edit`, `clarify`, `conversations-list`, `history-state` tests pass.
+
+### [ ] T36 · Domain folders
+- **Goal:** group the remaining modules by job.
+- **Depends:** T35.
+- **Acceptance:**
+  - `rag/`: `retrieve`, `prompt`, `normalise`, `chunk`. `ingest/`: worker logic, `extract*`. `config/`: `config`, `env`. `context.ts` → `services/account-context.service.ts`, `state.ts` → `services/`.
+  - `package.json` scripts, `Dockerfile`, `docker/entrypoint.sh`, `eval/` and `scripts/` imports are updated if paths change.
+- **Verify:** as T31; `pnpm eval` starts in stub mode up to its refusal; `docker compose up --build` serves `/ask`.
+
+### [ ] T37 · Layer guardrail
+- **Goal:** stop SQL from creeping back into routes.
+- **Depends:** T36.
+- **Acceptance:**
+  - A CI step fails if `server/src/routes/` imports `db/` or `drizzle-orm`.
+  - The layer rules are added to `CLAUDE.md` and `AGENTS.md`.
+- **Verify:** adding a `db` import to a route file fails CI locally (`grep` step); removing it passes.
+
+## Phase 11 — LLM-judge support check (M11, post-MVP)
 
 Eval only (§13.4). Nothing in the request path or the UI changes.
 
-### [ ] T30 · Judge module, claim splitter and calibration set
+### [ ] T38 · Judge module, claim splitter and calibration set
 - **Goal:** judge whether each answer sentence follows from the sources it cites.
 - **Refs:** §13.4, JDG-02, JDG-03, JDG-05, §10, COST-03.
 - **Depends:** T27. Independent of BUGS B04: grouped markers are caught by the splitter either way.
@@ -583,10 +659,10 @@ Eval only (§13.4). Nothing in the request path or the UI changes.
   - Vitest with a stubbed judge: JDG-02, JDG-03, JDG-05.
 - **Verify:** `pnpm --filter server test claims judge` passes; `grep -rn "judge" server/src` finds only the `CALL_KINDS` entry.
 
-### [ ] T31 · Judge in `pnpm eval` and baseline run
+### [ ] T39 · Judge in `pnpm eval` and baseline run
 - **Goal:** report sentence-level support in the eval and record a baseline.
 - **Refs:** §13.4, SC-5, JDG-01, JDG-04, EVAL-01.
-- **Depends:** T30.
+- **Depends:** T38.
 - **Acceptance:**
   - `pnpm eval --judge` runs the calibration set first, then judges every `answer` / `insufficient_evidence` case; without `--judge`, output and calls are as in T27.
   - The cost estimate printed before the run includes judge and calibration calls.
@@ -594,11 +670,11 @@ Eval only (§13.4). Nothing in the request path or the UI changes.
   - Below 85% agreement, or with any hand-labelled `unsupported` item judged `supported`, the report prints "Judge not calibrated — support rate not trusted" (JDG-04, stub test).
 - **Verify:** `LLM_PROVIDER=gemini pnpm eval --judge` on a calibrated judge reports support rate ≥ 90% (SC-5). Paste the report into this task and record a hand verdict for every `unsupported` sentence.
 
-## Phase 11 — Hybrid retrieval with RRF (M11, post-MVP)
+## Phase 12 — Hybrid retrieval with RRF (M12, post-MVP)
 
-Retrieval only (§7.7). Prompt, normaliser and UI are unchanged. Independent of M10.
+Retrieval only (§7.7). Prompt, normaliser and UI are unchanged. Independent of M11.
 
-### [ ] T32 · Lexical index, RRF fusion and retrieval mode
+### [ ] T40 · Lexical index, RRF fusion and retrieval mode
 - **Goal:** add full-text search beside vector search and fuse them by rank, so exact tokens (codes, currencies, feature names) are found.
 - **Refs:** §7.7, RET-01/02, HYB-01–04.
 - **Depends:** T27.
@@ -610,10 +686,10 @@ Retrieval only (§7.7). Prompt, normaliser and UI are unchanged. Independent of 
   - Vitest: HYB-02 (pure `rrf`); HYB-01 and HYB-03 against `jarvis_test` with the lexical SQL (no embeddings needed); HYB-04.
 - **Verify:** `pnpm --filter server test retrieve` passes; `RETRIEVAL_MODE=vector pnpm test` is green with no test changes.
 
-### [ ] T33 · Golden cases E16–E20 and vector-vs-hybrid baseline
+### [ ] T41 · Golden cases E16–E20 and vector-vs-hybrid baseline
 - **Goal:** measure whether hybrid helps before turning it on.
 - **Refs:** §7.7, §13.2, SC-1, SC-2, SC-6, EVAL-01.
-- **Depends:** T32.
+- **Depends:** T40.
 - **Acceptance:**
   - `server/eval/golden.json` gains E16–E20 (§13.2) with expected documents.
   - The eval report prints `RETRIEVAL_MODE`. The cost estimate is unchanged (no extra provider calls; lexical search is SQL only).
@@ -634,8 +710,9 @@ T01 → T13 → T14 ───────────────┴→ T12 → 
                                        T15 → T19 ─┐                 │
                                        T08 → T20 ─┴→ T21 ←──────────┘
 T21 → T22, T23, T24 → T25 (+T16) → T26 → T27 → T28 → T29
-T27 → T30 → T31   (M10, post-MVP)
-T27 → T32 → T33   (M11, post-MVP)
+T29 → T30 → T31 → T32 → T33 → T34 → T35 → T36 → T37   (M10, refactor)
+T27 → T38 → T39   (M11, post-MVP)
+T27 → T40 → T41   (M12, post-MVP)
 ```
 
 **Optional (§15), not scheduled:** OPT-1 tool calling, OPT-2 streaming,
