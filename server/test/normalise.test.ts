@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { buildAccountSnapshot } from '../src/context.ts';
 import { db } from '../src/db/index.ts';
 import { accounts } from '../src/db/schema.ts';
-import { I2_TEXT, normalise } from '../src/normalise.ts';
+import { I2_TEXT, normalise, stripMarkers } from '../src/normalise.ts';
 import type { Passage } from '../src/retrieve.ts';
 import { seed } from '../src/seed.ts';
 
@@ -44,6 +44,17 @@ const base = {
 };
 
 describe('normalise', () => {
+  it('splits grouped markers, keeps valid ids and flags unknown ones', () => {
+    const result = normalise(
+      { ...base, answer: 'x [S2, S5]. Also [F1, S3].' },
+      { facts, passages: [passage(1), passage(2), passage(3)] },
+    );
+    expect(result.text).toBe('x [1]. Also [F1] [2].');
+    expect(result.reviewReasons).toContain('invalid_citation_removed');
+    expect(result.sources.map((s) => s.citationNumber)).toEqual([1, 2]);
+    expect(stripMarkers(result.text)).not.toMatch(/\[/);
+  });
+
   it('removes [S9] when only 3 passages were given and flags it', () => {
     const result = normalise(
       { ...base, answer: 'See [S1] and [S9].' },

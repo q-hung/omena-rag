@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { buildAccountSnapshot } from '../src/context.ts';
 import { db } from '../src/db/index.ts';
 import { accounts, employees } from '../src/db/schema.ts';
-import { TOKEN_BUDGET, buildPrompt, estimateTokens } from '../src/prompt.ts';
+import { PROMPT_VERSION, TOKEN_BUDGET, buildPrompt, estimateTokens } from '../src/prompt.ts';
 import type { Passage } from '../src/retrieve.ts';
 import { seed } from '../src/seed.ts';
 
@@ -67,7 +67,8 @@ describe('prompt', () => {
         passages: [sample],
         question: 'Why is SSO locked?',
       });
-      expect(prompt).toContain('prompt_version: v1');
+      expect(prompt).toContain(`prompt_version: ${PROMPT_VERSION}`);
+      expect(prompt).toContain('One id per marker');
       expect(prompt).toContain('F1 |');
       expect(prompt).toContain('S1 |');
       expect(prompt).toContain('<untrusted>');

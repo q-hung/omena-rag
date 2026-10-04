@@ -5,6 +5,7 @@ import { finalText, saveHint, stripMarkers } from './model.js';
 test('copy strips citation markers', () => {
   assert.equal(stripMarkers('Basic plan [F1], locked [1][2].'), 'Basic plan, locked.');
   assert.ok(!stripMarkers('The account is on Pro [F1] [1].').includes('['));
+  assert.ok(!stripMarkers('Retry-After header [S2, S5].').includes('['));
 });
 
 test('save hint covers the common blocks', () => {

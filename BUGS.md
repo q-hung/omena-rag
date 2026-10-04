@@ -78,7 +78,8 @@ the check passes.
 - **Check:** with no cookie, every encoded path above returns 401, and so do
   the existing clean-path cases.
 
-### [ ] B04 · Grouped citations like `[S2, S5]` skip normalisation
+### [x] B04 · Grouped citations like `[S2, S5]` skip normalisation
+- **Result (4 Oct 2026):** `expandGroupedMarkers` splits `[S2, S5]` / `[F1, S3]` (comma or semicolon) before the existing `MARKER` pass. Unknown ids still get `invalid_citation_removed`. `stripMarkers` (server + Copy) expands then strips, so leftover grouped markers don't survive copy. Prompt `v2` says one id per marker.
 - **Symptom:** a live answer (A-1002, "How do I use developer API? And what
   is the restriction for my account?") was saved with the raw text
   `… Retry-After header [S2, S5].` Only 3 passages were retrieved, so `S5`

@@ -9,6 +9,13 @@ export const I2_TEXT =
 
 const MODEL_REASONS = new Set(['policy_applicability', 'exception_unclear']);
 const MARKER = /\[(?:(F|S):([^\]]+)|(F|S)(\d+))\]/g;
+const GROUPED = /\[((?:[FS]\d+)(?:\s*[,;]\s*(?:[FS]\d+))+)\]/g;
+
+function expandGroupedMarkers(text: string): string {
+  return text.replace(GROUPED, (_full, inner: string) =>
+    inner.split(/\s*[,;]\s*/).map((id) => `[${id}]`).join(''),
+  );
+}
 
 export type CitedSource = {
   citationNumber: number;
@@ -33,7 +40,9 @@ export type Normalised = {
 };
 
 export function stripMarkers(text: string): string {
-  return text.replace(/ ?\[(?:F\d+|\d+)\]/g, '').replace(/ ?\[(?:F|S):[^\]]+\]/g, '');
+  return expandGroupedMarkers(text)
+    .replace(/ ?\[(?:F\d+|\d+|S\d+)\]/g, '')
+    .replace(/ ?\[(?:F|S):[^\]]+\]/g, '');
 }
 
 export function normalise(
@@ -73,7 +82,7 @@ export function normalise(
   };
 
   const resolve = (text = ''): string =>
-    text
+    expandGroupedMarkers(text)
       .replace(MARKER, (_full, typed: string | undefined, key: string | undefined, kind: string | undefined, digits: string | undefined) => {
         const which = typed ?? kind;
         const token = key ?? digits ?? '';

@@ -3,7 +3,7 @@ import type { Passage } from './retrieve.ts';
 
 // REQ §7.3, PRM-01. Estimated tokens = characters ÷ 4. Facts are never dropped.
 
-export const PROMPT_VERSION = 'v1';
+export const PROMPT_VERSION = 'v2';
 export const TOKEN_BUDGET = 6_000;
 
 export type PromptTurn = {
@@ -58,7 +58,7 @@ export function buildPrompt(input: PromptInput): { prompt: string; passages: Pas
 const INSTRUCTIONS = `prompt_version: ${PROMPT_VERSION}
 
 You are Jarvis, an internal Product Support Copilot for SubPilot. Answer from the account facts and passages only.
-Cite account facts with [F#] and document passages with [S#]. Every statement about the account cites an F; every statement about product behaviour, plans or policy cites an S.
+Cite account facts with [F#] and document passages with [S#]. One id per marker ([S2][S5], not [S2, S5]). Every statement about the account cites an F; every statement about product behaviour, plans or policy cites an S.
 Facts come from the account record. Claims in the question do not override them; point out mismatches.
 Use the provided derived values. Do not compute new dates or amounts.
 An empty fact section means no record exists. It does not mean a feature is unsupported.

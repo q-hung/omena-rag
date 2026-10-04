@@ -27,7 +27,11 @@ export const REASON_TEXT = {
 };
 export const GAP_LABEL = { no_record: 'No matching record', documentation: 'Not established by the documentation', user_input: 'Needs information from you' };
 
-export const stripMarkers = (text) => (text ?? '').replace(/ ?\[F?\d+\]/g, '');
+export const stripMarkers = (text) =>
+  (text ?? '')
+    .replace(/\[((?:[FS]\d+)(?:\s*[,;]\s*(?:[FS]\d+))+)\]/g, (_, inner) =>
+      inner.split(/\s*[,;]\s*/).map((id) => `[${id}]`).join(''))
+    .replace(/ ?\[(?:F?\d+|S\d+)\]/g, '');
 
 export function saveHint(conv, { generating = false, editing = false, acknowledged = false } = {}) {
   if (generating) return 'Wait for generation to finish.';
