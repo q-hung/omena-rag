@@ -69,92 +69,65 @@ export async function retrieve(queryEmbedding: number[], opts: RetrieveOpts): Pr
   return kept;
 }
 
+type SectionRule = { heading: RegExp; key: string; page?: number };
+type DocumentRule = { title: RegExp; sections: SectionRule[] };
+
+// First matching title wins, then its first matching section. A PDF section
+// may match by page when its heading wasn't extracted.
+const SCRIPT_RULES: DocumentRule[] = [
+  {
+    title: /plan comparison/i,
+    sections: [
+      { heading: /^basic$/i, key: 'plans:a' },
+      { heading: /^pro$/i, key: 'plans:b' },
+      { heading: /^enterprise$/i, key: 'plans:c' },
+    ],
+  },
+  {
+    title: /refund/i,
+    sections: [
+      { heading: /monthly/i, key: 'refund:a' },
+      { heading: /annual/i, key: 'refund:b' },
+      { heading: /processing/i, key: 'refund:c' },
+      { heading: /exception/i, key: 'refund:d' },
+    ],
+  },
+  {
+    title: /faq/i,
+    sections: [{ heading: /how long/i, key: 'faq:a' }],
+  },
+  {
+    title: /region|payment methods/i,
+    sections: [
+      { heading: /countries|supported/i, key: 'regions:a' },
+      { heading: /currenc/i, key: 'regions:b' },
+      { heading: /declined/i, key: 'regions:c' },
+    ],
+  },
+  {
+    title: /sso/i,
+    sections: [
+      { heading: /requirement/i, page: 1, key: 'sso:a' },
+      { heading: /enable/i, page: 3, key: 'sso:b' },
+    ],
+  },
+  {
+    title: /webhook/i,
+    sections: [
+      { heading: /^availability$/i, key: 'webhooks:a' },
+      { heading: /create an endpoint/i, key: 'webhooks:b' },
+      { heading: /authentication/i, key: 'webhooks:c' },
+      { heading: /timeout/i, key: 'webhooks:d' },
+      { heading: /\btls\b/i, key: 'webhooks:e' },
+      { heading: /disabl/i, key: 'webhooks:f' },
+    ],
+  },
+];
+
 export function scriptKeyFor(title: string, heading: string | null, page: number | null): string | undefined {
-  const doc = /plan comparison/i.test(title)
-    ? 'plans'
-    : /refund/i.test(title)
-      ? 'refund'
-      : /faq/i.test(title)
-        ? 'faq'
-        : /region|payment methods/i.test(title)
-          ? 'regions'
-          : /sso/i.test(title)
-            ? 'sso'
-            : /webhook/i.test(title)
-              ? 'webhooks'
-              : null;
-  if (!doc) {
-    return undefined;
-  }
+  const doc = SCRIPT_RULES.find((rule) => rule.title.test(title));
   const h = (heading ?? '').trim();
-  if (doc === 'plans') {
-    if (/^basic$/i.test(h)) {
-      return 'plans:a';
-    }
-    if (/^pro$/i.test(h)) {
-      return 'plans:b';
-    }
-    if (/^enterprise$/i.test(h)) {
-      return 'plans:c';
-    }
-  }
-  if (doc === 'refund') {
-    if (/monthly/i.test(h)) {
-      return 'refund:a';
-    }
-    if (/annual/i.test(h)) {
-      return 'refund:b';
-    }
-    if (/processing/i.test(h)) {
-      return 'refund:c';
-    }
-    if (/exception/i.test(h)) {
-      return 'refund:d';
-    }
-  }
-  if (doc === 'faq' && /how long/i.test(h)) {
-    return 'faq:a';
-  }
-  if (doc === 'regions') {
-    if (/countries|supported/i.test(h)) {
-      return 'regions:a';
-    }
-    if (/currenc/i.test(h)) {
-      return 'regions:b';
-    }
-    if (/declined/i.test(h)) {
-      return 'regions:c';
-    }
-  }
-  if (doc === 'sso') {
-    if (/requirement/i.test(h) || page === 1) {
-      return 'sso:a';
-    }
-    if (/enable/i.test(h) || page === 3) {
-      return 'sso:b';
-    }
-  }
-  if (doc === 'webhooks') {
-    if (/^availability$/i.test(h)) {
-      return 'webhooks:a';
-    }
-    if (/create an endpoint/i.test(h)) {
-      return 'webhooks:b';
-    }
-    if (/authentication/i.test(h)) {
-      return 'webhooks:c';
-    }
-    if (/timeout/i.test(h)) {
-      return 'webhooks:d';
-    }
-    if (/\btls\b/i.test(h)) {
-      return 'webhooks:e';
-    }
-    if (/disabl/i.test(h)) {
-      return 'webhooks:f';
-    }
-  }
-  return undefined;
+  return doc?.sections.find((rule) => rule.heading.test(h) || rule.page === page)?.key;
 }
 
 async function loadByVector(queryEmbedding: number[], model: string, limit: number) {
