@@ -102,7 +102,9 @@ the check passes.
   plus `invalid_citation_removed`; `[F1, S3]` resolves both. Copy on an
   answer whose model text contained a grouped marker yields no `[`.
 
-### [ ] B05 · Large documents embed in one call and can get the wrong vectors
+### [x] B05 · Large documents embed in one call and can get the wrong vectors
+- **Result (6 Oct 2026):** `processVersion` embeds in batches of 100 (`EMBED_BATCH_SIZE`, Gemini's per-request cap). Each batch is its own `paidAttempt`. `vectors.length !== batch.length` throws `INVALID_OUTPUT`; the version is `failed` and no chunks are inserted. `worker.test.ts` covers a short vector list and a 101-chunk document (2 `embed_document` rows, distinct vectors).
+
 - **Symptom:** none seen yet. Found by reading the code while checking how a
   100-page PDF (the upload maximum) is indexed. Two risks: the embed call is
   rejected or times out, so the version fails; or the version becomes `ready`

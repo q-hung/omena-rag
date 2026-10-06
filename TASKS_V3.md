@@ -18,7 +18,7 @@ What exists and how V3 uses it:
 | Upload validation (PDF magic bytes, strict UTF-8 Markdown, 3 MB) | `server/src/upload.ts` | **Reuse**; add `.txt` |
 | Sandboxed extraction (child process, timeout, `env: {}`), PDF per page with blank-page warnings, Markdown headings | `server/src/extract*.ts`, `extract/` | **Reuse** for KB `.txt` and RFP files |
 | Chunker (section/page, ~500 tokens, heading path) | `server/src/chunk.ts` | **Reuse** unchanged |
-| Worker: `SKIP LOCKED` claim, activation transaction, stale-processing recovery, reservation sweeper | `server/src/worker.ts` | **Reuse loop**; add an RFP-question claim. **B05 open**: one embed call per document, silent vector fallback (`worker.ts:153`) |
+| Worker: `SKIP LOCKED` claim, activation transaction, stale-processing recovery, reservation sweeper | `server/src/worker.ts` | **Reuse loop**; add an RFP-question claim. **B05 fixed**: batched `embedDocuments` in `ingest/indexing.ts` |
 | Document model with versions, active-version filter, `created_by`, archive/delete | `server/src/db/schema.ts`, `documents.ts` | **Reuse**; add 2 categories |
 | Retrieval: exact cosine top 8, access filter in SQL, min score; stub token overlap | `server/src/retrieve.ts` | **Reuse** unchanged. Hybrid is already planned as TASKS T40/T41 |
 | Provider interface (`embedDocuments`, `embedQuery`, `generate`), Gemini JSON-schema output, zod validation, retries, deadline, truncation = failure | `server/src/llm/` | **Extend**: `generate` is hard-wired to the Ask schema (`llm/schema.ts`) — add a schema-parameterised call |
@@ -449,14 +449,14 @@ The seeded KB is SubPilot product docs; an RFP demo needs security/compliance co
 **Implementation**
 
 - `server/src/upload.ts` `inspectFile`: `.txt` → `text/plain`, same rules as Markdown; `extract/run.ts`: `.txt` → one section, no heading; `UploadDialog.jsx` accept list.
-- **B05** (BUGS.md): batch `embedDocuments` in `worker.ts:processVersion` (batch size from the provider limit for `EMBEDDING_MODEL`, e.g. 100), one `paidAttempt` per batch; replace `?? vectors[0]` with a hard length check → `failed`. Tick B05.
+- **B05** (BUGS.md): **done** — `ingest/indexing.ts` batches `embedDocuments` at 100, one `paidAttempt` per batch; length mismatch → `failed`.
 - `server/fixtures/kb/`: `security-overview.md` (encryption at rest/in transit, key management), `data-retention-and-deletion.md`, `access-control.md` (SSO, MFA, least privilege), `business-continuity.txt` (RPO/RTO), `subprocessors.md`; categories Security / Compliance / Company. Deliberately **silent** on certifications (SOC 2, ISO 27001) so the golden set has unanswerable questions. Seeded by `server/src/seed.ts`.
 - Category options in the KB UI include Company and Compliance.
 
 **Acceptance criteria**
 
 - [ ] `.txt` upload with invalid UTF-8 → 400; valid `.txt` → `ready` with chunks
-- [ ] B05 checks: stub returning fewer vectors than chunks → version `failed`, no chunks; a document with more chunks than the batch size → several `embed_document` rows, each chunk its own vector
+- [x] B05 checks: stub returning fewer vectors than chunks → version `failed`, no chunks; a document with more chunks than the batch size → several `embed_document` rows, each chunk its own vector
 - [ ] `pnpm seed && pnpm worker --once` → all new fixtures `ready`
 - [ ] `upload.test.ts`, `extract.test.ts`, `worker.test.ts` extended
 
