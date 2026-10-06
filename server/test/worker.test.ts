@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { db } from '../src/db/index.ts';
 import { budgetDays, documentChunks, documentVersions, documents, providerCalls } from '../src/db/schema.ts';
@@ -7,14 +7,8 @@ import { utcToday } from '../src/lib/format.ts';
 import { stubProvider } from '../src/llm/stub.ts';
 import { seed } from '../src/seed.ts';
 import { queueDocument, queueVersion } from '../src/services/document-upload.service.ts';
-import {
-  activateVersion,
-  claimVersion,
-  EMBED_BATCH_SIZE,
-  failStaleProcessing,
-  processVersion,
-  runWorker,
-} from '../src/worker.ts';
+import { EMBED_BATCH_SIZE } from '../src/ingest/indexing.ts';
+import { activateVersion, claimVersion, failStaleProcessing, processVersion, runWorker } from '../src/worker.ts';
 
 const unit = () => {
   const v = new Array<number>(768).fill(0);
@@ -206,7 +200,11 @@ describe('indexing worker', () => {
     });
     await processVersion(created.version.id);
     const [row] = await db().select().from(documentVersions).where(eq(documentVersions.id, created.version.id));
-    const chunks = await db().select().from(documentChunks).where(eq(documentChunks.versionId, created.version.id));
+    const chunks = await db()
+      .select()
+      .from(documentChunks)
+      .where(eq(documentChunks.versionId, created.version.id))
+      .orderBy(asc(documentChunks.chunkIndex));
     const calls = await db()
       .select()
       .from(providerCalls)
@@ -214,7 +212,15 @@ describe('indexing worker', () => {
     expect(row?.indexingStatus).toBe('ready');
     expect(chunks).toHaveLength(n);
     expect(calls.filter((c) => c.status === 'ok')).toHaveLength(2);
-    expect(new Set(chunks.map((c) => String(c.embedding))).size).toBe(n);
+    // Each chunk, including the one in batch 2, stores its own text's vector.
+    // pgvector keeps float4, so compare at that precision.
+    const expected = await stubProvider().embedDocuments(
+      chunks.map((c) => ({ title: c.heading ?? undefined, text: c.text })),
+      Date.now() + 60_000,
+    );
+    chunks.forEach((c, i) => {
+      expect(c.embedding.map(Math.fround)).toEqual(expected.vectors[i]!.map(Math.fround));
+    });
   });
 
   it('fails with the budget message when the daily cap is reached', async () => {

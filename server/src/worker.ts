@@ -2,7 +2,6 @@ import './config/env.ts';
 export {
   activateVersion,
   claimVersion,
-  EMBED_BATCH_SIZE,
   failStaleProcessing,
   processVersion,
   runWorker,

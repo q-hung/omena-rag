@@ -103,7 +103,7 @@ the check passes.
   answer whose model text contained a grouped marker yields no `[`.
 
 ### [x] B05 · Large documents embed in one call and can get the wrong vectors
-- **Result (6 Oct 2026):** `processVersion` embeds in batches of 100 (`EMBED_BATCH_SIZE`, Gemini's per-request cap). Each batch is its own `paidAttempt`. `vectors.length !== batch.length` throws `INVALID_OUTPUT`; the version is `failed` and no chunks are inserted. `worker.test.ts` covers a short vector list and a 101-chunk document (2 `embed_document` rows, distinct vectors).
+- **Result (6 Oct 2026):** `processVersion` embeds in batches of 100 (`EMBED_BATCH_SIZE`, Gemini's per-request cap). Each batch is its own `paidAttempt`. `vectors.length !== batch.length` throws `INVALID_OUTPUT`; the version is `failed` and no chunks are inserted. `worker.test.ts` covers a short vector list and a 101-chunk document (2 `embed_document` rows; every chunk, including the one in batch 2, stores its own text's vector). The Gemini provider already threw `INVALID_OUTPUT` on a count or dimension mismatch (`server/src/llm/gemini.ts:62`), so live mode never hit the `vectors[0]` fallback; the indexer check guards any provider, including the stub.
 
 - **Symptom:** none seen yet. Found by reading the code while checking how a
   100-page PDF (the upload maximum) is indexed. Two risks: the embed call is
