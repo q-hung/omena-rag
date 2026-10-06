@@ -6,11 +6,15 @@ import { documentChunks, documentFiles, documentVersions, documents } from '../d
 import { AppError } from '../errors.ts';
 import { extract } from './extract.ts';
 import { paidAttempt, sweepAbandonedReservations } from '../llm/budget.ts';
+import { ProviderError } from '../llm/errors.ts';
 import { createProvider } from '../llm/provider.ts';
+import type { Provider } from '../llm/types.ts';
 import { rowsOf } from '../db/rows.ts';
 
 const STALE_MS = 10 * 60 * 1000;
 const BUDGET_FAIL = 'Daily budget reached — retry later';
+// ponytail: gemini-embedding-2 cap is 100 inputs/request; per-model table if another embedder is added.
+export const EMBED_BATCH_SIZE = 100;
 
 export async function claimVersion() {
   return db().transaction(async (tx) => {
@@ -120,7 +124,7 @@ function failMessage(error: unknown): string {
   return 'Indexing failed.';
 }
 
-export async function processVersion(versionId: number): Promise<void> {
+export async function processVersion(versionId: number, provider?: Provider): Promise<void> {
   const cfg = loadConfig();
   try {
     const [version] = await db().select().from(documentVersions).where(eq(documentVersions.id, versionId));
@@ -140,31 +144,37 @@ export async function processVersion(versionId: number): Promise<void> {
       throw new Error('The document has no extractable text.');
     }
 
-    const provider = createProvider(cfg);
-    const inputChars = pieces.reduce((n, p) => n + p.text.length, 0);
-    const embedded = await paidAttempt(
-      {
-        kind: 'embed_document',
-        purpose: 'indexing',
-        attempt: 1,
-        model: cfg.EMBEDDING_MODEL,
-        inputChars,
-        documentVersionId: versionId,
-      },
-      async () => ({
-        value: await provider.embedDocuments(
-          pieces.map((p) => ({ title: p.heading ?? undefined, text: p.text })),
-          Date.now() + 60_000,
-        ),
-      }),
-      cfg,
-    );
+    const embedder = provider ?? createProvider(cfg);
+    const inputs = pieces.map((p) => ({ title: p.heading ?? undefined, text: p.text }));
+    const vectors: number[][] = [];
+    for (let i = 0; i < inputs.length; i += EMBED_BATCH_SIZE) {
+      const batch = inputs.slice(i, i + EMBED_BATCH_SIZE);
+      const embedded = await paidAttempt(
+        {
+          kind: 'embed_document',
+          purpose: 'indexing',
+          attempt: 1,
+          model: cfg.EMBEDDING_MODEL,
+          inputChars: batch.reduce((n, p) => n + p.text.length, 0),
+          documentVersionId: versionId,
+        },
+        async () => {
+          const value = await embedder.embedDocuments(batch, Date.now() + 60_000);
+          if (value.vectors.length !== batch.length) {
+            throw new ProviderError('INVALID_OUTPUT', 'Embedding response was incomplete.');
+          }
+          return { value };
+        },
+        cfg,
+      );
+      vectors.push(...embedded.vectors);
+    }
 
     await activateVersion(
       versionId,
       pieces.map((p, i) => ({
         ...p,
-        embedding: embedded.vectors[i] ?? embedded.vectors[0]!,
+        embedding: vectors[i]!,
       })),
       {
         warnings: extracted.warnings,

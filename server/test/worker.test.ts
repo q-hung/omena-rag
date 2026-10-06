@@ -1,11 +1,13 @@
-import { eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { db } from '../src/db/index.ts';
-import { budgetDays, documentChunks, documentVersions, documents } from '../src/db/schema.ts';
+import { budgetDays, documentChunks, documentVersions, documents, providerCalls } from '../src/db/schema.ts';
 import { buildPdf } from '../src/ingest/extract/pdfBytes.ts';
 import { utcToday } from '../src/lib/format.ts';
+import { stubProvider } from '../src/llm/stub.ts';
 import { seed } from '../src/seed.ts';
 import { queueDocument, queueVersion } from '../src/services/document-upload.service.ts';
+import { EMBED_BATCH_SIZE } from '../src/ingest/indexing.ts';
 import { activateVersion, claimVersion, failStaleProcessing, processVersion, runWorker } from '../src/worker.ts';
 
 const unit = () => {
@@ -160,6 +162,65 @@ describe('indexing worker', () => {
     const [row] = await db().select().from(documentVersions).where(eq(documentVersions.id, created.version.id));
     expect(row?.indexingStatus).toBe('failed');
     expect(row?.indexingError).toBe('Indexing timed out.');
+  });
+
+  it('fails the version when the provider returns fewer vectors than chunks', async () => {
+    const created = await queueDocument({
+      title: 'Incomplete embed',
+      category: 'Developer',
+      effectiveAt: utcToday(),
+      filename: 'short.md',
+      bytes: Buffer.from('# A\none\n\n# B\ntwo\n', 'utf8'),
+      employeeId: null,
+    });
+    const stub = stubProvider();
+    await processVersion(created.version.id, {
+      ...stub,
+      embedDocuments: async (chunks, deadline) => {
+        const { vectors } = await stub.embedDocuments(chunks, deadline);
+        return { vectors: vectors.slice(0, -1) };
+      },
+    });
+    const [row] = await db().select().from(documentVersions).where(eq(documentVersions.id, created.version.id));
+    const chunks = await db().select().from(documentChunks).where(eq(documentChunks.versionId, created.version.id));
+    expect(row?.indexingStatus).toBe('failed');
+    expect(row?.indexingError).toBe('Embedding response was incomplete.');
+    expect(chunks).toHaveLength(0);
+  });
+
+  it('embeds a document larger than the batch size with one call per batch', async () => {
+    const n = EMBED_BATCH_SIZE + 1;
+    const created = await queueDocument({
+      title: 'Over batch size',
+      category: 'Developer',
+      effectiveAt: utcToday(),
+      filename: 'many.md',
+      bytes: Buffer.from(Array.from({ length: n }, (_, i) => `# H${i}\nchunk ${i} unique.\n`).join('\n'), 'utf8'),
+      employeeId: null,
+    });
+    await processVersion(created.version.id);
+    const [row] = await db().select().from(documentVersions).where(eq(documentVersions.id, created.version.id));
+    const chunks = await db()
+      .select()
+      .from(documentChunks)
+      .where(eq(documentChunks.versionId, created.version.id))
+      .orderBy(asc(documentChunks.chunkIndex));
+    const calls = await db()
+      .select()
+      .from(providerCalls)
+      .where(and(eq(providerCalls.documentVersionId, created.version.id), eq(providerCalls.kind, 'embed_document')));
+    expect(row?.indexingStatus).toBe('ready');
+    expect(chunks).toHaveLength(n);
+    expect(calls.filter((c) => c.status === 'ok')).toHaveLength(2);
+    // Each chunk, including the one in batch 2, stores its own text's vector.
+    // pgvector keeps float4, so compare at that precision.
+    const expected = await stubProvider().embedDocuments(
+      chunks.map((c) => ({ title: c.heading ?? undefined, text: c.text })),
+      Date.now() + 60_000,
+    );
+    chunks.forEach((c, i) => {
+      expect(c.embedding.map(Math.fround)).toEqual(expected.vectors[i]!.map(Math.fround));
+    });
   });
 
   it('fails with the budget message when the daily cap is reached', async () => {
