@@ -412,4 +412,46 @@ describe('schema', () => {
     expect(source?.documentId).toBe(doc.id);
     expect(source?.versionId).toBe(version!.id);
   });
+
+  it('enforces REV-02 review fields and the retrieval mode', async () => {
+    const employee = await anEmployee();
+    const [rfp] = await db()
+      .insert(rfps)
+      .values({ title: 'Rules', sourceKind: 'paste', sourceText: 'q', status: 'confirmed', createdBy: employee.id })
+      .returning();
+    const [question] = await db().insert(rfpQuestions).values({ rfpId: rfp!.id, seq: 1, text: 'SSO?' }).returning();
+    const answerRow = {
+      questionId: question!.id,
+      answerText: 'Yes [1].',
+      evidenceStatus: 'HIGH_EVIDENCE',
+      modelEvidenceStatus: 'HIGH_EVIDENCE',
+      model: 'stub',
+      promptVersion: 'v1',
+      retrievalMode: 'vector',
+    };
+    expect(
+      await violatedConstraint(() => db().insert(rfpAnswers).values({ ...answerRow, retrievalMode: 'Vector' })),
+    ).toBe('rfp_answers_retrieval_mode');
+    const [answer] = await db().insert(rfpAnswers).values(answerRow).returning();
+    const review = (fields: Partial<typeof rfpReviews.$inferInsert>) => () =>
+      db()
+        .insert(rfpReviews)
+        .values({ answerId: answer!.id, verdict: 'needs_work', reviewerId: employee.id, ...fields });
+
+    // accepted needs non-blank final_text; other verdicts store none.
+    expect(await violatedConstraint(review({ verdict: 'accepted' }))).toBe('rfp_reviews_final_text');
+    expect(await violatedConstraint(review({ verdict: 'accepted', finalText: '  ' }))).toBe('rfp_reviews_final_text');
+    expect(await violatedConstraint(review({ finalText: 'Yes.' }))).toBe('rfp_reviews_final_text');
+    // wrong_evidence flags at least one citation; other verdicts flag none.
+    expect(await violatedConstraint(review({ verdict: 'wrong_evidence' }))).toBe('rfp_reviews_flagged_citations');
+    expect(await violatedConstraint(review({ verdict: 'wrong_evidence', flaggedCitations: [] }))).toBe(
+      'rfp_reviews_flagged_citations',
+    );
+    expect(await violatedConstraint(review({ flaggedCitations: [1] }))).toBe('rfp_reviews_flagged_citations');
+
+    await review({ verdict: 'accepted', finalText: 'Yes.' })();
+    await review({ verdict: 'wrong_evidence', flaggedCitations: [1], note: 'Wrong doc.' })();
+    await review({ note: 'Shorter, please.' })();
+    expect(await db().select().from(rfpReviews).where(eq(rfpReviews.answerId, answer!.id))).toHaveLength(3);
+  });
 });

@@ -57,6 +57,8 @@ export const RFP_STATUSES = ['extracting', 'extraction_failed', 'draft', 'confir
 export const QUESTION_STATUSES = ['pending', 'queued', 'processing', 'done', 'failed'] as const;
 export const EVIDENCE_STATUSES = ['HIGH_EVIDENCE', 'PARTIAL_EVIDENCE', 'INSUFFICIENT_EVIDENCE'] as const;
 export const REVIEW_VERDICTS = ['accepted', 'needs_work', 'wrong_evidence'] as const;
+// REQ_V2 §7.7 RETRIEVAL_MODE; RFP-RET-03 compares evaluations across modes.
+export const RETRIEVAL_MODES = ['vector', 'hybrid'] as const;
 
 export const EMBEDDING_DIMENSIONS = 768;
 
@@ -456,6 +458,7 @@ export const rfpAnswers = pgTable(
     index('rfp_answers_question_id_idx').on(t.questionId, t.id.desc()),
     check('rfp_answers_evidence_status', oneOf('evidence_status', EVIDENCE_STATUSES)),
     check('rfp_answers_model_evidence_status', oneOf('model_evidence_status', EVIDENCE_STATUSES)),
+    check('rfp_answers_retrieval_mode', oneOf('retrieval_mode', RETRIEVAL_MODES)),
   ],
 );
 
@@ -500,6 +503,18 @@ export const rfpReviews = pgTable(
   (t) => [
     index('rfp_reviews_answer_id_idx').on(t.answerId, t.id.desc()),
     check('rfp_reviews_verdict', oneOf('verdict', REVIEW_VERDICTS)),
+    // REV-02: only an accepted review stores final_text, and it can't be blank;
+    // only wrong_evidence flags citations, at least one.
+    check(
+      'rfp_reviews_final_text',
+      sql`case when ${t.verdict} = 'accepted' then btrim(coalesce(${t.finalText}, '')) <> ''
+           else ${t.finalText} is null end`,
+    ),
+    check(
+      'rfp_reviews_flagged_citations',
+      sql`case when ${t.verdict} = 'wrong_evidence' then coalesce(array_length(${t.flaggedCitations}, 1), 0) > 0
+           else ${t.flaggedCitations} is null end`,
+    ),
   ],
 );
 
@@ -541,6 +556,8 @@ export const providerCalls = pgTable(
     check('provider_calls_purpose', oneOf('purpose', CALL_PURPOSES)),
     check('provider_calls_status', oneOf('status', CALL_STATUSES)),
     index('provider_calls_quota_idx').on(t.employeeId, t.createdAt.desc()),
+    // Per-question observability, and RFP deletes clearing this FK without a scan.
+    index('provider_calls_rfp_question_idx').on(t.rfpQuestionId),
   ],
 );
 

@@ -15,6 +15,13 @@
       "when": 1791312783660,
       "tag": "0001_rfp",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791313844628,
+      "tag": "0002_rfp_constraints",
+      "breakpoints": true
     }
   ]
 }

@@ -131,7 +131,7 @@ None.
 
 M
 
-**Result (6 Oct 2026):** `drizzle/0001_rfp.sql` — five RFP tables, `Company`/`Compliance`, `rfp_generate`, `provider_calls.rfp_question_id`. V3-D1–D8 approved. `schema.test.ts` 8/8.
+**Result (6 Oct 2026):** `drizzle/0001_rfp.sql` — five RFP tables, `Company`/`Compliance`, `rfp_generate`, `provider_calls.rfp_question_id`. `drizzle/0002_rfp_constraints.sql` (review): REV-02 checks on `rfp_reviews.final_text`/`flagged_citations`, `rfp_answers.retrieval_mode` in (`vector`, `hybrid`), index on `provider_calls.rfp_question_id`. Additive because local DBs had already applied 0001. V3-D1–D8 approved. `schema.test.ts` 9/9.
 
 ---
 
