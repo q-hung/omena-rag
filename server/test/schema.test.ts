@@ -11,6 +11,11 @@ import {
   documents,
   employees,
   reviewedAnswers,
+  rfpAnswerSources,
+  rfpAnswers,
+  rfpQuestions,
+  rfpReviews,
+  rfps,
   turns,
 } from '../src/db/schema.ts';
 
@@ -198,5 +203,213 @@ describe('schema', () => {
       })
       .returning();
     expect(reply!.selectedFacts).toEqual(['F10']);
+  });
+
+  it('accepts a Compliance document', async () => {
+    const employee = await anEmployee();
+    const [doc] = await db()
+      .insert(documents)
+      .values({ title: 'SOC silence', category: 'Compliance', createdBy: employee.id })
+      .returning();
+    expect(doc?.category).toBe('Compliance');
+  });
+
+  it('rejects a duplicate RFP question seq and invalid evidence, verdict and status', async () => {
+    const employee = await anEmployee();
+    const [rfp] = await db()
+      .insert(rfps)
+      .values({
+        title: 'Q',
+        sourceKind: 'paste',
+        sourceText: 'Do you support SSO?',
+        status: 'draft',
+        createdBy: employee.id,
+      })
+      .returning();
+
+    expect(
+      await violatedConstraint(() =>
+        db().insert(rfps).values({
+          title: 'Bad',
+          sourceKind: 'paste',
+          status: 'open',
+          createdBy: employee.id,
+        }),
+      ),
+    ).toBe('rfps_status');
+
+    const question = {
+      rfpId: rfp!.id,
+      seq: 1,
+      text: 'Do you support SAML SSO?',
+      status: 'pending' as const,
+    };
+    await db().insert(rfpQuestions).values(question);
+    expect(await violatedConstraint(() => db().insert(rfpQuestions).values(question))).toBe(
+      'rfp_questions_rfp_seq_key',
+    );
+    expect(
+      await violatedConstraint(() =>
+        db().insert(rfpQuestions).values({ ...question, seq: 2, status: 'waiting' }),
+      ),
+    ).toBe('rfp_questions_status');
+
+    const [q] = await db().select().from(rfpQuestions).where(eq(rfpQuestions.rfpId, rfp!.id));
+    expect(
+      await violatedConstraint(() =>
+        db().insert(rfpAnswers).values({
+          questionId: q!.id,
+          answerText: 'No.',
+          evidenceStatus: 'CONFIDENT',
+          modelEvidenceStatus: 'HIGH_EVIDENCE',
+          model: 'stub',
+          promptVersion: 'v1',
+          retrievalMode: 'vector',
+        }),
+      ),
+    ).toBe('rfp_answers_evidence_status');
+
+    const [answer] = await db()
+      .insert(rfpAnswers)
+      .values({
+        questionId: q!.id,
+        answerText: 'No.',
+        evidenceStatus: 'HIGH_EVIDENCE',
+        modelEvidenceStatus: 'HIGH_EVIDENCE',
+        model: 'stub',
+        promptVersion: 'v1',
+        retrievalMode: 'vector',
+      })
+      .returning();
+    expect(
+      await violatedConstraint(() =>
+        db().insert(rfpReviews).values({
+          answerId: answer!.id,
+          verdict: 'approved',
+          reviewerId: employee.id,
+        }),
+      ),
+    ).toBe('rfp_reviews_verdict');
+  });
+
+  it('cascades an RFP delete to questions, answers, sources and reviews', async () => {
+    const employee = await anEmployee();
+    const doc = await aDocumentWithChunk(employee.id);
+    const [version] = await db()
+      .select()
+      .from(documentVersions)
+      .where(eq(documentVersions.documentId, doc.id));
+    const [chunk] = await db()
+      .select()
+      .from(documentChunks)
+      .where(eq(documentChunks.versionId, version!.id));
+
+    const [rfp] = await db()
+      .insert(rfps)
+      .values({
+        title: 'Cascade',
+        sourceKind: 'paste',
+        sourceText: 'q',
+        status: 'confirmed',
+        createdBy: employee.id,
+      })
+      .returning();
+    const [question] = await db()
+      .insert(rfpQuestions)
+      .values({ rfpId: rfp!.id, seq: 1, text: 'SSO?' })
+      .returning();
+    const [answer] = await db()
+      .insert(rfpAnswers)
+      .values({
+        questionId: question!.id,
+        answerText: 'Yes [1].',
+        evidenceStatus: 'HIGH_EVIDENCE',
+        modelEvidenceStatus: 'HIGH_EVIDENCE',
+        model: 'stub',
+        promptVersion: 'v1',
+        retrievalMode: 'vector',
+      })
+      .returning();
+    await db().insert(rfpAnswerSources).values({
+      answerId: answer!.id,
+      rank: 1,
+      chunkId: chunk!.id,
+      citationNumber: 1,
+      documentId: doc.id,
+      versionId: version!.id,
+      title: doc.title,
+      heading: chunk!.heading,
+    });
+    await db().insert(rfpReviews).values({
+      answerId: answer!.id,
+      verdict: 'accepted',
+      finalText: 'Yes.',
+      reviewerId: employee.id,
+    });
+
+    await db().delete(rfps).where(eq(rfps.id, rfp!.id));
+
+    expect(await db().select().from(rfpQuestions).where(eq(rfpQuestions.rfpId, rfp!.id))).toHaveLength(0);
+    expect(await db().select().from(rfpAnswers).where(eq(rfpAnswers.questionId, question!.id))).toHaveLength(0);
+    expect(await db().select().from(rfpAnswerSources).where(eq(rfpAnswerSources.answerId, answer!.id))).toHaveLength(
+      0,
+    );
+    expect(await db().select().from(rfpReviews).where(eq(rfpReviews.answerId, answer!.id))).toHaveLength(0);
+  });
+
+  it('nulls rfp_answer_sources.chunk_id on document delete and keeps the snapshot ids', async () => {
+    const employee = await anEmployee();
+    const doc = await aDocumentWithChunk(employee.id);
+    const [version] = await db()
+      .select()
+      .from(documentVersions)
+      .where(eq(documentVersions.documentId, doc.id));
+    const [chunk] = await db()
+      .select()
+      .from(documentChunks)
+      .where(eq(documentChunks.versionId, version!.id));
+
+    const [rfp] = await db()
+      .insert(rfps)
+      .values({
+        title: 'Keep snapshot',
+        sourceKind: 'paste',
+        sourceText: 'q',
+        status: 'confirmed',
+        createdBy: employee.id,
+      })
+      .returning();
+    const [question] = await db()
+      .insert(rfpQuestions)
+      .values({ rfpId: rfp!.id, seq: 1, text: 'SSO?' })
+      .returning();
+    const [answer] = await db()
+      .insert(rfpAnswers)
+      .values({
+        questionId: question!.id,
+        answerText: 'Yes [1].',
+        evidenceStatus: 'HIGH_EVIDENCE',
+        modelEvidenceStatus: 'HIGH_EVIDENCE',
+        model: 'stub',
+        promptVersion: 'v1',
+        retrievalMode: 'vector',
+      })
+      .returning();
+    await db().insert(rfpAnswerSources).values({
+      answerId: answer!.id,
+      rank: 1,
+      chunkId: chunk!.id,
+      citationNumber: 1,
+      documentId: doc.id,
+      versionId: version!.id,
+      title: doc.title,
+    });
+
+    await db().delete(documents).where(eq(documents.id, doc.id));
+
+    const [source] = await db().select().from(rfpAnswerSources).where(eq(rfpAnswerSources.answerId, answer!.id));
+    expect(source?.chunkId).toBeNull();
+    expect(source?.documentId).toBe(doc.id);
+    expect(source?.versionId).toBe(version!.id);
   });
 });
