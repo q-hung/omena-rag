@@ -53,7 +53,7 @@ These points in REQ_V2 / `CLAUDE.md` conflict with the V3 goal. Each has a propo
 | V3-D4 | Generation is synchronous in REQ_V2 (§7.1). A 30-question RFP would take minutes | REQ_V2 §7.1 | RFP questions are processed by the **existing worker** (§7). A single-question regenerate stays synchronous and calls the same service |
 | V3-D5 | Quota is 50 `generate` calls per employee per day; one RFP can exceed it | REQ_V2 §10 | RFP calls use a new `provider_calls.kind = 'rfp_generate'` and do not count toward the Ask quota. They do count toward `DAILY_BUDGET_USD`. An RFP has at most 50 questions |
 | V3-D6 | REQ_V2 forbids confidence percentages (ANS-07) | ANS-07 | Kept. V3 uses three categorical evidence statuses with server-enforced rules (§8). No numbers are shown |
-| V3-D7 | Server layering refactor (TASKS M10, T30–T37) is not done; it moves the files V3 builds on | TASKS.md M10 | New V3 code is written in the M10 target layout from day one (`routes/rfps.routes.ts`, `services/rfp-*.service.ts`). Do not run M10 in parallel with V3 |
+| V3-D7 | Server layering refactor (TASKS M10, T30–T37) is not done; it moves the files V3 builds on | TASKS_V2.md M10 | New V3 code is written in the M10 target layout from day one (`routes/rfps.routes.ts`, `services/rfp-*.service.ts`). Do not run M10 in parallel with V3 |
 | V3-D8 | BUGS B05 (document embeddings sent in one call, silent vector fallback) is open. Company PDFs are larger than the seed docs | BUGS.md B05 | Fix B05 as part of TASK-10 before the RFP knowledge fixtures are seeded |
 
 ---

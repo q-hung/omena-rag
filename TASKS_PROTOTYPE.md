@@ -2,7 +2,7 @@
 
 Source of truth: `REQ_V2.MD` v2.1 (cited as §n, requirement IDs as `AREA-NN`).
 This file plans a **frontend-only clickable prototype** of the v2.1 product. It
-does not replace `TASKS.md` (the production plan, still to be regenerated from
+does not replace `TASKS_V2.md` (the production plan, still to be regenerated from
 §17). Mark a task `[x]` only when every acceptance check passes.
 
 ---

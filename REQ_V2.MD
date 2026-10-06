@@ -52,7 +52,7 @@ The employee inspects both kinds of evidence separately, edits the draft, copies
 |---|---|---|
 | `frontend/` | React 18 + Vite + Tailwind 4 mock, plain JS, **npm** (`package-lock.json`), state in `hooks/useSubPilot.js`, simulated data in `data/demo.js` | Reuse components (§12.3). Move to pnpm (§14). |
 | Server | None yet | Everything server-side is new. |
-| `TASKS.md` | Written against REQ v2 (portal, publication, C1–C20) | Regenerated from §17 (T00–T29). C-items still relevant are folded into this document (§18). |
+| `TASKS_V2.md` | Written against REQ v2 (portal, publication, C1–C20) | Regenerated from §17 (T00–T29). C-items still relevant are folded into this document (§18). |
 | `CLAUDE.md`, `AGENTS.md` | Said employees "approve publication to customers" | Updated to the internal-copilot flow (TASKS I7). |
 | `docs/DESIGN.md` | Described the portal architecture | Rewritten as the v2.1 system design. |
 | Clickable prototype (`TASKS_PROTOTYPE.md`, merged to `main`) | Every §12 screen on simulated data: `hooks/useJarvis.js`, `data/jarvis.js`, rules in `lib/model.js` | Production work reuses its components and ports its rules (§12.3). |
@@ -835,7 +835,7 @@ Ticked 4 Oct 2026 (T29).
 
 ## 17. Milestones (dependency-ordered)
 
-Each milestone ends with a working slice and its tests. Regenerate `TASKS.md` from this list.
+Each milestone ends with a working slice and its tests. Regenerate `TASKS_V2.md` from this list.
 
 | # | Milestone | Covers | Depends |
 |---|---|---|---|
@@ -894,7 +894,7 @@ Each milestone ends with a working slice and its tests. Regenerate `TASKS.md` fr
 - The "non-FAQ beats FAQ, later date wins" precedence rule.
 - "No passages → don't call the model" shortcut (facts-only questions need the model).
 - Rejecting a PDF because one page has no text layer; magic-byte check for Markdown.
-- Open decisions #1 (approve vs send) and #2 (customer logins); C4, C11, C14 from TASKS.md.
+- Open decisions #1 (approve vs send) and #2 (customer logins); C4, C11, C14 from TASKS_V2.md.
 
 **Changed**
 - DEC-5 embedding formats (3 Oct 2026, T10): confirmed against `@google/genai` 2.26.0 — `gemini-embedding-2` uses in-text task prefixes (not `taskType`); 768-d output; Flash-Lite thinking is `thinkingBudget: 0`.
@@ -932,12 +932,12 @@ Each milestone ends with a working slice and its tests. Regenerate `TASKS.md` fr
 - Lifecycle/save locking protocol (LCK-01).
 - Blank PDF page warnings; strict UTF-8 Markdown validation; retry only on the latest version; activation only to a higher version.
 - Scenarios S1–S6; optional enhancements list; milestones M0–M9; API surface.
-- Folded in from TASKS.md: C1 (conflict sources numbered), C2, C3 (as `as_of`), C5, C6, C7, C8, C9, C10 (DEC-5), C12, C15, C16, C17, C18, C19, C20.
+- Folded in from TASKS_V2.md: C1 (conflict sources numbered), C2, C3 (as `as_of`), C5, C6, C7, C8, C9, C10 (DEC-5), C12, C15, C16, C17, C18, C19, C20.
 
 ---
 
 ## 19. Open questions
 
 No blocking questions. Routine choices are made in §14 (DEC-1–DEC-8). Follow-ups outside this document:
-1. Regenerate `TASKS.md` from §17 (the current file targets REQ v2).
+1. Regenerate `TASKS_V2.md` from §17 (the current file targets REQ v2).
 2. Update `CLAUDE.md` / `AGENTS.md` ("approve publication to customers" → "save reviewed internal answers") and the portal parts of `docs/DESIGN.md`.

@@ -1,9 +1,9 @@
 # Jarvis — RFP Workspace · Implementation Tasks (V3)
 
-Source of truth: `REQ_V3.MD` v3.0 (cited as §n, IDs as `AREA-NN`). REQ_V2 and `TASKS.md` still govern Ask / History / KB.
+Source of truth: `REQ_V3.MD` v3.0 (cited as §n, IDs as `AREA-NN`). REQ_V2 and `TASKS_V2.md` still govern Ask / History / KB.
 Mark a task `[x]` only when every acceptance check passes. Each task = one PR with code, migration (if any), tests and UI together.
 
-Conventions from `TASKS.md` apply: server tests use the stub provider and `jarvis_test`; CI never calls Gemini; no prompt, answer or document text in logs or `provider_calls`.
+Conventions from `TASKS_V2.md` apply: server tests use the stub provider and `jarvis_test`; CI never calls Gemini; no prompt, answer or document text in logs or `provider_calls`.
 
 ---
 

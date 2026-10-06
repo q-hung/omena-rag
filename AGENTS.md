@@ -17,7 +17,7 @@ and model calls; simulated behavior must be clearly labeled.
 ## Source of truth
 
 - REQ_V2.MD defines product requirements.
-- TASKS.md defines implementation tasks and progress.
+- TASKS_V2.md defines implementation tasks and progress.
 - AGENTS.md defines repository working instructions.
 
 Read the relevant requirements and task before changing code.
