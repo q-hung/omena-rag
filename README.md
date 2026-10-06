@@ -14,7 +14,7 @@ synthetic. MVP is complete (M0–M9), and the server layering refactor (M10) is 
 | Doc | Purpose |
 |---|---|
 | [REQ_V2.MD](REQ_V2.MD) | Product requirements (source of truth) |
-| [TASKS.md](TASKS.md) | Implementation tasks and progress |
+| [TASKS_V2.md](TASKS_V2.md) | Implementation tasks and progress |
 | [HANDOFF.md](HANDOFF.md) | Current state and limits |
 | [BUGS.md](BUGS.md) | Post-MVP defects with cause, fix and check |
 | [docs/DESIGN.md](docs/DESIGN.md) | Design notes |

@@ -1,6 +1,6 @@
 # Jarvis handoff
 
-Internal Product Support Copilot. Source of truth: `REQ_V2.MD`, `TASKS.md`.
+Internal Product Support Copilot. Source of truth: `REQ_V2.MD`, `TASKS_V2.md`.
 
 ## Done (T00–T37)
 

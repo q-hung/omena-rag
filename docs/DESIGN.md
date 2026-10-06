@@ -1,7 +1,7 @@
 # Jarvis — System Design (v2.1)
 
 Status: draft · 3 Oct 2026 · implements `REQ_V2.MD` v2.1 (cited as §n and by
-requirement ID) and the spec issues I1–I7 in `TASKS.md` (all approved). If this file
+requirement ID) and the spec issues I1–I7 in `TASKS_V2.md` (all approved). If this file
 and REQ_V2 disagree, REQ_V2 wins. Design decisions that REQ_V2 doesn't make
 are marked **D-n** and listed in §9.
 
@@ -400,5 +400,5 @@ D-1 to D-5 were folded into REQ_V2 on 3 Oct 2026 (GEN-04, GEN-05, COST-04, LCK-0
 | D-4 | Every mutating conversation route must serialise on the same row. | T1, T2, edit, reply and save each start with `SELECT … FROM conversations WHERE id = :id FOR UPDATE`. → LCK-02 |
 | D-5 | **Upload size.** REQ_V2 allowed 10 MB, far more than the KB needs. Large files also mean large `bytea` rows, slower uploads and more parsing memory in the sandbox. | **≤ 3 MB per file.** That covers a 100-page text PDF (usually 1–2.5 MB with embedded fonts) and the 300,000-character Markdown limit (≤ ~1.2 MB in UTF-8). Enforced by Fastify multipart `limits.fileSize = 3 MiB` → 413 `FILE_TOO_LARGE`. The upload dialog checks `file.size` first and shows "Files must be 3 MB or smaller". The page and character limits are unchanged. → IDX-01, §10; TASKS T12, T18 |
 
-**Open items carried from TASKS.md:** none (I1–I7 approved and applied: I1 → WF-05, I2 → §9.3 rule 7, I3 extended → §7.4/§9.5 CLR-04, I4 → §14 stub mode, I5 → §12.3, I6 → ANS-03, I7 → repo docs); DEC-5 embedding
+**Open items carried from TASKS_V2.md:** none (I1–I7 approved and applied: I1 → WF-05, I2 → §9.3 rule 7, I3 extended → §7.4/§9.5 CLR-04, I4 → §14 stub mode, I5 → §12.3, I6 → ANS-03, I7 → repo docs); DEC-5 embedding
 format spike (T10); calibration of `RETRIEVAL_MIN_SCORE` and the model (T27).
