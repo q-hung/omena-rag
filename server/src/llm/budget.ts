@@ -47,13 +47,14 @@ export function money(n: number): string {
 export function estimateTokens(kind: CallKind, inputChars: number) {
   return {
     inputTokens: Math.ceil(Math.max(0, inputChars) / 3),
-    outputTokens: kind === 'generate' ? MAX_OUTPUT_TOKENS : 0,
+    outputTokens: kind === 'generate' || kind === 'rfp_generate' ? MAX_OUTPUT_TOKENS : 0,
   };
 }
 
 export function costUsd(kind: CallKind, tokens: { inputTokens: number; outputTokens: number }, cfg: Config): number {
-  const inPrice = kind === 'generate' ? cfg.PRICE_GENERATION_INPUT_USD_PER_MTOK : cfg.PRICE_EMBEDDING_INPUT_USD_PER_MTOK;
-  const outPrice = kind === 'generate' ? cfg.PRICE_GENERATION_OUTPUT_USD_PER_MTOK : 0;
+  const priced = kind === 'generate' || kind === 'rfp_generate';
+  const inPrice = priced ? cfg.PRICE_GENERATION_INPUT_USD_PER_MTOK : cfg.PRICE_EMBEDDING_INPUT_USD_PER_MTOK;
+  const outPrice = priced ? cfg.PRICE_GENERATION_OUTPUT_USD_PER_MTOK : 0;
   return tokens.inputTokens * (inPrice / 1e6) + tokens.outputTokens * (outPrice / 1e6);
 }
 

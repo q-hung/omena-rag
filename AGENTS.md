@@ -16,8 +16,9 @@ and model calls; simulated behavior must be clearly labeled.
 
 ## Source of truth
 
-- REQ_V2.MD defines product requirements.
-- TASKS_V2.md defines implementation tasks and progress.
+- REQ_V2.MD defines product requirements for Ask / History / KB.
+- TASKS_V2.md defines implementation tasks and progress for Ask / History / KB.
+- REQ_V3.MD / TASKS_V3.md define the RFP workspace.
 - AGENTS.md defines repository working instructions.
 
 Read the relevant requirements and task before changing code.

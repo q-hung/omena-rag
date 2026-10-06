@@ -31,9 +31,9 @@ What exists and how V3 uses it:
 | Eval harness (guards, budget estimate, seeding `jarvis_eval`, report) | `server/eval/run.ts`, `score.ts` | **Reuse** guards and seeding |
 | Account facts, snapshot, signals, clarifications, conversations | `context.ts`, `state.ts`, … | **Not used** by V3. Left untouched |
 
-Gaps V3 must fill: no RFP / question / review entities, no question extraction, no batch generation, no schema-agnostic LLM call, no evidence status, no `.txt`, no company/security knowledge fixtures, no per-question observability, no export.
+Gaps V3 must fill: question extraction, batch generation, schema-agnostic LLM call, evidence status, `.txt`, company/security knowledge fixtures, per-question observability, export. Schema for RFPs is in place (TASK-01).
 
-Pending work that collides with V3: **M10 server refactor (T30–T37)** moves the files V3 builds on; **BUGS B05**. See REQ_V3 §2 (V3-D7, V3-D8).
+Pending work that collides with V3: none. M10 and B05 are done.
 
 ---
 
@@ -117,11 +117,11 @@ Every other task reads or writes these tables. One migration owner avoids confli
 
 **Acceptance criteria**
 
-- [ ] `pnpm db:migrate` applies on the current schema and is a no-op on a second run
-- [ ] Deleting an RFP cascades to questions, answers, sources and reviews; deleting a document sets `rfp_answer_sources.chunk_id` to null and keeps `document_id`/`version_id`
-- [ ] Duplicate (`rfp_id`, `seq`) is rejected; invalid `evidence_status`/`verdict`/`status` values are rejected
-- [ ] A document with category `Compliance` can be inserted
-- [ ] `server/test/schema.test.ts` extended with the cases above
+- [x] `pnpm db:migrate` applies on the current schema and is a no-op on a second run
+- [x] Deleting an RFP cascades to questions, answers, sources and reviews; deleting a document sets `rfp_answer_sources.chunk_id` to null and keeps `document_id`/`version_id`
+- [x] Duplicate (`rfp_id`, `seq`) is rejected; invalid `evidence_status`/`verdict`/`status` values are rejected
+- [x] A document with category `Compliance` can be inserted
+- [x] `server/test/schema.test.ts` extended with the cases above
 
 **Dependencies**
 
@@ -130,6 +130,8 @@ None.
 **Complexity**
 
 M
+
+**Result (6 Oct 2026):** `drizzle/0001_rfp.sql` — five RFP tables, `Company`/`Compliance`, `rfp_generate`, `provider_calls.rfp_question_id`. `drizzle/0002_rfp_constraints.sql` (review): REV-02 checks on `rfp_reviews.final_text`/`flagged_citations`, `rfp_answers.retrieval_mode` in (`vector`, `hybrid`), index on `provider_calls.rfp_question_id`. Additive because local DBs had already applied 0001. V3-D1–D8 approved. `schema.test.ts` 9/9.
 
 ---
 

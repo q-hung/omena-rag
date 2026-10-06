@@ -20,7 +20,8 @@ import {
   vector,
 } from 'drizzle-orm/pg-core';
 
-// REQ §5.1 (account data), §6.3 (documents), §17a (conversations and cost).
+// REQ_V2 §5.1 (account data), §6.3 (documents), §17a (conversations and cost).
+// REQ_V3 §5.3 (RFPs).
 
 const id = () => bigint('id', { mode: 'number' }).generatedAlwaysAsIdentity().primaryKey();
 const createdAt = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow();
@@ -35,13 +36,29 @@ export const BILLING_INTERVALS = ['monthly', 'annual'] as const;
 export const FEATURES = ['sso', 'webhooks', 'api_access', 'audit_logs'] as const;
 export const PAYMENT_STATUSES = ['succeeded', 'failed', 'refunded', 'pending'] as const;
 export const DELIVERY_OUTCOMES = ['success', 'http_error', 'timeout', 'connection_error', 'tls_error'] as const;
-export const CATEGORIES = ['Plans', 'Policies', 'Billing', 'FAQ', 'Security', 'Developer'] as const;
+export const CATEGORIES = [
+  'Plans',
+  'Policies',
+  'Billing',
+  'FAQ',
+  'Security',
+  'Developer',
+  'Company',
+  'Compliance',
+] as const;
 export const INDEXING_STATUSES = ['queued', 'processing', 'ready', 'failed'] as const;
 export const TURN_KINDS = ['question', 'clarification_reply'] as const;
 export const OUTCOMES = ['answer', 'clarification_required', 'insufficient_evidence', 'out_of_scope'] as const;
-export const CALL_KINDS = ['embed_document', 'embed_query', 'generate'] as const;
+export const CALL_KINDS = ['embed_document', 'embed_query', 'generate', 'rfp_generate'] as const;
 export const CALL_PURPOSES = ['app', 'indexing', 'eval'] as const;
 export const CALL_STATUSES = ['reserved', 'ok', 'error'] as const;
+export const RFP_SOURCE_KINDS = ['paste', 'file'] as const;
+export const RFP_STATUSES = ['extracting', 'extraction_failed', 'draft', 'confirmed'] as const;
+export const QUESTION_STATUSES = ['pending', 'queued', 'processing', 'done', 'failed'] as const;
+export const EVIDENCE_STATUSES = ['HIGH_EVIDENCE', 'PARTIAL_EVIDENCE', 'INSUFFICIENT_EVIDENCE'] as const;
+export const REVIEW_VERDICTS = ['accepted', 'needs_work', 'wrong_evidence'] as const;
+// REQ_V2 §7.7 RETRIEVAL_MODE; RFP-RET-03 compares evaluations across modes.
+export const RETRIEVAL_MODES = ['vector', 'hybrid'] as const;
 
 export const EMBEDDING_DIMENSIONS = 768;
 
@@ -367,6 +384,140 @@ export const reviewedAnswers = pgTable('reviewed_answers', {
   createdAt: createdAt(),
 });
 
+// ---------- RFPs (REQ_V3 §5.3) ----------
+
+export const rfps = pgTable(
+  'rfps',
+  {
+    id: id(),
+    title: text('title').notNull(),
+    sourceKind: text('source_kind').notNull(),
+    sourceFilename: text('source_filename'),
+    sourceText: text('source_text'),
+    status: text('status').notNull(),
+    extractionError: text('extraction_error'),
+    createdBy: bigint('created_by', { mode: 'number' })
+      .notNull()
+      .references(() => employees.id, { onDelete: 'cascade' }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index('rfps_owner_created_idx').on(t.createdBy, t.createdAt.desc()),
+    check('rfps_source_kind', oneOf('source_kind', RFP_SOURCE_KINDS)),
+    check('rfps_status', oneOf('status', RFP_STATUSES)),
+  ],
+);
+
+export const rfpQuestions = pgTable(
+  'rfp_questions',
+  {
+    id: id(),
+    rfpId: bigint('rfp_id', { mode: 'number' })
+      .notNull()
+      .references(() => rfps.id, { onDelete: 'cascade' }),
+    seq: integer('seq').notNull(),
+    section: text('section'),
+    text: text('text').notNull(),
+    status: text('status').notNull().default('pending'),
+    errorCode: text('error_code'),
+    attempts: integer('attempts').notNull().default(0),
+    generationToken: uuid('generation_token'),
+    generationStartedAt: timestamp('generation_started_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    unique('rfp_questions_rfp_seq_key').on(t.rfpId, t.seq),
+    index('rfp_questions_claim_idx').on(t.status, t.rfpId, t.seq),
+    check('rfp_questions_status', oneOf('status', QUESTION_STATUSES)),
+  ],
+);
+
+export const rfpAnswers = pgTable(
+  'rfp_answers',
+  {
+    id: id(),
+    questionId: bigint('question_id', { mode: 'number' })
+      .notNull()
+      .references(() => rfpQuestions.id, { onDelete: 'cascade' }),
+    answerText: text('answer_text').notNull(),
+    editedText: text('edited_text'),
+    editedBy: bigint('edited_by', { mode: 'number' }).references(() => employees.id, {
+      onDelete: 'set null',
+    }),
+    editedAt: timestamp('edited_at', { withTimezone: true }),
+    evidenceStatus: text('evidence_status').notNull(),
+    modelEvidenceStatus: text('model_evidence_status').notNull(),
+    gaps: jsonb('gaps').notNull().default([]),
+    reviewReasons: jsonb('review_reasons').notNull().default([]),
+    model: text('model').notNull(),
+    promptVersion: text('prompt_version').notNull(),
+    retrievalMode: text('retrieval_mode').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index('rfp_answers_question_id_idx').on(t.questionId, t.id.desc()),
+    check('rfp_answers_evidence_status', oneOf('evidence_status', EVIDENCE_STATUSES)),
+    check('rfp_answers_model_evidence_status', oneOf('model_evidence_status', EVIDENCE_STATUSES)),
+    check('rfp_answers_retrieval_mode', oneOf('retrieval_mode', RETRIEVAL_MODES)),
+  ],
+);
+
+export const rfpAnswerSources = pgTable(
+  'rfp_answer_sources',
+  {
+    answerId: bigint('answer_id', { mode: 'number' })
+      .notNull()
+      .references(() => rfpAnswers.id, { onDelete: 'cascade' }),
+    rank: integer('rank').notNull(),
+    chunkId: bigint('chunk_id', { mode: 'number' }).references(() => documentChunks.id, {
+      onDelete: 'set null',
+    }),
+    score: real('score'),
+    citationNumber: integer('citation_number'),
+    documentId: bigint('document_id', { mode: 'number' }).notNull(),
+    versionId: bigint('version_id', { mode: 'number' }).notNull(),
+    title: text('title').notNull(),
+    heading: text('heading'),
+    pageNumber: integer('page_number'),
+  },
+  (t) => [primaryKey({ columns: [t.answerId, t.rank] })],
+);
+
+export const rfpReviews = pgTable(
+  'rfp_reviews',
+  {
+    id: id(),
+    answerId: bigint('answer_id', { mode: 'number' })
+      .notNull()
+      .references(() => rfpAnswers.id, { onDelete: 'cascade' }),
+    verdict: text('verdict').notNull(),
+    finalText: text('final_text'),
+    flaggedCitations: integer('flagged_citations').array(),
+    note: text('note'),
+    sourceStale: boolean('source_stale').notNull().default(false),
+    reviewerId: bigint('reviewer_id', { mode: 'number' })
+      .notNull()
+      .references(() => employees.id, { onDelete: 'cascade' }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index('rfp_reviews_answer_id_idx').on(t.answerId, t.id.desc()),
+    check('rfp_reviews_verdict', oneOf('verdict', REVIEW_VERDICTS)),
+    // REV-02: only an accepted review stores final_text, and it can't be blank;
+    // only wrong_evidence flags citations, at least one.
+    check(
+      'rfp_reviews_final_text',
+      sql`case when ${t.verdict} = 'accepted' then btrim(coalesce(${t.finalText}, '')) <> ''
+           else ${t.finalText} is null end`,
+    ),
+    check(
+      'rfp_reviews_flagged_citations',
+      sql`case when ${t.verdict} = 'wrong_evidence' then coalesce(array_length(${t.flaggedCitations}, 1), 0) > 0
+           else ${t.flaggedCitations} is null end`,
+    ),
+  ],
+);
+
 // ---------- Cost (§10, §17a). COST-03: no prompt or response text. ----------
 
 export const providerCalls = pgTable(
@@ -387,6 +538,9 @@ export const providerCalls = pgTable(
       () => documentVersions.id,
       { onDelete: 'set null' },
     ),
+    rfpQuestionId: bigint('rfp_question_id', { mode: 'number' }).references(() => rfpQuestions.id, {
+      onDelete: 'set null',
+    }),
     status: text('status').notNull(),
     estimatedCostUsd: numeric('estimated_cost_usd', { precision: 12, scale: 6 }).notNull(),
     costUsd: numeric('cost_usd', { precision: 12, scale: 6 }),
@@ -402,6 +556,8 @@ export const providerCalls = pgTable(
     check('provider_calls_purpose', oneOf('purpose', CALL_PURPOSES)),
     check('provider_calls_status', oneOf('status', CALL_STATUSES)),
     index('provider_calls_quota_idx').on(t.employeeId, t.createdAt.desc()),
+    // Per-question observability, and RFP deletes clearing this FK without a scan.
+    index('provider_calls_rfp_question_idx').on(t.rfpQuestionId),
   ],
 );
 

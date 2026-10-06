@@ -43,7 +43,7 @@ Review decisions and feedback are stored, never discarded, so retrieval and gene
 
 V3 is **additive**: a new **RFPs** section beside Ask, History and Knowledge base. Nothing in Ask is removed or changed.
 
-These points in REQ_V2 / `CLAUDE.md` conflict with the V3 goal. Each has a proposed resolution that must be approved before the affected task starts (TASK-01).
+These points in REQ_V2 / `CLAUDE.md` conflict with the V3 goal. **V3-D1–D8 approved 6 Oct 2026** (none rejected). D7: M10 is already merged. D8: B05 is already fixed.
 
 | # | Conflict | Where | Resolution |
 |---|---|---|---|
