@@ -2,7 +2,7 @@
 
 Internal Product Support Copilot. Source of truth: `REQ_V2.MD`, `TASKS_V2.md`.
 
-## Done (T00–T37)
+## Done (T00–T37, T40)
 
 Phases 0–9 (MVP) and M10 (server layering). Employees can sign in, generate
 answers, reply to clarifications, edit and copy, save a reviewed internal
@@ -16,7 +16,7 @@ answer, and browse History. `pnpm eval` measures the golden set on Gemini.
 | Provider | `server/src/llm/` — `createProvider(config)` |
 | Budget | `server/src/llm/budget.ts` — `reserve`, `reconcile`, `paidAttempt` |
 | Layers | `routes/` → `services/` → `db/`; `plugins/`; `rag/`, `ingest/`, `config/` |
-| Retrieval | `server/src/rag/retrieve.ts` — SQL access filter; stub uses token overlap |
+| Retrieval | `server/src/rag/retrieve.ts` — SQL access filter; stub uses token overlap; `RETRIEVAL_MODE=hybrid` adds full-text + RRF (`rrf()`, default `vector`) |
 | Prompt / normalise | `server/src/rag/prompt.ts`, `server/src/rag/normalise.ts` |
 | Generation | `POST /api/conversations`, `POST /api/conversations/:id/regenerate` |
 | Replies | `POST /api/conversations/:id/replies` `{selections?, text?}` |
@@ -68,6 +68,12 @@ Live generation model: `gemini-3.1-flash-lite`. `RETRIEVAL_MIN_SCORE=0.5`.
 - Copy strips markers. If `navigator.clipboard` is missing, the text is selected and the UI says "Press ⌘C / Ctrl+C to copy".
 - Save takes `FOR UPDATE` on the conversation, then `FOR SHARE` on cited documents ordered by id, then the §7.6 stale check, then inserts `reviewed_answers`. The snapshot includes `category` so saved topic badges survive a delete.
 - History state is derived in SQL (`STATE_SQL`, WF-05). Mine / All defaults to Mine. Other employees' conversations open read-only at `/history/:id`.
+
+## M12 hybrid retrieval (T40 done, T41 half)
+
+- `document_chunks.search_tsv` (generated, GIN) via `0004_hybrid_search.sql`; apply with `pnpm db:migrate`.
+- Hybrid = vector top 20 (cosine ≥ `RETRIEVAL_MIN_SCORE`) + lexical top 20 (`websearch_to_tsquery`, `&`→`|`, `ts_rank_cd`), fused by RRF k=60, top 8. Lexical-only hits skip the score floor. `answer_sources.score` holds the fused score.
+- Golden set is now E01–E20. **Open:** run `RETRIEVAL_MODE=vector|hybrid LLM_PROVIDER=gemini pnpm eval` on the same seed, paste both reports in T41, decide the default against SC-6 (REQ_V2 §7.7/§18). Until then the default stays `vector`; if lexical noise hurts E11, add a lexical floor.
 
 ## Next
 

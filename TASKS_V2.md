@@ -703,7 +703,7 @@ Eval only (§13.4). Nothing in the request path or the UI changes.
 
 Retrieval only (§7.7). Prompt, normaliser and UI are unchanged. Independent of M11.
 
-### [ ] T40 · Lexical index, RRF fusion and retrieval mode
+### [x] T40 · Lexical index, RRF fusion and retrieval mode
 - **Goal:** add full-text search beside vector search and fuse them by rank, so exact tokens (codes, currencies, feature names) are found.
 - **Refs:** §7.7, RET-01/02, HYB-01–04.
 - **Depends:** T27.
@@ -713,9 +713,10 @@ Retrieval only (§7.7). Prompt, normaliser and UI are unchanged. Independent of 
   - Config: `RETRIEVAL_MODE=vector|hybrid`, default `vector`. Vector mode keeps the T19 query unchanged. Stub mode keeps token overlap.
   - `answer_sources.score` stores the fused score in hybrid mode.
   - Vitest: HYB-02 (pure `rrf`); HYB-01 and HYB-03 against `jarvis_test` with the lexical SQL (no embeddings needed); HYB-04.
+- **Result (7 Oct 2026):** `drizzle/0004_hybrid_search.sql` (generated column + GIN). `rag/retrieve.ts`: `rrf()`, `loadHybrid`, `loadByLexical`; `RETRIEVAL_MODE` in config, passed from `generate.service.ts`. Path is `rag/retrieve.ts` after M10. Fused score flows to `answer_sources.score` unchanged. Tests HYB-01–04 in `retrieval.test.ts`; full server suite 203/203 in vector mode.
 - **Verify:** `pnpm --filter server test retrieve` passes; `RETRIEVAL_MODE=vector pnpm test` is green with no test changes.
 
-### [ ] T41 · Golden cases E16–E20 and vector-vs-hybrid baseline
+### [ ] T41 · (code done, baseline pending) · Golden cases E16–E20 and vector-vs-hybrid baseline
 - **Goal:** measure whether hybrid helps before turning it on.
 - **Refs:** §7.7, §13.2, SC-1, SC-2, SC-6, EVAL-01.
 - **Depends:** T40.
@@ -724,6 +725,7 @@ Retrieval only (§7.7). Prompt, normaliser and UI are unchanged. Independent of 
   - The eval report prints `RETRIEVAL_MODE`. The cost estimate is unchanged (no extra provider calls; lexical search is SQL only).
   - Run `pnpm eval` once per mode on the same seed. Paste both reports here, with a per-case diff of retrieval hits.
   - If SC-6 holds, set the default to `hybrid` and record it in REQ_V2 §7.7 and §18. If not, keep `vector` and record why (e.g. lexical noise on E11).
+- **Status (7 Oct 2026):** E16–E20 added to `golden.json` (loader and tests now expect 20 cases, 21 generate calls); eval prints `RETRIEVAL_MODE`. **Not done:** the two live Gemini runs, pasted reports, per-case diff and the default decision — need `GEMINI_API_KEY`. Default stays `vector`.
 - **Verify:** `RETRIEVAL_MODE=vector LLM_PROVIDER=gemini pnpm eval` and `RETRIEVAL_MODE=hybrid LLM_PROVIDER=gemini pnpm eval` both complete; the chosen default is backed by the pasted numbers.
 
 ---
