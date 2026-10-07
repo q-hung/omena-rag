@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { db } from '../src/db/index.ts';
 import { documentChunks, documentVersions, documents } from '../src/db/schema.ts';
 import { utcToday } from '../src/lib/format.ts';
-import { retrieve } from '../src/rag/retrieve.ts';
+import { retrieve, rrf } from '../src/rag/retrieve.ts';
 import { seedEmployees } from '../src/seed.ts';
 import { queueDocument, queueVersion } from '../src/services/document-upload.service.ts';
 
@@ -108,5 +108,49 @@ describe('retrieval', () => {
 
   it('treats zero rows as a valid result', async () => {
     expect(await retrieve(axis(7), { model: MODEL, minScore: 0.99 })).toEqual([]);
+  });
+});
+
+describe('hybrid retrieval (REQ_V2 §7.7)', () => {
+  // minScore 0.99 on an orthogonal vector empties the vector list, leaving the lexical list alone.
+  const lexicalOnly = (queryText: string) =>
+    retrieve(axis(100), { model: MODEL, minScore: 0.99, mode: 'hybrid', queryText });
+
+  it('HYB-02: rrf rewards presence in both lists, breaks ties by id and caps the output', () => {
+    expect(rrf([[1, 2], [2, 3]]).map((r) => r.id)).toEqual([2, 1, 3]);
+    expect(rrf([[9], [4]]).map((r) => r.id)).toEqual([4, 9]);
+    expect(rrf([Array.from({ length: 20 }, (_, i) => i)]).length).toBe(8);
+    expect(rrf([[7]])[0]!.score).toBeCloseTo(1 / 61);
+  });
+
+  it('HYB-03: OR semantics match a natural question; stop words alone give an empty list', async () => {
+    await addDoc('Webhooks guide', axis(10));
+    const hits = await lexicalOnly("Why is this account's webhook failing?");
+    expect(hits.map((p) => p.title)).toEqual(['Webhooks guide']);
+    expect(await lexicalOnly('why is this the')).toEqual([]);
+  });
+
+  it('HYB-01: filters match vector mode for a chunk containing the exact term', async () => {
+    await addDoc('zebrafish superseded', axis(11), { superseded: true });
+    await addDoc('zebrafish archived', axis(11), { archived: true });
+    await addDoc('zebrafish other-model', axis(11), { model: 'other-embed' });
+    const hits = await lexicalOnly('zebrafish');
+    expect(hits.some((p) => p.text.startsWith('hidden'))).toBe(false);
+    expect(hits.map((p) => p.title)).toEqual(['zebrafish superseded']);
+    expect(hits[0]!.text).toBe('active zebrafish superseded');
+  });
+
+  it('fuses both lists and stores the fused score', async () => {
+    await addDoc('Alpha paraphrase', axis(20));
+    await addDoc('Quokka token', axis(21));
+    const hits = await retrieve(axis(20), { model: MODEL, minScore: 0.5, mode: 'hybrid', queryText: 'quokka' });
+    expect(hits.map((p) => p.title).sort()).toEqual(['Alpha paraphrase', 'Quokka token']);
+    expect(hits.every((p) => p.score < 0.05)).toBe(true);
+  });
+
+  it('HYB-04: vector mode is unchanged', async () => {
+    await addDoc('Quokka vec', axis(30));
+    const hits = await retrieve(axis(31), { model: MODEL, minScore: 0.5, mode: 'vector', queryText: 'quokka' });
+    expect(hits).toEqual([]);
   });
 });

@@ -55,8 +55,8 @@ export type CaseScore = {
 export function loadGoldenSync(raw: unknown): GoldenCase[] {
   const cases = z.array(goldenCaseSchema).parse(raw);
   const ids = cases.map((c) => c.id);
-  if (new Set(ids).size !== 15 || !Array.from({ length: 15 }, (_, i) => `E${String(i + 1).padStart(2, '0')}`).every((id) => ids.includes(id))) {
-    throw new Error('golden.json must contain E01–E15 once each.');
+  if (new Set(ids).size !== 20 || !Array.from({ length: 20 }, (_, i) => `E${String(i + 1).padStart(2, '0')}`).every((id) => ids.includes(id))) {
+    throw new Error('golden.json must contain E01–E20 once each.');
   }
   return cases;
 }

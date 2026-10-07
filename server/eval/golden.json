@@ -139,5 +139,50 @@
     "expectedDocuments": ["Payment methods and regions"],
     "citedFactSections": ["payments"],
     "forbiddenPatterns": []
+  },
+  {
+    "id": "E16",
+    "account": "A-1004",
+    "question": "What does a 401 on webhook deliveries mean?",
+    "expectedOutcome": "answer",
+    "expectedDocuments": ["Webhooks developer guide"],
+    "citedFactSections": [],
+    "forbiddenPatterns": []
+  },
+  {
+    "id": "E17",
+    "account": "A-1005",
+    "question": "Is AUD supported?",
+    "expectedOutcome": "answer",
+    "expectedDocuments": ["Payment methods and regions"],
+    "citedFactSections": [],
+    "forbiddenPatterns": []
+  },
+  {
+    "id": "E18",
+    "account": "A-1001",
+    "question": "Does Basic include SAML?",
+    "expectedOutcome": "answer",
+    "expectedDocuments": ["Plan comparison", "SSO setup guide"],
+    "citedFactSections": [],
+    "forbiddenPatterns": ["i will enable", "i have enabled", "i've enabled"]
+  },
+  {
+    "id": "E19",
+    "account": "A-1004",
+    "question": "Do endpoints need 2xx within 10 s?",
+    "expectedOutcome": "answer",
+    "expectedDocuments": ["Webhooks developer guide"],
+    "citedFactSections": [],
+    "forbiddenPatterns": []
+  },
+  {
+    "id": "E20",
+    "account": "A-1004",
+    "question": "When are endpoints disabled after failures?",
+    "expectedOutcome": "answer",
+    "expectedDocuments": ["Webhooks developer guide"],
+    "citedFactSections": [],
+    "forbiddenPatterns": []
   }
 ]

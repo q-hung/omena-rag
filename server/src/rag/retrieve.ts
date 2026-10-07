@@ -26,13 +26,34 @@ export type RetrieveOpts = {
   minScore: number;
   limit?: number;
   lexicalQuery?: string;
+  // REQ_V2 §7.7. Hybrid needs the question text for full-text search; ignored when lexicalQuery (stub) is set.
+  mode?: 'vector' | 'hybrid';
+  queryText?: string;
 };
+
+const RRF_K = 60;
+const CANDIDATES = 20;
+
+// Reciprocal Rank Fusion over ranked id lists (best first). Ties break by id.
+export function rrf(lists: number[][], limit = 8, k = RRF_K): { id: number; score: number }[] {
+  const scores = new Map<number, number>();
+  for (const list of lists) {
+    list.forEach((id, i) => scores.set(id, (scores.get(id) ?? 0) + 1 / (k + i + 1)));
+  }
+  return [...scores]
+    .map(([id, score]) => ({ id, score }))
+    .sort((a, b) => b.score - a.score || a.id - b.id)
+    .slice(0, limit);
+}
 
 export async function retrieve(queryEmbedding: number[], opts: RetrieveOpts): Promise<Passage[]> {
   const limit = opts.limit ?? 8;
+  const hybrid = opts.mode === 'hybrid' && !opts.lexicalQuery;
   const rows = opts.lexicalQuery
     ? await loadEligible(opts.model)
-    : await loadByVector(queryEmbedding, opts.model, limit);
+    : hybrid
+      ? await loadHybrid(queryEmbedding, opts, limit)
+      : await loadByVector(queryEmbedding, opts.model, limit);
 
   const scored: Record<string, unknown>[] = opts.lexicalQuery
     ? rows
@@ -44,7 +65,8 @@ export async function retrieve(queryEmbedding: number[], opts: RetrieveOpts): Pr
   const kept: Passage[] = [];
   for (const row of scored) {
     const score = Number(row.score);
-    if (!(score >= opts.minScore)) {
+    // Hybrid applies minScore to the vector list only; fused scores are on the RRF scale.
+    if (!hybrid && !(score >= opts.minScore)) {
       continue;
     }
     const heading = row.heading == null ? null : String(row.heading);
@@ -142,6 +164,48 @@ async function loadByVector(queryEmbedding: number[], model: string, limit: numb
       join documents d on d.active_version_id = v.id and d.archived_at is null
       where c.embedding_model = ${model}
       order by c.embedding <=> ${vec}::vector
+      limit ${limit}
+    `),
+  );
+}
+
+async function loadHybrid(queryEmbedding: number[], opts: RetrieveOpts, limit: number) {
+  const [vectorRows, lexicalRows] = await Promise.all([
+    loadByVector(queryEmbedding, opts.model, CANDIDATES),
+    loadByLexical(opts.queryText ?? '', opts.model, CANDIDATES),
+  ]);
+  const byId = new Map<number, Record<string, unknown>>();
+  const vectorIds: number[] = [];
+  for (const row of vectorRows) {
+    if (Number(row.score) >= opts.minScore) {
+      vectorIds.push(Number(row.id));
+      byId.set(Number(row.id), row);
+    }
+  }
+  for (const row of lexicalRows) {
+    byId.set(Number(row.id), byId.get(Number(row.id)) ?? row);
+  }
+  return rrf([vectorIds, lexicalRows.map((r) => Number(r.id))], limit).map((f) => ({
+    ...byId.get(f.id)!,
+    score: f.score,
+  }));
+}
+
+// OR semantics: websearch_to_tsquery ANDs terms, which matches nothing for natural questions.
+async function loadByLexical(text: string, model: string, limit: number) {
+  return rowsOf(
+    await db().execute(sql`
+      with q as (
+        select replace(websearch_to_tsquery('english', ${text})::text, '&', '|')::tsquery as tsq
+      )
+      select c.id, c.text, c.heading, c.page_number, v.id as version_id, v.version_number,
+             v.effective_at, d.id as document_id, d.title, d.category,
+             ts_rank_cd(c.search_tsv, q.tsq) as score
+      from q, document_chunks c
+      join document_versions v on v.id = c.version_id
+      join documents d on d.active_version_id = v.id and d.archived_at is null
+      where c.embedding_model = ${model} and c.search_tsv @@ q.tsq
+      order by score desc, c.id
       limit ${limit}
     `),
   );

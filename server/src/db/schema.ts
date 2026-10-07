@@ -29,6 +29,7 @@ const oneOf = (column: string, values: readonly string[]) =>
   sql.raw(`${column} in (${values.map((v) => `'${v}'`).join(', ')})`);
 
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => 'bytea' });
+const tsvector = customType<{ data: string }>({ dataType: () => 'tsvector' });
 
 export const PLANS = ['basic', 'pro', 'enterprise'] as const;
 export const ACCOUNT_STATUSES = ['trialing', 'active', 'past_due', 'canceled'] as const;
@@ -258,9 +259,16 @@ export const documentChunks = pgTable(
     // No ANN index in the MVP (§14): exact search is fast at demo scale.
     embedding: vector('embedding', { dimensions: EMBEDDING_DIMENSIONS }).notNull(),
     embeddingModel: text('embedding_model').notNull(),
+    // REQ_V2 §7.7: lexical side of hybrid retrieval. Generated, so writers never set it.
+    searchTsv: tsvector('search_tsv').generatedAlwaysAs(
+      sql`to_tsvector('english', coalesce(heading, '') || ' ' || text)`,
+    ),
     createdAt: createdAt(),
   },
-  (t) => [unique('document_chunks_version_index_key').on(t.versionId, t.chunkIndex)],
+  (t) => [
+    unique('document_chunks_version_index_key').on(t.versionId, t.chunkIndex),
+    index('document_chunks_search_tsv_idx').using('gin', t.searchTsv),
+  ],
 );
 
 // ---------- Conversations (§17a) ----------

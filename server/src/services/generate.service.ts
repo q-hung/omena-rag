@@ -284,6 +284,8 @@ async function runOutsideTxn(
     model: cfg.EMBEDDING_MODEL,
     minScore: cfg.LLM_PROVIDER === 'stub' ? 0 : cfg.RETRIEVAL_MIN_SCORE,
     lexicalQuery: cfg.LLM_PROVIDER === 'stub' ? query : undefined,
+    mode: cfg.RETRIEVAL_MODE,
+    queryText: query,
   });
   await deps.afterRetrieve?.(passages);
 

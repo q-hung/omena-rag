@@ -246,7 +246,7 @@ export async function main(): Promise<void> {
   });
   const extra = withJudge ? ` + ${judgeCount} judge calls` : '';
   console.log(`Estimated cost: $${estimate.toFixed(4)} (${generateCount} generates + KB embeddings${extra})`);
-  console.log(`Model: ${cfg.GENERATION_MODEL}  RETRIEVAL_MIN_SCORE=${cfg.RETRIEVAL_MIN_SCORE}`);
+  console.log(`Model: ${cfg.GENERATION_MODEL}  RETRIEVAL_MODE=${cfg.RETRIEVAL_MODE}  RETRIEVAL_MIN_SCORE=${cfg.RETRIEVAL_MIN_SCORE}`);
   if (withJudge) {
     console.log(`Judge: ${cfg.JUDGE_MODEL}  prompt ${cfg.JUDGE_PROMPT_VERSION}`);
   }

@@ -18,12 +18,12 @@ import { loadConfig } from '../src/config/config.ts';
 import { formatSupportLine, NOT_CALIBRATED, scoreCalibration } from '../eval/judge.ts';
 
 describe('eval', () => {
-  it('golden.json holds E01–E15', async () => {
+  it('golden.json holds E01–E20', async () => {
     const cases = await loadGolden();
-    expect(cases.map((c) => c.id)).toEqual(Array.from({ length: 15 }, (_, i) => `E${String(i + 1).padStart(2, '0')}`));
+    expect(cases.map((c) => c.id)).toEqual(Array.from({ length: 20 }, (_, i) => `E${String(i + 1).padStart(2, '0')}`));
     expect(cases.find((c) => c.id === 'E04')?.chooseRecordOptions).toEqual(['F10', 'F11']);
     expect(cases.find((c) => c.id === 'E13')?.applyV3).toBe(true);
-    expect(generateCallCount(cases)).toBe(16);
+    expect(generateCallCount(cases)).toBe(21);
   });
 
   it('scores a hit, subset reasons, and forbidden patterns', () => {

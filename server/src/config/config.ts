@@ -20,6 +20,7 @@ const schema = z
     PRICE_GENERATION_OUTPUT_USD_PER_MTOK: z.coerce.number().nonnegative().default(1.5),
     PRICE_EMBEDDING_INPUT_USD_PER_MTOK: z.coerce.number().nonnegative().default(0.15),
 
+    RETRIEVAL_MODE: z.enum(['vector', 'hybrid']).default('vector'),
     RETRIEVAL_MIN_SCORE: z.coerce.number().min(0).max(1).default(0.5),
     DAILY_BUDGET_USD: z.coerce.number().positive().default(5),
 
