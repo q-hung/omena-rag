@@ -445,6 +445,8 @@ Vector search matches meaning but blurs exact tokens (status codes, currency cod
 4. **Score.** `answer_sources.score` stores the fused score in hybrid mode. RET-02 still applies: it is never shown.
 5. **Mode.** `RETRIEVAL_MODE=vector|hybrid` (default `vector` until the M12 baseline shows a gain). Eval prints the mode so runs can be compared. Stub mode keeps its token-overlap ranking (T19).
 
+**Baseline (7 Oct 2026, Gemini, same seed):** retrieval hit rate 100% (18/18) in both modes, E16–E20 hit in both, vector already finds them. No measured gain, so the default stays `vector`; hybrid is opt-in. Revisit if the RFP golden set shows exact-token misses (REQ_V3 OPT3-1).
+
 Lexical-only hits pass no score threshold, so off-topic questions can pull in noise. E11 (out of scope) and SC-2 guard against this. Add a lexical floor only if eval shows harm.
 
 - **SC-6 (post-MVP)** In hybrid mode, the retrieval hit rate on E01–E20 is ≥ the vector-mode rate, E16–E20 hit in hybrid mode, and SC-1/SC-2 still hold.
@@ -920,7 +922,7 @@ Each milestone ends with a working slice and its tests. Regenerate `TASKS_V2.md`
 
 **Added**
 - Server layering refactor (4 Oct 2026): inserted as M10; LLM-judge renumbered M10 → M11, hybrid retrieval M11 → M12. No requirement changes.
-- Hybrid retrieval phase (4 Oct 2026): OPT-9 scheduled as post-MVP milestone M12 (§7.7, SC-6, HYB-01–04, E16–E20). Adds `document_chunks.search_tsv` and `RETRIEVAL_MODE`; default stays `vector` until the baseline. Not implemented yet.
+- Hybrid retrieval phase (4 Oct 2026): OPT-9 scheduled as post-MVP milestone M12 (§7.7, SC-6, HYB-01–04, E16–E20). Adds `document_chunks.search_tsv` and `RETRIEVAL_MODE`; default stays `vector` until the baseline. Implemented (7 Oct 2026). Baseline on E01–E20: hit rate 100% (18/18) in both modes, so SC-6 holds only as a tie; default stays `vector` (§7.7).
 - LLM-judge phase (4 Oct 2026): OPT-3 scheduled as post-MVP milestone M11 (§13.4, SC-5, JDG-01–05). Eval only; adds `provider_calls.kind = 'judge'`. Not implemented yet.
 - Badges (3 Oct 2026): account signal badges computed in code (§5.5, SIG-01/02) and topic badges from cited document categories (ANS-09), shown on questions in Ask and History, with History filters.
 - From `docs/DESIGN.md` §9 (v2.1 revision, 3 Oct 2026): 90 s request deadline and 10 s query-embedding timeout (GEN-04); deleted-chunk handling in T2 (GEN-05); abandoned-reservation sweep (COST-04); conversation row lock for every mutating conversation request (LCK-02).

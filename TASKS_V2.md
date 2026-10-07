@@ -716,7 +716,7 @@ Retrieval only (§7.7). Prompt, normaliser and UI are unchanged. Independent of 
 - **Result (7 Oct 2026):** `drizzle/0004_hybrid_search.sql` (generated column + GIN). `rag/retrieve.ts`: `rrf()`, `loadHybrid`, `loadByLexical`; `RETRIEVAL_MODE` in config, passed from `generate.service.ts`. Path is `rag/retrieve.ts` after M10. Fused score flows to `answer_sources.score` unchanged. Tests HYB-01–04 in `retrieval.test.ts`; full server suite 203/203 in vector mode.
 - **Verify:** `pnpm --filter server test retrieve` passes; `RETRIEVAL_MODE=vector pnpm test` is green with no test changes.
 
-### [ ] T41 · (code done, baseline pending) · Golden cases E16–E20 and vector-vs-hybrid baseline
+### [x] T41 · Golden cases E16–E20 and vector-vs-hybrid baseline
 - **Goal:** measure whether hybrid helps before turning it on.
 - **Refs:** §7.7, §13.2, SC-1, SC-2, SC-6, EVAL-01.
 - **Depends:** T40.
@@ -725,7 +725,19 @@ Retrieval only (§7.7). Prompt, normaliser and UI are unchanged. Independent of 
   - The eval report prints `RETRIEVAL_MODE`. The cost estimate is unchanged (no extra provider calls; lexical search is SQL only).
   - Run `pnpm eval` once per mode on the same seed. Paste both reports here, with a per-case diff of retrieval hits.
   - If SC-6 holds, set the default to `hybrid` and record it in REQ_V2 §7.7 and §18. If not, keep `vector` and record why (e.g. lexical noise on E11).
-- **Status (7 Oct 2026):** E16–E20 added to `golden.json` (loader and tests now expect 20 cases, 21 generate calls); eval prints `RETRIEVAL_MODE`. **Not done:** the two live Gemini runs, pasted reports, per-case diff and the default decision — need `GEMINI_API_KEY`. Default stays `vector`.
+- **Result (7 Oct 2026, Gemini `gemini-3.1-flash-lite`, same seed):** E16–E20 added (loader and tests expect 20 cases, 21 generates); eval prints `RETRIEVAL_MODE`.
+
+  | Metric | vector | hybrid |
+  |---|---|---|
+  | Retrieval hit rate | 100% (18/18) | 100% (18/18) |
+  | Outcome accuracy | 90% (18/20) | 85% (17/20) |
+  | Fact-section matches | 100% | 100% |
+  | Forbidden hits / removed citations | 0 / 0 | 0 / 0 |
+  | p95 latency | 22.1 s | 25.8 s |
+  | Cost | $0.0175 | $0.0354 |
+
+  Per-case retrieval hits: identical (every case hits in both). Retrieved lists differ slightly (E07 3→2 docs, E19 3→4, E20 3→4, E16 3→3 with different docs). Outcome diffs: vector fails E05, E09; hybrid fails E04, E09, E10. E04/E05/E10 flipped between earlier same-mode runs too, so these are generation variance, not retrieval. E09 fails in both (and in pre-M12 runs).
+- **Decision:** SC-6 holds as a tie, but vector already hits E16–E20, so hybrid shows no gain. **Default stays `vector`** (recorded in REQ_V2 §7.7 and §18). Hybrid stays opt-in via `RETRIEVAL_MODE=hybrid`. Revisit with the RFP golden set (TASK-13).
 - **Verify:** `RETRIEVAL_MODE=vector LLM_PROVIDER=gemini pnpm eval` and `RETRIEVAL_MODE=hybrid LLM_PROVIDER=gemini pnpm eval` both complete; the chosen default is backed by the pasted numbers.
 
 ---
