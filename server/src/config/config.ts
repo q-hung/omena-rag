@@ -11,6 +11,8 @@ const schema = z
     LLM_PROVIDER: z.enum(['stub', 'gemini']).default('stub'),
     GEMINI_API_KEY: z.string().min(1).optional(),
     GENERATION_MODEL: z.string().min(1).default('gemini-3.1-flash-lite'),
+    JUDGE_MODEL: z.string().min(1).default('gemini-3-flash-preview'),
+    JUDGE_PROMPT_VERSION: z.string().min(1).default('v1'),
     EMBEDDING_MODEL: z.string().min(1).default('gemini-embedding-2'),
     EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().default(768),
 

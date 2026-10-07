@@ -35,12 +35,56 @@ export function geminiModels(config: Config): GeminiModels {
   return new GoogleGenAI({ apiKey: config.GEMINI_API_KEY }).models as unknown as GeminiModels;
 }
 
+const noSdkRetry = { attempts: 1 };
+
+export async function completeJson(
+  models: GeminiModels,
+  input: { model: string; prompt: string; jsonSchema: unknown; once?: boolean },
+  deadline: number,
+): Promise<{ data: unknown; usage?: { inputTokens?: number; outputTokens?: number } }> {
+  const response = await withRetries(
+    (signal) =>
+      models.generateContent({
+        model: input.model,
+        contents: input.prompt,
+        config: {
+          abortSignal: signal,
+          maxOutputTokens: MAX_OUTPUT_TOKENS,
+          responseMimeType: 'application/json',
+          responseJsonSchema: input.jsonSchema,
+          thinkingConfig: { thinkingBudget: 0 },
+          httpOptions: { timeout: GENERATE_TIMEOUT_MS, retryOptions: noSdkRetry },
+        },
+      }),
+    { timeoutMs: GENERATE_TIMEOUT_MS, deadline, maxRetries: input.once ? 0 : undefined },
+  ).catch((error) => {
+    throw wrap(error);
+  });
+
+  if (response.candidates?.[0]?.finishReason === 'MAX_TOKENS') {
+    throw new ProviderError('TRUNCATED', 'The model response was cut off by the token limit.');
+  }
+  const text = response.text;
+  if (!text) {
+    throw new ProviderError('INVALID_OUTPUT', 'The model returned an empty response.');
+  }
+  try {
+    return {
+      data: JSON.parse(text) as unknown,
+      usage: {
+        inputTokens: response.usageMetadata?.promptTokenCount,
+        outputTokens: response.usageMetadata?.candidatesTokenCount,
+      },
+    };
+  } catch (error) {
+    throw new ProviderError('INVALID_OUTPUT', 'The model returned malformed JSON.', false, { cause: error });
+  }
+}
+
 export function geminiProvider(config: Config, models: GeminiModels = geminiModels(config)): Provider {
   if (config.LLM_DEBUG_DIR) {
     models = withDebugLog(models, config.LLM_DEBUG_DIR);
   }
-  const noSdkRetry = { attempts: 1 };
-
   const embed = async (texts: string[], timeoutMs: number, deadline: number): Promise<EmbedResult> => {
     const response = await withRetries(
       (signal) =>
@@ -73,50 +117,21 @@ export function geminiProvider(config: Config, models: GeminiModels = geminiMode
       embed([formatQueryForEmbedding(query)], EMBED_QUERY_TIMEOUT_MS, deadline),
 
     async generate(input: GenerateInput, deadline: number): Promise<GenerateResult> {
-      const response = await withRetries(
-        (signal) =>
-          models.generateContent({
-            model: config.GENERATION_MODEL,
-            contents: input.prompt,
-            config: {
-              abortSignal: signal,
-              maxOutputTokens: MAX_OUTPUT_TOKENS,
-              responseMimeType: 'application/json',
-              responseJsonSchema: modelOutputJsonSchema,
-              thinkingConfig: { thinkingBudget: 0 },
-              httpOptions: { timeout: GENERATE_TIMEOUT_MS, retryOptions: noSdkRetry },
-            },
-          }),
-        { timeoutMs: GENERATE_TIMEOUT_MS, deadline, maxRetries: input.once ? 0 : undefined },
-      ).catch((error) => {
-        throw wrap(error);
-      });
-
-      if (response.candidates?.[0]?.finishReason === 'MAX_TOKENS') {
-        throw new ProviderError('TRUNCATED', 'The model response was cut off by the token limit.');
-      }
-      const text = response.text;
-      if (!text) {
-        throw new ProviderError('INVALID_OUTPUT', 'The model returned an empty response.');
-      }
-      let raw: unknown;
-      try {
-        raw = JSON.parse(text);
-      } catch (error) {
-        throw new ProviderError('INVALID_OUTPUT', 'The model returned malformed JSON.', false, { cause: error });
-      }
-      const parsed = modelOutputSchema.safeParse(raw);
+      const { data, usage } = await completeJson(
+        models,
+        {
+          model: config.GENERATION_MODEL,
+          prompt: input.prompt,
+          jsonSchema: modelOutputJsonSchema,
+          once: input.once,
+        },
+        deadline,
+      );
+      const parsed = modelOutputSchema.safeParse(data);
       if (!parsed.success) {
         throw new ProviderError('INVALID_OUTPUT', 'The model returned JSON that failed the §7.4 schema.');
       }
-      return {
-        output: parsed.data,
-        model: config.GENERATION_MODEL,
-        usage: {
-          inputTokens: response.usageMetadata?.promptTokenCount,
-          outputTokens: response.usageMetadata?.candidatesTokenCount,
-        },
-      };
+      return { output: parsed.data, model: config.GENERATION_MODEL, usage };
     },
   };
 }

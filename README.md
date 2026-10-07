@@ -105,6 +105,7 @@ See [.env.example](.env.example). The full schema is in
 | `LLM_PROVIDER` | `stub` | `stub` or `gemini` |
 | `GEMINI_API_KEY` | none | Required for `gemini` |
 | `GENERATION_MODEL` | `gemini-3.1-flash-lite` | |
+| `JUDGE_MODEL` | `gemini-3-flash-preview` | `pnpm eval --judge` only; must differ from generation |
 | `RETRIEVAL_MIN_SCORE` | `0.5` | Live mode only |
 | `DAILY_BUDGET_USD` | `5` | |
 | `APP_ORIGIN` | `http://localhost:8080` | `.env.example` uses `:5173` for Vite |

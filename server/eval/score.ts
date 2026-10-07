@@ -154,14 +154,26 @@ export function generateCallCount(cases: GoldenCase[]): number {
   return cases.reduce((n, c) => n + 1 + (c.replies?.length ?? 0), 0);
 }
 
+export function judgeableCaseCount(cases: GoldenCase[]): number {
+  return cases.filter((c) => outcomesOf(c).some((o) => o === 'answer' || o === 'insufficient_evidence')).length;
+}
+
 export function estimateEvalCostUsd(
   cfg: Config,
-  input: { indexChars: number; queryChars: number; generateChars: number; generateCount: number },
+  input: {
+    indexChars: number;
+    queryChars: number;
+    generateChars: number;
+    generateCount: number;
+    judgeCount?: number;
+    judgeChars?: number;
+  },
 ): number {
   const index = estimateCostUsd('embed_document', input.indexChars, cfg);
   const queries = input.generateCount * estimateCostUsd('embed_query', input.queryChars, cfg);
   const gens = input.generateCount * estimateCostUsd('generate', input.generateChars, cfg);
-  return index + queries + gens;
+  const judges = (input.judgeCount ?? 0) * estimateCostUsd('judge', input.judgeChars ?? 4_000, cfg);
+  return index + queries + gens + judges;
 }
 
 export function liveEvalGuard(provider: string): string | null {

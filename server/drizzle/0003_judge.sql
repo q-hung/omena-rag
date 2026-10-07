@@ -1,0 +1,2 @@
+ALTER TABLE "provider_calls" DROP CONSTRAINT "provider_calls_kind";--> statement-breakpoint
+ALTER TABLE "provider_calls" ADD CONSTRAINT "provider_calls_kind" CHECK (kind in ('embed_document', 'embed_query', 'generate', 'rfp_generate', 'judge'));

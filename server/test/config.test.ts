@@ -9,6 +9,7 @@ describe('config', () => {
     expect(cfg.LLM_PROVIDER).toBe('stub');
     expect(cfg.EMBEDDING_DIMENSIONS).toBe(768);
     expect(cfg.COOKIE_SECURE).toBe(true);
+    expect(cfg.JUDGE_MODEL).not.toBe(cfg.GENERATION_MODEL);
   });
 
   it('fails fast when gemini is selected without a key', () => {
