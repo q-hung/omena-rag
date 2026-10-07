@@ -3,7 +3,9 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   budgetGuard,
+  estimateEvalCostUsd,
   generateCallCount,
+  judgeableCaseCount,
   liveEvalGuard,
   loadGolden,
   matchesForbidden,
@@ -12,6 +14,8 @@ import {
   summarize,
   targetsMet,
 } from '../eval/score.ts';
+import { loadConfig } from '../src/config/config.ts';
+import { formatSupportLine, NOT_CALIBRATED, scoreCalibration } from '../eval/judge.ts';
 
 describe('eval', () => {
   it('golden.json holds E01–E15', async () => {
@@ -150,5 +154,39 @@ describe('eval', () => {
     });
     expect(result.status).toBe(1);
     expect(`${result.stdout}\n${result.stderr}`).toMatch(/stub/i);
+  });
+
+  it('JDG-01: without judgeCount the estimate matches T27', () => {
+    const cfg = loadConfig({ DATABASE_URL: 'postgres://jarvis:jarvis@localhost:5433/jarvis' });
+    const base = { indexChars: 10_000, queryChars: 400, generateChars: 24_000, generateCount: 16 };
+    expect(estimateEvalCostUsd(cfg, { ...base, judgeCount: 0 })).toBe(estimateEvalCostUsd(cfg, base));
+    expect(estimateEvalCostUsd(cfg, { ...base, judgeCount: 14 })).toBeGreaterThan(estimateEvalCostUsd(cfg, base));
+  });
+
+  it('counts judgeable golden cases', async () => {
+    const cases = await loadGolden();
+    expect(judgeableCaseCount(cases)).toBeGreaterThanOrEqual(12);
+  });
+
+  it('JDG-04: all-supported stub prints the not-calibrated warning', () => {
+    const cal = scoreCalibration(
+      [
+        { id: 'a', sentence: 'x', cited: 'y', label: 'unsupported' },
+        { id: 'b', sentence: 'x', cited: 'y', label: 'supported' },
+      ],
+      ['supported', 'supported'],
+    );
+    expect(formatSupportLine('50.0% (1/2)', cal.trusted)).toBe(`50.0% (1/2)  ${NOT_CALIBRATED}`);
+  });
+
+  it('pnpm eval --judge still refuses stub (JDG-01, JDG-05)', () => {
+    const result = spawnSync(process.execPath, ['eval/run.ts', '--judge'], {
+      cwd: fileURLToPath(new URL('..', import.meta.url)),
+      encoding: 'utf8',
+      env: { ...process.env, LLM_PROVIDER: 'stub' },
+    });
+    expect(result.status).toBe(1);
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(/stub/i);
+    expect(`${result.stdout}\n${result.stderr}`).not.toMatch(/Judge not calibrated/);
   });
 });

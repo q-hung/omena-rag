@@ -675,7 +675,7 @@ Target layers in `server/src/`:
 
 Eval only (§13.4). Nothing in the request path or the UI changes.
 
-### [ ] T38 · Judge module, claim splitter and calibration set
+### [x] T38 · Judge module, claim splitter and calibration set
 - **Goal:** judge whether each answer sentence follows from the sources it cites.
 - **Refs:** §13.4, JDG-02, JDG-03, JDG-05, §10, COST-03.
 - **Depends:** T27. Independent of BUGS B04: grouped markers are caught by the splitter either way.
