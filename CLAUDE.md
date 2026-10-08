@@ -16,14 +16,17 @@ and model calls; simulated behavior must be clearly labeled.
 
 ## Source of truth
 
-- REQ_V2.MD defines product requirements for Ask / History / KB.
-- TASKS_V2.md defines implementation tasks and progress for Ask / History / KB.
-- REQ_V3.MD / TASKS_V3.md define the RFP workspace.
-- CLAUDE.md defines repository working instructions.
+- `docs/TIMELINE.md` — phase order, status, next task, and the rule for
+  changing an earlier phase. Start here.
+- `docs/phases/Pnn-*.md` — tasks and acceptance checks for one phase.
+- `REQ_V2.MD` (Ask / History / KB) and `REQ_V3.MD` (RFP) — requirements.
+- `BUGS.md` — open defects. `HANDOFF.md` — run commands and known limits.
+- `docs/archive/` — history only; do not treat as current.
 
-Read the relevant requirements and task before changing code.
-Report contradictions before implementing affected behavior.
-Do not silently expand the MVP.
+Read TIMELINE, the relevant phase file and its `Depends on` phases before
+changing code. If your change touches an earlier phase, follow TIMELINE
+"Changing an earlier phase". Report contradictions before implementing
+affected behavior. Do not silently expand the MVP.
 
 ## Server layers (M10)
 

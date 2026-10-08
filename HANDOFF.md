@@ -1,13 +1,8 @@
 # Jarvis handoff
 
-Internal Product Support Copilot. Source of truth: `REQ_V2.MD`, `TASKS_V2.md`.
+Internal Product Support Copilot. Status: `docs/TIMELINE.md`. Requirements: `REQ_V2.MD`, `REQ_V3.MD`.
 
-## Done (T00–T37, T40, T41)
-
-Phases 0–9 (MVP) and M10 (server layering). Employees can sign in, generate
-answers, reply to clarifications, edit and copy, save a reviewed internal
-answer, and browse History. `pnpm eval` measures the golden set on Gemini.
-`docker compose up` runs the full demo.
+## Where things are
 
 | Area | Where |
 |---|---|
@@ -74,10 +69,6 @@ Live generation model: `gemini-3.1-flash-lite`. `RETRIEVAL_MIN_SCORE=0.5`.
 - `document_chunks.search_tsv` (generated, GIN) via `0004_hybrid_search.sql`; apply with `pnpm db:migrate`.
 - Hybrid = vector top 20 (cosine ≥ `RETRIEVAL_MIN_SCORE`) + lexical top 20 (`websearch_to_tsquery`, `&`→`|`, `ts_rank_cd`), fused by RRF k=60, top 8. Lexical-only hits skip the score floor. `answer_sources.score` holds the fused score.
 - Golden set is now E01–E20. Baseline: hit rate 100% in both modes, so no gain; **default stays `vector`**, hybrid is opt-in. Numbers in TASKS T41. Revisit when the RFP golden set shows exact-token misses. Eval worktrees need the repo-root `.env` copied in (gitignored).
-
-## Next
-
-**M10 done (T30–T37).** Next is post-MVP M11 (T38+) or REQ_V3 work — not both in parallel with unfinished layering. Routes stay thin; `pnpm check:layers` enforces it.
 
 ## Limits
 
