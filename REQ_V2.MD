@@ -1,7 +1,7 @@
 # Jarvis — Product Support Copilot · Requirements v2.1
 
-Draft v2.1 · 3 Oct 2026 · supersedes REQ v2 (2 Oct 2026) and `docs/old_notes.md`.
-Visual reference: `SubPilot Knowledge Assistant.html` and `frontend/` (a clickable mock; the AI is simulated). Where they disagree, this document wins. §16 lists the changes to make in the mock. §18 summarises what changed from v2.
+Draft v2.1 · 3 Oct 2026 · supersedes REQ v2 (2 Oct 2026).
+Visual reference: `frontend/`. Where it and this document disagree, this document wins. Phase status and tasks: `docs/TIMELINE.md`.
 
 Requirement IDs (`AREA-NN`) are stable. Each requirement has acceptance criteria (*AC*). **Must** = MVP. **Optional** items are listed only in §15 and are not part of the MVP.
 
@@ -46,10 +46,11 @@ The employee inspects both kinds of evidence separately, edits the draft, copies
 
 ---
 
-## 2. Repository baseline (inspected 3 Oct 2026)
+## 2. Repository baseline
 
-| Item | State | Consequence |
-|---|---|---|
+The 3 Oct 2026 inspection (mock frontend, no server) is obsolete: the MVP is built. See `docs/TIMELINE.md` and `HANDOFF.md`. DEC-1 and DEC-2 (§14) record the ORM and validation choices.
+
+---|---|---|
 | `frontend/` | React 18 + Vite + Tailwind 4 mock, plain JS, **npm** (`package-lock.json`), state in `hooks/useSubPilot.js`, simulated data in `data/demo.js` | Reuse components (§12.3). Move to pnpm (§14). |
 | Server | None yet | Everything server-side is new. |
 | `TASKS_V2.md` | Written against REQ v2 (portal, publication, C1–C20) | Regenerated from §17 (T00–T29). C-items still relevant are folded into this document (§18). |
@@ -792,9 +793,9 @@ Tests for JDG-02–JDG-05 use a stubbed judge in Vitest and never call Gemini.
 
 ---
 
-## 16. (archived)
+## 16. (removed)
 
-Mock changes (all done), change summary and follow-ups moved to `docs/archive/REQ_V2_history.md`. Milestones moved to `docs/TIMELINE.md`.
+Mock changes (all done) and the v2 change summary were removed; see git history (`git show c1c8a33:REQ_V2.MD`, §16, §18, §19).
 
 ## 17. Schema and API
 
