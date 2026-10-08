@@ -16,6 +16,7 @@ The only place for status. One row per phase, in build order. A phase file owns 
 | [P16](phases/P16-review-and-feedback.md) | RFP review + feedback (TASK-08–09) | not started | — |
 | [P17](phases/P17-knowledge-quality-reliability-observability.md) | `.txt`, B05, processing view, hybrid (TASK-10–12) | not started | — |
 | [P18](phases/P18-evaluation-and-demo-readiness.md) | RFP eval, export, demo (TASK-13–16) | not started | — |
+| [P19](phases/P19-rag-observability.md) | RAG tracing, logging, health (TASK-17–21) | proposed, not approved | — |
 
 Context shared by P13–P18: [RFP-CONTEXT.md](phases/RFP-CONTEXT.md) (architecture, strategy, parallelism rules).
 **Next:** P14 TASK-02 (P13 is done). P11 T39 only needs a live Gemini baseline run pasted into the task; it touches no V3 files.
@@ -28,4 +29,4 @@ Context shared by P13–P18: [RFP-CONTEXT.md](phases/RFP-CONTEXT.md) (architectu
 
 ## Dependency chain
 
-P00–P09 → P10 → P11, P12 (post-MVP) → P13 → P14 → P15 → P16 → P18. P17: TASK-10 any time after P13; TASK-11/12 after P15.
+P00–P09 → P10 → P11, P12 (post-MVP) → P13 → P14 → P15 → P16 → P18. P19 needs P12 + P15, not P16–P18. P17: TASK-10 any time after P13; TASK-11/12 after P15.
