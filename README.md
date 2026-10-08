@@ -13,9 +13,9 @@ synthetic. MVP is complete (M0–M9), and the server layering refactor (M10) is 
 
 | Doc | Purpose |
 |---|---|
-| [REQ_V2.MD](REQ_V2.MD) | Product requirements (source of truth) |
-| [TASKS_V2.md](TASKS_V2.md) | Implementation tasks and progress |
-| [HANDOFF.md](HANDOFF.md) | Current state and limits |
+| [docs/TIMELINE.md](docs/TIMELINE.md) | Phases, status, tasks (start here) |
+| [REQ_V2.MD](REQ_V2.MD), [REQ_V3.MD](REQ_V3.MD) | Product requirements (Ask / RFP) |
+| [HANDOFF.md](HANDOFF.md) | Run commands and known limits |
 | [BUGS.md](BUGS.md) | Post-MVP defects with cause, fix and check |
 | [docs/DESIGN.md](docs/DESIGN.md) | Design notes |
 | [CLAUDE.md](CLAUDE.md) | Repository working rules |
