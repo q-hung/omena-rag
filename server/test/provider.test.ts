@@ -6,6 +6,7 @@ import { loadConfig } from '../src/config/config.ts';
 import { formatDocumentForEmbedding, formatQueryForEmbedding } from '../src/llm/format.ts';
 import { geminiProvider, type GeminiModels } from '../src/llm/gemini.ts';
 import { createProvider } from '../src/llm/provider.ts';
+import { rfpAnswerJsonSchema, rfpAnswerSchema } from '../src/llm/rfp-schema.ts';
 import { embedText, stubProvider } from '../src/llm/stub.ts';
 
 const deadline = () => Date.now() + 15_000;
@@ -81,6 +82,26 @@ describe('stub provider', () => {
     expect(fallback.output.outcome).toBe('insufficient_evidence');
     expect(fallback.output.answer).toMatch(/^Simulated:/);
   });
+
+  it('generateStructured rfp: HIGH_EVIDENCE citing the first sentence of S1 when passages are present', async () => {
+    const prompt = 'prompt_version: rfp-v1\n\nS1 | SSO guide | Security | v1\nWe support SAML 2.0. And SCIM.\n\n<untrusted>\nQ\n</untrusted>';
+    const { output, model } = await stub.generateStructured(
+      { prompt, schema: rfpAnswerSchema, jsonSchema: rfpAnswerJsonSchema, kind: 'rfp_generate', stubKind: 'rfp' },
+      deadline(),
+    );
+    expect(model).toBe('stub:rfp');
+    expect(output.evidence_status).toBe('HIGH_EVIDENCE');
+    expect(output.answer).toBe('Simulated: We support SAML 2.0. [S1]');
+  });
+
+  it('generateStructured rfp: INSUFFICIENT_EVIDENCE when the prompt has no S1 passage', async () => {
+    const prompt = 'prompt_version: rfp-v1\n\n<untrusted>\nQ\n</untrusted>';
+    const { output } = await stub.generateStructured(
+      { prompt, schema: rfpAnswerSchema, jsonSchema: rfpAnswerJsonSchema, kind: 'rfp_generate', stubKind: 'rfp' },
+      deadline(),
+    );
+    expect(output.evidence_status).toBe('INSUFFICIENT_EVIDENCE');
+  });
 });
 
 describe('gemini provider', () => {
@@ -107,6 +128,51 @@ describe('gemini provider', () => {
     await expect(geminiProvider(cfg, models).generate({ prompt: 'q' }, deadline())).rejects.toMatchObject({
       code: 'HTTP_400',
     });
+    expect(attempts).toBe(1);
+  });
+
+  const structured = (models: GeminiModels) =>
+    geminiProvider(cfg, models).generateStructured(
+      { prompt: 'q', schema: rfpAnswerSchema, jsonSchema: rfpAnswerJsonSchema, kind: 'rfp_generate', stubKind: 'rfp' },
+      deadline(),
+    );
+
+  it('generateStructured parses any zod shape and returns usage', async () => {
+    const models = fake(async () => ({
+      text: JSON.stringify({ evidence_status: 'HIGH_EVIDENCE', answer: 'We do. [S1]', gaps: [] }),
+      candidates: [{ finishReason: 'STOP' }],
+      usageMetadata: { promptTokenCount: 3, candidatesTokenCount: 5 },
+    }));
+    const result = await structured(models);
+    expect(result.output.evidence_status).toBe('HIGH_EVIDENCE');
+    expect(result.usage).toMatchObject({ inputTokens: 3, outputTokens: 5 });
+  });
+
+  it('generateStructured: malformed JSON throws INVALID_OUTPUT', async () => {
+    const models = fake(async () => ({ text: '{not-json', candidates: [{ finishReason: 'STOP' }] }));
+    await expect(structured(models)).rejects.toMatchObject({ code: 'INVALID_OUTPUT' });
+  });
+
+  it('generateStructured: a truncated response throws TRUNCATED', async () => {
+    const models = fake(async () => ({ text: '{"answer":"', candidates: [{ finishReason: 'MAX_TOKENS' }] }));
+    await expect(structured(models)).rejects.toMatchObject({ code: 'TRUNCATED' });
+  });
+
+  it('generateStructured: a schema mismatch throws a retryable INVALID_OUTPUT', async () => {
+    const models = fake(async () => ({
+      text: JSON.stringify({ evidence_status: 'MAYBE', answer: 'x' }),
+      candidates: [{ finishReason: 'STOP' }],
+    }));
+    await expect(structured(models)).rejects.toMatchObject({ code: 'INVALID_OUTPUT', retryable: true });
+  });
+
+  it('generateStructured: a 400 makes one attempt', async () => {
+    let attempts = 0;
+    const models = fake(async () => {
+      attempts += 1;
+      throw http(400);
+    });
+    await expect(structured(models)).rejects.toMatchObject({ code: 'HTTP_400' });
     expect(attempts).toBe(1);
   });
 

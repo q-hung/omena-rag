@@ -7,7 +7,14 @@ import { ProviderError, statusOf } from './errors.ts';
 import { formatDocumentForEmbedding, formatQueryForEmbedding } from './format.ts';
 import { withRetries } from './retry.ts';
 import { modelOutputJsonSchema, modelOutputSchema } from './schema.ts';
-import type { EmbedResult, GenerateInput, GenerateResult, Provider } from './types.ts';
+import type {
+  EmbedResult,
+  GenerateInput,
+  GenerateResult,
+  Provider,
+  StructuredInput,
+  StructuredResult,
+} from './types.ts';
 
 export const GENERATE_TIMEOUT_MS = 20_000;
 export const EMBED_QUERY_TIMEOUT_MS = 10_000;
@@ -77,7 +84,8 @@ export async function completeJson(
       },
     };
   } catch (error) {
-    throw new ProviderError('INVALID_OUTPUT', 'The model returned malformed JSON.', false, { cause: error });
+    // Retryable like a 5xx (REQ_V3 7.4): the caller's paidGenerate loop retries INVALID_OUTPUT.
+    throw new ProviderError('INVALID_OUTPUT', 'The model returned malformed JSON.', true, { cause: error });
   }
 }
 
@@ -116,22 +124,37 @@ export function geminiProvider(config: Config, models: GeminiModels = geminiMode
     embedQuery: (query, deadline) =>
       embed([formatQueryForEmbedding(query)], EMBED_QUERY_TIMEOUT_MS, deadline),
 
-    async generate(input: GenerateInput, deadline: number): Promise<GenerateResult> {
+    async generateStructured<T>(input: StructuredInput<T>, deadline: number): Promise<StructuredResult<T>> {
       const { data, usage } = await completeJson(
         models,
         {
           model: config.GENERATION_MODEL,
           prompt: input.prompt,
-          jsonSchema: modelOutputJsonSchema,
+          jsonSchema: input.jsonSchema,
           once: input.once,
         },
         deadline,
       );
-      const parsed = modelOutputSchema.safeParse(data);
+      const parsed = input.schema.safeParse(data);
       if (!parsed.success) {
-        throw new ProviderError('INVALID_OUTPUT', 'The model returned JSON that failed the §7.4 schema.');
+        // Treated like a 5xx (ProviderError.isRetryable), REQ_V3 §7.4.
+        throw new ProviderError('INVALID_OUTPUT', 'The model returned JSON that failed the response schema.', true);
       }
       return { output: parsed.data, model: config.GENERATION_MODEL, usage };
+    },
+
+    async generate(input: GenerateInput, deadline: number): Promise<GenerateResult> {
+      // Ask path: a thin call to generateStructured with the §7.4 Ask schema.
+      return this.generateStructured(
+        {
+          prompt: input.prompt,
+          schema: modelOutputSchema,
+          jsonSchema: modelOutputJsonSchema,
+          kind: 'generate',
+          once: input.once,
+        },
+        deadline,
+      );
     },
   };
 }

@@ -1,6 +1,6 @@
 # P14 · Walking skeleton: one question end to end (V3 M2)
 
-Status: not started
+Status: in progress (TASK-02 done)
 Depends on: P13
 Requirements: REQ_V3 §7, §8, §13
 Recheck when changed (downstream): P15 (answerQuestion), P16 (review UI shares RfpWorkspaceView)
@@ -31,10 +31,10 @@ A provider call that returns any zod-validated JSON shape, and the RFP prompt + 
 
 **Acceptance criteria**
 
-- [ ] Existing `provider.test.ts` and `generate.test.ts` pass unchanged (Ask unaffected)
-- [ ] `generateStructured` with a malformed JSON response retries and then throws `INVALID_OUTPUT`; a truncated response throws; a 400 makes one attempt
-- [ ] `buildRfpPrompt` drops the lowest passage when over budget, marks the question as untrusted, contains no employee name/email (RFP-PRM-01)
-- [ ] New `server/test/rfp-prompt.test.ts`; provider tests extended
+- [x] Existing `provider.test.ts` and `generate.test.ts` pass unchanged (Ask unaffected)
+- [x] `generateStructured` with a malformed JSON response retries and then throws `INVALID_OUTPUT`; a truncated response throws; a 400 makes one attempt
+- [x] `buildRfpPrompt` drops the lowest passage when over budget, marks the question as untrusted, contains no employee name/email (RFP-PRM-01)
+- [x] New `server/test/rfp-prompt.test.ts`; provider tests extended
 
 **Dependencies**
 
