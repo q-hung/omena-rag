@@ -1,6 +1,6 @@
 # P14 · Walking skeleton: one question end to end (V3 M2)
 
-Status: in progress (TASK-02 done)
+Status: in progress (TASK-02–03 done)
 Depends on: P13
 Requirements: REQ_V3 §7, §8, §13
 Recheck when changed (downstream): P15 (answerQuestion), P16 (review UI shares RfpWorkspaceView)
@@ -66,10 +66,10 @@ The skeleton needs a container for questions before extraction exists. Hardcoded
 
 **Acceptance criteria**
 
-- [ ] Create → 201 with questions in order; 51 questions → 400; unauthenticated → 401; foreign Origin → 403
-- [ ] Employee B can read A's RFP (`ownedByMe: false`); `mine=1` lists only own RFPs
-- [ ] `deriveQuestionState` unit tests cover every row of REQ_V3 §4.4
-- [ ] New `server/test/rfp-api.test.ts`
+- [x] Create → 201 with questions in order; 51 questions → 400; unauthenticated → 401; foreign Origin → 403
+- [x] Employee B can read A's RFP (`ownedByMe: false`); `mine=1` lists only own RFPs
+- [x] `deriveQuestionState` unit tests cover every row of REQ_V3 §4.4
+- [x] New `server/test/rfp-api.test.ts`
 
 **Dependencies**
 

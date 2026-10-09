@@ -5,6 +5,7 @@ import { registerAccounts } from './routes/accounts.routes.ts';
 import { config as loadConfig, type Config } from './config/config.ts';
 import { registerConversations } from './routes/conversations.routes.ts';
 import { registerDocuments } from './routes/documents.routes.ts';
+import { registerRfps } from './routes/rfps.routes.ts';
 import type { GenerateDeps } from './services/generate.service.ts';
 import { registerAuthHook } from './plugins/auth.ts';
 import { registerErrors } from './plugins/errors.ts';
@@ -41,6 +42,7 @@ export async function buildApp(options: BuildOptions = {}) {
   registerAccounts(app);
   registerDocuments(app);
   registerConversations(app, config, options.generate ?? {});
+  registerRfps(app);
   registerRequestLog(app);
   await registerErrors(app);
   return app;

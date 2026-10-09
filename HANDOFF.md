@@ -19,6 +19,7 @@ Internal Product Support Copilot. Status: `docs/TIMELINE.md`. Requirements: `REQ
 | Edit | `PATCH /api/answers/:id` `{editedText}` |
 | Review | `POST /api/conversations/:id/review` `{answerId, reviewAcknowledged}` |
 | History | `GET /api/conversations?accountId&state&mine&signal&topic` |
+| RFPs | `POST /api/rfps` `{title, questions:[{text, section?}]}` (1–50) → `confirmed` + `pending`; `GET /api/rfps?mine=1` (default mine); `GET /api/rfps/:id` with `ownedByMe`, `reviewState` (REQ_V3 §4.4 `deriveQuestionState`) |
 | Eval | `server/eval/run.ts`, `server/eval/golden.json` — `pnpm eval` |
 | Docker | `Dockerfile`, `docker-compose.yml` (`db`, `api`, `worker`), `STATIC_DIR` SPA |
 | Ask UI | `frontend/src/hooks/useAsk.js` |
