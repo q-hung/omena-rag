@@ -2,6 +2,7 @@ import type { InjectOptions } from 'fastify';
 import { buildApp } from '../../src/app.ts';
 import { loadConfig } from '../../src/config/config.ts';
 import type { GenerateDeps } from '../../src/services/generate.service.ts';
+import type { RfpAnswerDeps } from '../../src/services/rfp-answer.service.ts';
 
 export const TEST_ORIGIN = 'http://localhost:5173';
 
@@ -20,7 +21,12 @@ export class LogCapture {
 
 type Routes = (app: Awaited<ReturnType<typeof buildApp>>) => void;
 
-export async function buildTestApp(logs?: LogCapture, routes?: Routes, generate?: GenerateDeps) {
+export async function buildTestApp(
+  logs?: LogCapture,
+  routes?: Routes,
+  generate?: GenerateDeps,
+  rfp?: RfpAnswerDeps,
+) {
   const config = loadConfig({
     ...process.env,
     APP_ORIGIN: TEST_ORIGIN,
@@ -30,6 +36,7 @@ export async function buildTestApp(logs?: LogCapture, routes?: Routes, generate?
     config,
     logger: logs ? { level: 'info', stream: logs.stream } : false,
     generate,
+    rfp,
   });
   routes?.(app);
   await app.ready();

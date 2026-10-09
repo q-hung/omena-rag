@@ -1,6 +1,6 @@
 # P14 · Walking skeleton: one question end to end (V3 M2)
 
-Status: in progress (TASK-02–03 done)
+Status: in progress (TASK-02–04 done)
 Depends on: P13
 Requirements: REQ_V3 §7, §8, §13
 Recheck when changed (downstream): P15 (answerQuestion), P16 (review UI shares RfpWorkspaceView)
@@ -103,13 +103,13 @@ This is the core of the product and the function the worker will call later. Bui
 
 **Acceptance criteria**
 
-- [ ] Stub: "Do you support SAML SSO?" against the seeded KB → `done`, answer with `[1]`, `rfp_answer_sources` holds every retrieved passage and exactly the cited one has `citation_number`
-- [ ] A question with no matching passage → `INSUFFICIENT_EVIDENCE`, `model = 'none'`, no `rfp_generate` row
-- [ ] `applyEvidenceRules` unit tests for every REQ_V3 §8 row (EVS-01)
-- [ ] Stub `INVALID_OUTPUT` × 3 → `failed` with `INVALID_OUTPUT`, 3 `provider_calls` rows with `rfp_question_id`, no answer row, lock cleared
-- [ ] A taken-over token cannot save; B regenerating A's question → 403, nothing written
-- [ ] While a stubbed call is blocked, archiving a cited document completes immediately (no txn held, GEN-01)
-- [ ] New `server/test/rfp-answer.test.ts`
+- [x] Stub: "Do you support SAML SSO?" against the seeded KB → `done`, answer with `[1]`, `rfp_answer_sources` holds every retrieved passage and exactly the cited one has `citation_number`
+- [x] A question with no matching passage → `INSUFFICIENT_EVIDENCE`, `model = 'none'`, no `rfp_generate` row
+- [x] `applyEvidenceRules` unit tests for every REQ_V3 §8 row (EVS-01)
+- [x] Stub `INVALID_OUTPUT` × 3 → `failed` with `INVALID_OUTPUT`, 3 `provider_calls` rows with `rfp_question_id`, no answer row, lock cleared
+- [x] A taken-over token cannot save; B regenerating A's question → 403, nothing written
+- [x] While a stubbed call is blocked, archiving a cited document completes immediately (no txn held, GEN-01)
+- [x] New `server/test/rfp-answer.test.ts`
 
 **Dependencies**
 
