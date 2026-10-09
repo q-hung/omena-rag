@@ -69,7 +69,8 @@ export async function completeJson(
   });
 
   if (response.candidates?.[0]?.finishReason === 'MAX_TOKENS') {
-    throw new ProviderError('TRUNCATED', 'The model response was cut off by the token limit.');
+    // REQ_V3 §7.4: truncation is INVALID_OUTPUT, retried like a 5xx.
+    throw new ProviderError('INVALID_OUTPUT', 'The model response was cut off by the token limit.', true);
   }
   const text = response.text;
   if (!text) {

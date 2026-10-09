@@ -153,9 +153,9 @@ describe('gemini provider', () => {
     await expect(structured(models)).rejects.toMatchObject({ code: 'INVALID_OUTPUT' });
   });
 
-  it('generateStructured: a truncated response throws TRUNCATED', async () => {
+  it('generateStructured: a truncated response throws a retryable INVALID_OUTPUT', async () => {
     const models = fake(async () => ({ text: '{"answer":"', candidates: [{ finishReason: 'MAX_TOKENS' }] }));
-    await expect(structured(models)).rejects.toMatchObject({ code: 'TRUNCATED' });
+    await expect(structured(models)).rejects.toMatchObject({ code: 'INVALID_OUTPUT', retryable: true });
   });
 
   it('generateStructured: a schema mismatch throws a retryable INVALID_OUTPUT', async () => {
@@ -182,7 +182,8 @@ describe('gemini provider', () => {
       candidates: [{ finishReason: 'MAX_TOKENS' }],
     }));
     await expect(geminiProvider(cfg, models).generate({ prompt: 'q' }, deadline())).rejects.toMatchObject({
-      code: 'TRUNCATED',
+      code: 'INVALID_OUTPUT',
+      retryable: true,
     });
   });
 
