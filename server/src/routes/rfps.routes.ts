@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import type { App } from '../app.ts';
+import type { Config } from '../config/config.ts';
+import { regenerateQuestion, type RfpAnswerDeps } from '../services/rfp-answer.service.ts';
 import { createRfp, getRfp, listRfps } from '../services/rfp.service.ts';
 
 const createBody = z.object({
@@ -19,7 +21,7 @@ const listQuery = z.object({
   mine: z.enum(['0', '1']).default('1'),
 });
 
-export function registerRfps(app: App): void {
+export function registerRfps(app: App, config: Config, deps?: RfpAnswerDeps): void {
   app.post('/api/rfps', { schema: { body: createBody } }, async (request, reply) => {
     const rfp = await createRfp({
       title: request.body.title,
@@ -35,5 +37,16 @@ export function registerRfps(app: App): void {
 
   app.get('/api/rfps/:id', { schema: { params: idParam } }, async (request) => {
     return getRfp(request.params.id, request.employeeId!);
+  });
+
+  app.post('/api/rfp-questions/:id/regenerate', { schema: { params: idParam } }, async (request) => {
+    const rfpId = await regenerateQuestion({
+      questionId: request.params.id,
+      employeeId: request.employeeId!,
+      config,
+      deps,
+      log: request.log,
+    });
+    return getRfp(rfpId, request.employeeId!);
   });
 }

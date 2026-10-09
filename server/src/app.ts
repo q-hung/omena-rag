@@ -7,6 +7,7 @@ import { registerConversations } from './routes/conversations.routes.ts';
 import { registerDocuments } from './routes/documents.routes.ts';
 import { registerRfps } from './routes/rfps.routes.ts';
 import type { GenerateDeps } from './services/generate.service.ts';
+import type { RfpAnswerDeps } from './services/rfp-answer.service.ts';
 import { registerAuthHook } from './plugins/auth.ts';
 import { registerErrors } from './plugins/errors.ts';
 import { registerRequestLog } from './plugins/request-log.ts';
@@ -18,6 +19,7 @@ export type BuildOptions = {
   config?: Config;
   logger?: FastifyServerOptions['logger'];
   generate?: GenerateDeps;
+  rfp?: RfpAnswerDeps;
 };
 
 declare module 'fastify' {
@@ -42,7 +44,7 @@ export async function buildApp(options: BuildOptions = {}) {
   registerAccounts(app);
   registerDocuments(app);
   registerConversations(app, config, options.generate ?? {});
-  registerRfps(app);
+  registerRfps(app, config, options.rfp);
   registerRequestLog(app);
   await registerErrors(app);
   return app;

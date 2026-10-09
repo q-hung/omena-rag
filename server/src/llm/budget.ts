@@ -28,6 +28,7 @@ export type ReserveInput = {
   employeeId?: number;
   conversationId?: number;
   documentVersionId?: number;
+  rfpQuestionId?: number;
   day?: string;
 };
 
@@ -110,6 +111,7 @@ export async function reserve(input: ReserveInput, cfg: Config = loadCached()): 
         employeeId: input.employeeId,
         conversationId: input.conversationId,
         documentVersionId: input.documentVersionId,
+        rfpQuestionId: input.rfpQuestionId,
         status: 'reserved',
         estimatedCostUsd: money(estimatedCostUsd),
       })
