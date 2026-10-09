@@ -31,7 +31,7 @@ Retrieval only (§7.7). Prompt, normaliser and UI are unchanged. Independent of 
   - `server/eval/golden.json` gains E16–E20 (§13.2) with expected documents.
   - The eval report prints `RETRIEVAL_MODE`. The cost estimate is unchanged (no extra provider calls; lexical search is SQL only).
   - Run `pnpm eval` once per mode on the same seed. Paste both reports here, with a per-case diff of retrieval hits.
-  - If SC-6 holds, set the default to `hybrid` and record it in REQ_V2 §7.7 and `docs/archive/REQ_V2_history.md`. If not, keep `vector` and record why (e.g. lexical noise on E11).
+  - If SC-6 holds, set the default to `hybrid` and record it in REQ_V2 §7.7 and git history (`git show c1c8a33:REQ_V2.MD`). If not, keep `vector` and record why (e.g. lexical noise on E11).
 - **Result (7 Oct 2026, Gemini `gemini-3.1-flash-lite`, same seed):** E16–E20 added (loader and tests expect 20 cases, 21 generates); eval prints `RETRIEVAL_MODE`.
 
   | Metric | vector | hybrid |
