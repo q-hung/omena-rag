@@ -8,7 +8,8 @@ Internal Product Support Copilot. Status: `docs/TIMELINE.md`. Requirements: `REQ
 |---|---|
 | Auth | `POST /api/auth/login`, cookie `jarvis_session` |
 | Accounts | `GET /api/accounts`, `GET /api/accounts/:id/facts` |
-| Provider | `server/src/llm/` — `createProvider(config)` |
+| Provider | `server/src/llm/` — `createProvider(config)`; `generate` (Ask) and `generateStructured<T>({prompt, schema, jsonSchema, kind, stubKind?}, deadline)` (any zod shape) |
+| RFP prompt / schema | `server/src/rag/rfp-prompt.ts` (`buildRfpPrompt`, `RFP_PROMPT_VERSION='rfp-v1'`), `server/src/llm/rfp-schema.ts` (REQ_V3 §7.4) |
 | Budget | `server/src/llm/budget.ts` — `reserve`, `reconcile`, `paidAttempt` |
 | Layers | `routes/` → `services/` → `db/`; `plugins/`; `rag/`, `ingest/`, `config/` |
 | Retrieval | `server/src/rag/retrieve.ts` — SQL access filter; stub uses token overlap; `RETRIEVAL_MODE=hybrid` adds full-text + RRF (`rrf()`, default `vector`) |
