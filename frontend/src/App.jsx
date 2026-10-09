@@ -1,10 +1,11 @@
 import { Component, useEffect, useState } from 'react';
-import { History, Library, MessageSquare } from 'lucide-react';
+import { FileText, History, Library, MessageSquare } from 'lucide-react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAccounts } from './hooks/useAccounts';
 import { useAsk } from './hooks/useAsk';
 import { useDocuments } from './hooks/useDocuments';
 import { useHistory } from './hooks/useHistory';
+import { useRfps } from './hooks/useRfps';
 import { useSession } from './hooks/useSession';
 import { useToast } from './hooks/useToast';
 import Sidebar from './components/Sidebar';
@@ -17,6 +18,8 @@ import UploadDialog from './features/kb/UploadDialog';
 import WorkspaceView from './features/workspace/WorkspaceView';
 import HistoryView from './features/history/HistoryView';
 import HistoryReadView from './features/history/HistoryReadView';
+import RfpListView from './features/rfp/RfpListView';
+import RfpWorkspaceView from './features/rfp/RfpWorkspaceView';
 
 class ErrorBoundary extends Component {
   state = { failed: false };
@@ -72,6 +75,7 @@ function Shell({ session, onSignOut }) {
   const accounts = useAccounts();
   const kb = useDocuments({ onToast: toasts.show });
   const history = useHistory();
+  const rfps = useRfps({ onToast: toasts.show });
   const workspace = useAsk({ accountId: accounts.accountId, onToast: toasts.show, onChange: history.refresh });
   const [selDocV, setSelDocV] = useState(null);
 
@@ -97,6 +101,7 @@ function Shell({ session, onSignOut }) {
       }
     },
     kb,
+    rfps,
     workspace,
     history,
     simulated: session.simulated,
@@ -119,6 +124,7 @@ function Shell({ session, onSignOut }) {
   const section = pathname.split('/')[1];
   const nav = [
     { label: 'Ask', icon: MessageSquare, count: '', active: section === 'ask', onClick: () => app.go('ask') },
+    { label: 'RFPs', icon: FileText, count: '', active: section === 'rfps', onClick: () => app.go('rfps') },
     { label: 'History', icon: History, count: history.rows.length || '', active: section === 'history', onClick: () => app.go('history') },
     { label: 'Knowledge base', icon: Library, count: kb.navCount, active: section === 'kb', onClick: () => app.go('kb') },
   ];
@@ -132,6 +138,8 @@ function Shell({ session, onSignOut }) {
         {session.simulated && <DemoBanner />}
         <Routes>
           <Route path="/ask" element={<WorkspaceView app={app} />} />
+          <Route path="/rfps" element={<RfpListView app={app} />} />
+          <Route path="/rfps/:id" element={<RfpWorkspaceView app={app} />} />
           <Route path="/history" element={<HistoryView app={app} />} />
           <Route path="/history/:id" element={<HistoryReadView app={app} />} />
           <Route path="/kb" element={<KnowledgeBaseView app={app} />} />

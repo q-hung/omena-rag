@@ -1,6 +1,6 @@
 # P14 · Walking skeleton: one question end to end (V3 M2)
 
-Status: in progress (TASK-02–04 done)
+Status: done (TASK-02–05)
 Depends on: P13
 Requirements: REQ_V3 §7, §8, §13
 Recheck when changed (downstream): P15 (answerQuestion), P16 (review UI shares RfpWorkspaceView)
@@ -141,10 +141,10 @@ Completes the walking skeleton: the architecture is proven only when the answer 
 
 **Acceptance criteria**
 
-- [ ] Manually with the stub: create sample → Generate question 1 → answer, "Strong evidence" label, one evidence card linking to the KB document version; the no-evidence sample question shows "Insufficient evidence" and no cards
-- [ ] A failed generation shows the error code and Retry
-- [ ] `grep -rn "confidence\|verified\|%" frontend/src/features/rfp` finds no UI text (ANS-07)
-- [ ] `pnpm --filter frontend build` passes; a `deriveQuestionState`-label helper test if any logic lives in the frontend
+- [x] Manually with the stub: create sample → Generate question 1 → answer, "Strong evidence" label, one evidence card linking to the KB document (not the version, see Result). The no-evidence rendering was checked on a hand-inserted answer: under the stub `minScore` is 0, so no seeded question can retrieve zero passages
+- [x] A failed generation shows the error code and Retry (checked on a question set to `failed` / `INVALID_OUTPUT`)
+- [x] `grep -rn "confidence\|verified\|%" frontend/src/features/rfp` finds no UI text (ANS-07)
+- [x] `pnpm --filter frontend build` passes; `lib/rfp.test.js` covers `citesOf` and the EVS-02 labels
 
 **Dependencies**
 
@@ -153,6 +153,8 @@ TASK-04.
 **Complexity**
 
 M
+
+**Result (9 Oct 2026):** `features/rfp/RfpListView.jsx`, `RfpWorkspaceView.jsx`, `hooks/useRfps.js`, `lib/rfp.js` (+ test), routes `/rfps`, `/rfps/:id`, sidebar **RFPs**; `EvidenceCard` extracted to `features/workspace/EvidenceCard.jsx` and shared with Ask. Gaps to know: `GET /api/rfps/:id` sources carry no chunk text, category or version number, so the card shows title, heading and page and links to the document's current version. Add them to the API if the demo needs excerpts (TASK-08/09 touch the same payload). The stub always returns 8 passages (Ask behaves the same), so it never shows "Insufficient evidence" on its own.
 
 **→ Demo milestone 1 (walking skeleton) after this task.**
 

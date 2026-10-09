@@ -31,3 +31,12 @@ Mark `[x]` when done or decided against (add a note).
 - [ ] **Redundant fallback.** `built.promptVersion || RFP_PROMPT_VERSION` can never fall back. Drop it and the extra import. `server/src/services/rfp-answer.service.ts`
 - [ ] **Embed retry.** Confirm `embedQuery` retries internally (it uses `withRetries`, so likely fine); add a one-line comment at the call. `server/src/services/rfp-answer.service.ts`
 - [ ] **Missing tests.** No test for an exhausted daily budget (AppError path, state `failed`) or for `invalid_citation_removed` through the full flow. `server/test/rfp-answer.test.ts`
+
+## P14 TASK-05: minimal RFP workspace UI (`07bc08b`)
+
+- [ ] **Evidence card has no passage text.** Sources carry only title, heading and page; category is hardcoded to "Knowledge base". The list subtitle promises passages and the badge tooltip says "read the evidence". Add `text`, `category` and `versionNumber` to the `GET /api/rfps/:id` sources (join `document_chunks`) before TASK-08, or reword the subtitle until then. `frontend/src/lib/rfp.js`, `frontend/src/features/rfp/RfpWorkspaceView.jsx`, `server/src/services/rfp.service.ts`
+- [ ] **`generating` is a single id.** Generate on question B while A runs overwrites it, and A's `finally` clears B's busy state. Track a set of ids or disable all Generate buttons while any run is in flight. `frontend/src/hooks/useRfps.js`
+- [ ] **Any load error redirects to `/rfps`.** Redirect only on 404 and toast otherwise. Overlapping `load` calls can land out of order. `frontend/src/features/rfp/RfpWorkspaceView.jsx`
+- [ ] **No "Generating" state after reload.** The list reads only the fetched `reviewState`, so a reload mid-run shows "Not generated". P15's background worker needs polling. `frontend/src/features/rfp/RfpWorkspaceView.jsx`
+- [ ] **Silent disabled Generate for non-owners.** Add a `title` explaining why. Remove the dead `g.text ?? g.description` gaps branch (the API returns strings). `frontend/src/features/rfp/RfpWorkspaceView.jsx`
+- [ ] **Keyboard access.** `EvidenceCard` is a `div onClick` (moved from Ask, so existing); the question list buttons lack `aria-current`. Fix both screens in one pass. `frontend/src/features/workspace/EvidenceCard.jsx`, `frontend/src/features/rfp/RfpWorkspaceView.jsx`
