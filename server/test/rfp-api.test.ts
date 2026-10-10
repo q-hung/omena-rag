@@ -209,6 +209,14 @@ describe('RFP intake and draft editing', () => {
     expect((await json(ada.cookie, 'POST', `/api/rfps/${rfp.id}/extract`)).statusCode).toBe(409);
   });
 
+  it('refuses to generate a question of an unconfirmed RFP', async () => {
+    const res = await json(ada.cookie, 'POST', '/api/rfps', { title: 'Unconfirmed', text: '1. Do you support SAML SSO?' });
+    const qid = res.json().questions[0].id;
+    const gen = await json(ada.cookie, 'POST', `/api/rfp-questions/${qid}/regenerate`);
+    expect(gen.statusCode).toBe(409);
+    expect(gen.json().error.code).toBe('RFP_NOT_CONFIRMED');
+  });
+
   it('confirm with zero questions → 409; paste with no questions stays a draft', async () => {
     const res = await json(ada.cookie, 'POST', '/api/rfps', { title: 'Empty', text: 'Nothing to see here.' });
     expect(res.json()).toMatchObject({ status: 'draft', questions: [] });

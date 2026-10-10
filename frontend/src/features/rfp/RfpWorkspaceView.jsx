@@ -26,7 +26,7 @@ export default function RfpWorkspaceView({ app }) {
     return null;
   }
   if (rfp.status !== 'confirmed') {
-    return <RfpDraftView key={`${rfp.id}-${rfp.status}`} rfp={rfp} rfps={r} />;
+    return <RfpDraftView key={`${rfp.id}-${rfp.status}-${rfp.questions.map((x) => x.id).join()}`} rfp={rfp} rfps={r} />;
   }
   const q = rfp.questions.find((x) => x.id === selected) ?? rfp.questions[0];
   const a = q?.latestAnswer;
