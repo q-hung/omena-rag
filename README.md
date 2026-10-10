@@ -22,7 +22,7 @@ synthetic. MVP is complete (M0–M9), and the server layering refactor (M10) is 
 
 ## Stack
 
-- **server/**: Node 26 locally (native TypeScript, strip-only); Docker image is Node 22. Fastify, Drizzle ORM, PostgreSQL 16 + pgvector, Zod, Vitest
+- **server/**: Node 26 locally (native TypeScript, strip-only); Docker image is Node 22. Fastify, Drizzle ORM, PostgreSQL 16 + pgvector, Zod, Luxon (UTC dates, server only), Vitest
 - **frontend/**: React 18, Vite, Tailwind 4, React Router (plain JS)
 - **LLM**: Google Gemini (`gemini-3.1-flash-lite`, `gemini-embedding-2`), or a deterministic stub
 - pnpm workspace; Docker Compose (`db`, `api`, `worker`)
