@@ -19,9 +19,10 @@ Internal Product Support Copilot. Status: `docs/TIMELINE.md`. Requirements: `REQ
 | Edit | `PATCH /api/answers/:id` `{editedText}` |
 | Review | `POST /api/conversations/:id/review` `{answerId, reviewAcknowledged}` |
 | History | `GET /api/conversations?accountId&state&mine&signal&topic` |
-| RFPs | `POST /api/rfps` `{title, questions:[{text, section?}]}` (1–50) → `confirmed` + `pending`; `GET /api/rfps?mine=1` (default mine); `GET /api/rfps/:id` with `ownedByMe`, `reviewState` (REQ_V3 §4.4 `deriveQuestionState`); `POST /api/rfp-questions/:id/regenerate` (creator only) → `answerQuestion` |
+| RFPs | `POST /api/rfps`: JSON `{title, questions:[…]}` (1–50) → `confirmed` + `pending`; JSON `{title, text}` or multipart `{title, file}` (`.pdf`/`.md`, 3 MB) → `extractQuestions` (`services/rfp-extract.ts`) → `draft` (PDF failure → `extraction_failed` + `extractionError`); `PUT /api/rfps/:id/questions {questions}` (draft only, creator only, else 409/403); `POST /api/rfps/:id/confirm` (≥ 1 question, else 409); `POST /api/rfps/:id/extract {text?}` re-run (draft / extraction_failed); `GET /api/rfps?mine=1` (default mine); `GET /api/rfps/:id` with `ownedByMe`, `reviewState` (REQ_V3 §4.4 `deriveQuestionState`); `POST /api/rfp-questions/:id/regenerate` (creator only) → `answerQuestion` |
 | Eval | `server/eval/run.ts`, `server/eval/golden.json` — `pnpm eval` |
 | Docker | `Dockerfile`, `docker-compose.yml` (`db`, `api`, `worker`), `STATIC_DIR` SPA |
+| RFP UI | `frontend/src/features/rfp/` — `RfpNewView` (`/rfps/new`), `RfpDraftView` (draft mode of `/rfps/:id`), `RfpWorkspaceView` (confirmed) |
 | Ask UI | `frontend/src/hooks/useAsk.js` |
 | History UI | `frontend/src/hooks/useHistory.js` |
 | KB UI | `frontend/src/hooks/useDocuments.js` |
@@ -79,3 +80,4 @@ Live generation model: `gemini-3.1-flash-lite`. `RETRIEVAL_MIN_SCORE=0.5`.
 - GEN-04 is tested with a shortened deadline (400 ms), not a 90 s hang.
 - Node 26 strip-only mode: no constructor parameter properties; no top-level `return` in `.ts` scripts. The Docker image uses Node 22; the same TypeScript sources run there.
 - Live E04 often answers both payments instead of `choose_record`; E09 often answers instead of `insufficient_evidence`. Golden-set targets still hold.
+- RFP intake (P15 TASK-06): `.txt` upload is not accepted until P17 TASK-10; paste covers it. A `.md` upload keeps its raw text (headings drive sections). An unindented continuation line must start lowercase, otherwise it is read as a new line. PDF blank-page warnings are not stored. Generate all / worker processing is TASK-07, so confirmed RFPs still draft only via the per-question button.

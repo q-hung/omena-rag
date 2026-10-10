@@ -86,7 +86,7 @@ export async function regenerateQuestion(input: {
   const started = await db().transaction(async (tx) => {
     const [row] = rowsOf(
       await tx.execute(sql`
-        select q.status, q.generation_started_at, r.created_by, r.id as rfp_id,
+        select q.status, q.generation_started_at, r.created_by, r.id as rfp_id, r.status as rfp_status,
           case
             when q.status = 'queued' then 1
             when q.status = 'processing'
@@ -104,6 +104,9 @@ export async function regenerateQuestion(input: {
       throw notFound('QUESTION_NOT_FOUND', 'No such question.');
     }
     requireOwner({ createdBy: Number(row.created_by) }, input.employeeId);
+    if (row.rfp_status !== 'confirmed') {
+      throw conflict('RFP_NOT_CONFIRMED', 'Confirm the questions before generating answers.');
+    }
     if (Number(row.busy) === 1) {
       throw conflict('GENERATION_IN_PROGRESS', 'This question is already being answered.');
     }

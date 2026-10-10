@@ -5,6 +5,7 @@ import Button from '../../components/ui/Button';
 import {
   citesOf, EVIDENCE_LABEL, EVIDENCE_TIP, EVIDENCE_TONE, QUESTION_STATE_LABEL, QUESTION_STATE_TONE,
 } from '../../lib/rfp';
+import RfpDraftView from './RfpDraftView';
 import DraftText from '../workspace/DraftText';
 import EvidenceCard from '../workspace/EvidenceCard';
 
@@ -23,6 +24,9 @@ export default function RfpWorkspaceView({ app }) {
   const rfp = r.rfp && String(r.rfp.id) === String(id) ? r.rfp : null;
   if (!rfp) {
     return null;
+  }
+  if (rfp.status !== 'confirmed') {
+    return <RfpDraftView key={`${rfp.id}-${rfp.status}-${rfp.questions.map((x) => x.id).join()}`} rfp={rfp} rfps={r} />;
   }
   const q = rfp.questions.find((x) => x.id === selected) ?? rfp.questions[0];
   const a = q?.latestAnswer;

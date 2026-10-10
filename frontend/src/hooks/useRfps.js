@@ -1,6 +1,5 @@
 import { useCallback, useState } from 'react';
 import { api } from '../lib/api';
-import { SAMPLE_RFP } from '../lib/rfp';
 
 export function useRfps({ onToast } = {}) {
   const [rfps, setRfps] = useState([]);
@@ -17,11 +16,31 @@ export function useRfps({ onToast } = {}) {
     setRfp(await api(`/rfps/${id}`));
   }, []);
 
-  const createSample = useCallback(async () => {
-    const created = await api('/rfps', { method: 'POST', body: SAMPLE_RFP });
-    await refresh();
-    return created;
-  }, [refresh]);
+  const create = useCallback(async ({ title, text, file }) => {
+    let form;
+    if (file) {
+      form = new FormData();
+      form.append('title', title);
+      form.append('file', file);
+    }
+    return api('/rfps', { method: 'POST', ...(form ? { form } : { body: { title, text } }) });
+  }, []);
+
+  // Draft editing: every call returns the fresh RFP.
+  const draftCall = useCallback(async (path, options) => {
+    try {
+      setRfp(await api(path, options));
+      return true;
+    } catch (e) {
+      onToast?.(e.message);
+      return false;
+    }
+  }, [onToast]);
+  const saveQuestions = useCallback((id, questions) =>
+    draftCall(`/rfps/${id}/questions`, { method: 'PUT', body: { questions } }), [draftCall]);
+  const confirm = useCallback((id) => draftCall(`/rfps/${id}/confirm`, { method: 'POST' }), [draftCall]);
+  const reextract = useCallback((id, text) =>
+    draftCall(`/rfps/${id}/extract`, { method: 'POST', body: text ? { text } : undefined }), [draftCall]);
 
   const generate = useCallback(async (rfpId, questionId) => {
     setGenerating(questionId);
@@ -37,5 +56,5 @@ export function useRfps({ onToast } = {}) {
     }
   }, [onToast, load]);
 
-  return { rfps, rfp, generating, error, refresh, load, createSample, generate };
+  return { rfps, rfp, generating, error, refresh, load, create, saveQuestions, confirm, reextract, generate };
 }

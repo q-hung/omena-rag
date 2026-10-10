@@ -43,12 +43,3 @@ export function citesOf(answer) {
   }
   return cites;
 }
-
-export const SAMPLE_RFP = {
-  title: 'Sample security questionnaire',
-  questions: [
-    { text: 'Do you support SAML SSO?', section: 'Access' },
-    { text: 'What is the refund window for annual plans?', section: 'Commercial' },
-    { text: 'Which ISO 27001 auditor certified your data centres?', section: 'Compliance' },
-  ],
-};

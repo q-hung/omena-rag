@@ -1,7 +1,12 @@
+import { extname } from 'node:path';
 import { desc, eq, inArray } from 'drizzle-orm';
 import { db } from '../db/index.ts';
+import { extract } from '../ingest/extract.ts';
 import { employees, rfpAnswerSources, rfpAnswers, rfpQuestions, rfpReviews, rfps } from '../db/schema.ts';
-import { notFound } from '../errors.ts';
+import { badRequest, conflict, notFound } from '../errors.ts';
+import { MD_CHAR_LIMIT, inspectFile } from './document-upload.service.ts';
+import { requireOwner } from './generate.service.ts';
+import { extractQuestions } from './rfp-extract.ts';
 import { deriveQuestionState } from './rfp-state.ts';
 
 export type NewRfpQuestion = { text: string; section?: string };
@@ -33,6 +38,123 @@ export async function createRfp(input: {
     return rfp!.id;
   });
   return getRfp(id, input.employeeId);
+}
+
+const SHORT_ERROR = 200;
+
+/** Paste or file intake (EXT-01/02). Lands in `draft`; a failed file extraction lands in `extraction_failed`. */
+export async function createRfpFromSource(input: {
+  title: string;
+  text?: string;
+  file?: { filename: string; bytes: Buffer };
+  employeeId: number;
+}) {
+  let sourceText: string | null = null;
+  let extractionError: string | null = null;
+  if (input.file) {
+    const { mimeType } = inspectFile(input.file.filename, input.file.bytes);
+    try {
+      if (mimeType === 'application/pdf') {
+        const r = await extract(input.file.bytes, input.file.filename);
+        sourceText = r.pages.map((p) => p.text).join('\n');
+      } else {
+        sourceText = new TextDecoder().decode(input.file.bytes);
+      }
+      if (sourceText.length > MD_CHAR_LIMIT) {
+        sourceText = null;
+        extractionError = `The extracted text exceeds ${MD_CHAR_LIMIT.toLocaleString()} characters.`;
+      }
+    } catch (e) {
+      extractionError = (e instanceof Error ? e.message : 'Extraction failed.').slice(0, SHORT_ERROR);
+    }
+  } else {
+    sourceText = input.text ?? '';
+  }
+  const questions = sourceText == null ? [] : extractQuestions(sourceText);
+  const id = await db().transaction(async (tx) => {
+    const [rfp] = await tx
+      .insert(rfps)
+      .values({
+        title: input.title,
+        sourceKind: input.file ? 'file' : 'paste',
+        sourceFilename: input.file?.filename ?? null,
+        sourceText,
+        status: sourceText == null ? 'extraction_failed' : 'draft',
+        extractionError,
+        createdBy: input.employeeId,
+      })
+      .returning({ id: rfps.id });
+    await insertQuestions(tx, rfp!.id, questions);
+    return rfp!.id;
+  });
+  return getRfp(id, input.employeeId);
+}
+
+type Tx = Parameters<Parameters<ReturnType<typeof db>['transaction']>[0]>[0];
+
+async function insertQuestions(tx: Tx, rfpId: number, questions: { text: string; section?: string | null }[]) {
+  if (questions.length) {
+    await tx.insert(rfpQuestions).values(
+      questions.map((q, i) => ({ rfpId, seq: i + 1, text: q.text, section: q.section || null, status: 'pending' })),
+    );
+  }
+}
+
+/** Locks the RFP row, checks ownership and that it is still editable, then runs `fn`. */
+async function editDraft<T>(
+  id: number,
+  employeeId: number,
+  statuses: string[],
+  fn: (tx: Tx, rfp: typeof rfps.$inferSelect) => Promise<T>,
+): Promise<void> {
+  await db().transaction(async (tx) => {
+    const [rfp] = await tx.select().from(rfps).where(eq(rfps.id, id)).for('update');
+    if (!rfp) {
+      throw notFound('RFP_NOT_FOUND', 'No such RFP.');
+    }
+    requireOwner({ createdBy: rfp.createdBy }, employeeId);
+    if (!statuses.includes(rfp.status)) {
+      throw conflict('RFP_NOT_DRAFT', 'Questions can only be changed before the RFP is confirmed.');
+    }
+    await fn(tx, rfp);
+  });
+}
+
+export async function replaceQuestions(id: number, employeeId: number, questions: NewRfpQuestion[]) {
+  await editDraft(id, employeeId, ['draft'], async (tx) => {
+    await tx.delete(rfpQuestions).where(eq(rfpQuestions.rfpId, id));
+    await insertQuestions(tx, id, questions);
+  });
+  return getRfp(id, employeeId);
+}
+
+/** Re-run extraction from `source_text`, or from `text` when given (paste after a failed file). */
+export async function reextract(id: number, employeeId: number, text?: string) {
+  await editDraft(id, employeeId, ['draft', 'extraction_failed'], async (tx, rfp) => {
+    const source = text ?? rfp.sourceText;
+    if (source == null) {
+      throw badRequest('NO_SOURCE_TEXT', 'This RFP has no text to extract from. Paste the text instead.');
+    }
+    const questions = extractQuestions(source);
+    await tx.delete(rfpQuestions).where(eq(rfpQuestions.rfpId, id));
+    await insertQuestions(tx, id, questions);
+    await tx
+      .update(rfps)
+      .set({ status: 'draft', extractionError: null, sourceText: source, ...(text != null && { sourceKind: 'paste' }) })
+      .where(eq(rfps.id, id));
+  });
+  return getRfp(id, employeeId);
+}
+
+export async function confirmRfp(id: number, employeeId: number) {
+  await editDraft(id, employeeId, ['draft'], async (tx) => {
+    const found = await tx.select({ id: rfpQuestions.id }).from(rfpQuestions).where(eq(rfpQuestions.rfpId, id)).limit(1);
+    if (!found.length) {
+      throw conflict('NO_QUESTIONS', 'Add at least one question before confirming.');
+    }
+    await tx.update(rfps).set({ status: 'confirmed' }).where(eq(rfps.id, id));
+  });
+  return getRfp(id, employeeId);
 }
 
 export async function listRfps(input: { employeeId: number; mine: '0' | '1' }) {
@@ -97,6 +219,8 @@ export async function getRfp(id: number, employeeId: number) {
     id: rfp.id,
     title: rfp.title,
     status: rfp.status,
+    sourceKind: rfp.sourceKind,
+    extractionError: rfp.extractionError,
     createdAt: rfp.createdAt.toISOString(),
     createdBy: creator,
     ownedByMe: rfp.createdBy === employeeId,
