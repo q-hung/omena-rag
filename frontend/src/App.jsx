@@ -19,6 +19,7 @@ import WorkspaceView from './features/workspace/WorkspaceView';
 import HistoryView from './features/history/HistoryView';
 import HistoryReadView from './features/history/HistoryReadView';
 import RfpListView from './features/rfp/RfpListView';
+import RfpNewView from './features/rfp/RfpNewView';
 import RfpWorkspaceView from './features/rfp/RfpWorkspaceView';
 
 class ErrorBoundary extends Component {
@@ -139,6 +140,7 @@ function Shell({ session, onSignOut }) {
         <Routes>
           <Route path="/ask" element={<WorkspaceView app={app} />} />
           <Route path="/rfps" element={<RfpListView app={app} />} />
+          <Route path="/rfps/new" element={<RfpNewView app={app} />} />
           <Route path="/rfps/:id" element={<RfpWorkspaceView app={app} />} />
           <Route path="/history" element={<HistoryView app={app} />} />
           <Route path="/history/:id" element={<HistoryReadView app={app} />} />

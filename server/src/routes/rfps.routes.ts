@@ -2,7 +2,8 @@ import { z } from 'zod';
 import type { App } from '../app.ts';
 import type { Config } from '../config/config.ts';
 import { regenerateQuestion, type RfpAnswerDeps } from '../services/rfp-answer.service.ts';
-import { createRfp, getRfp, listRfps } from '../services/rfp.service.ts';
+import { badRequest } from '../errors.ts';
+import { confirmRfp, createRfp, createRfpFromSource, getRfp, listRfps, reextract, replaceQuestions } from '../services/rfp.service.ts';
 
 const createBody = z.object({
   title: z.string().trim().min(1).max(200),
@@ -16,20 +17,70 @@ const createBody = z.object({
     .min(1)
     .max(50),
 });
+const questionItem = z.object({
+  text: z.string().trim().min(1).max(2_000),
+  section: z.string().trim().max(200).nullish().transform((v) => v || undefined),
+});
+const textBody = z.object({
+  title: z.string().trim().min(1).max(200),
+  text: z.string().min(1).max(300_000),
+});
+const putBody = z.object({ questions: z.array(questionItem).max(50) });
+const extractBody = z.object({ text: z.string().min(1).max(300_000).optional() }).nullish();
+function parse<T>(schema: z.ZodType<T>, body: unknown): T {
+  const r = schema.safeParse(body);
+  if (!r.success) {
+    throw badRequest('VALIDATION_FAILED', 'The request body is invalid.');
+  }
+  return r.data;
+}
 const idParam = z.object({ id: z.coerce.number().int().positive() });
 const listQuery = z.object({
   mine: z.enum(['0', '1']).default('1'),
 });
 
 export function registerRfps(app: App, config: Config, deps?: RfpAnswerDeps): void {
-  app.post('/api/rfps', { schema: { body: createBody } }, async (request, reply) => {
-    const rfp = await createRfp({
-      title: request.body.title,
-      questions: request.body.questions,
-      employeeId: request.employeeId!,
-    });
-    return reply.status(201).send(rfp);
+  // One URL, three shapes: JSON {title, questions} (confirmed), JSON {title, text}, multipart {title, file}.
+  app.post('/api/rfps', async (request, reply) => {
+    const employeeId = request.employeeId!;
+    if (request.isMultipart()) {
+      let title = '';
+      let file: { filename: string; bytes: Buffer } | undefined;
+      for await (const part of request.parts()) {
+        if (part.type === 'file') {
+          file = { filename: part.filename || 'upload.bin', bytes: await part.toBuffer() };
+        } else if (part.fieldname === 'title') {
+          title = String(part.value ?? '').trim();
+        }
+      }
+      if (!title || title.length > 200) {
+        throw badRequest('VALIDATION_FAILED', 'Enter a title of up to 200 characters.');
+      }
+      if (!file) {
+        throw badRequest('MISSING_FILE', 'A file is required.');
+      }
+      return reply.status(201).send(await createRfpFromSource({ title, file, employeeId }));
+    }
+    const body = request.body as { questions?: unknown } | undefined;
+    if (body && 'questions' in body) {
+      const parsed = parse(createBody, body);
+      return reply.status(201).send(await createRfp({ ...parsed, employeeId }));
+    }
+    const parsed = parse(textBody, body);
+    return reply.status(201).send(await createRfpFromSource({ ...parsed, employeeId }));
   });
+
+  app.put(
+    '/api/rfps/:id/questions',
+    { schema: { params: idParam, body: putBody } },
+    async (request) => replaceQuestions(request.params.id, request.employeeId!, request.body.questions),
+  );
+  app.post('/api/rfps/:id/confirm', { schema: { params: idParam } }, async (request) =>
+    confirmRfp(request.params.id, request.employeeId!),
+  );
+  app.post('/api/rfps/:id/extract', { schema: { params: idParam, body: extractBody } }, async (request) =>
+    reextract(request.params.id, request.employeeId!, request.body?.text),
+  );
 
   app.get('/api/rfps', { schema: { querystring: listQuery } }, async (request) => {
     return listRfps({ employeeId: request.employeeId!, mine: request.query.mine });

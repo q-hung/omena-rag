@@ -1,6 +1,6 @@
 # P15 · Multi-question RFP processing (V3 M3)
 
-Status: not started
+Status: TASK-06 done; TASK-07 not started
 Depends on: P14
 Requirements: REQ_V3 §6, §7.1
 Recheck when changed (downstream): P16, P17 (worker claim, status transitions)
@@ -31,11 +31,11 @@ Real RFPs arrive as documents. Deterministic extraction is cheap, testable and c
 
 **Acceptance criteria**
 
-- [ ] `extractQuestions` tests: numbered, lettered, bulleted, `?`-terminated, multi-line continuation, sections, duplicates dropped, > 50 → `TOO_MANY_QUESTIONS`
-- [ ] EXT-04: every extracted question of the fixture is a substring of the normalised source
-- [ ] Upload of a PNG renamed `.pdf` → 400; an image-only PDF → `extraction_failed` with the existing OCR message
-- [ ] Editing questions after confirm → 409; confirm with zero questions → 409; B editing A's draft → 403
-- [ ] New `server/test/rfp-extract.test.ts`; `rfp-api.test.ts` extended
+- [x] `extractQuestions` tests: numbered, lettered, bulleted, `?`-terminated, multi-line continuation, sections, duplicates dropped, > 50 → `TOO_MANY_QUESTIONS`
+- [x] EXT-04: every extracted question of the fixture is a substring of the normalised source
+- [x] Upload of a PNG renamed `.pdf` → 400; an image-only PDF → `extraction_failed` with the existing OCR message
+- [x] Editing questions after confirm → 409; confirm with zero questions → 409; B editing A's draft → 403
+- [x] New `server/test/rfp-extract.test.ts`; `rfp-api.test.ts` extended
 
 **Dependencies**
 

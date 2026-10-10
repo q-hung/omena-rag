@@ -12,14 +12,14 @@ The only place for status. One row per phase, in build order. A phase file owns 
 | [P12](phases/P12-hybrid-rrf.md) | Hybrid retrieval, RRF (T40–T41) | done, default `vector` | — |
 | [P13](phases/P13-domain-and-persistence.md) | RFP schema (TASK-01) | done | — |
 | [P14](phases/P14-walking-skeleton-one-question-end-to-end.md) | RFP walking skeleton (TASK-02–05) | done (TASK-02–05) | — |
-| [P15](phases/P15-multi-question-rfp-processing.md) | RFP extraction + worker (TASK-06–07) | not started | — |
+| [P15](phases/P15-multi-question-rfp-processing.md) | RFP extraction + worker (TASK-06–07) | TASK-06 done; TASK-07 not started | — |
 | [P16](phases/P16-review-and-feedback.md) | RFP review + feedback (TASK-08–09) | not started | — |
 | [P17](phases/P17-knowledge-quality-reliability-observability.md) | `.txt`, B05, processing view, hybrid (TASK-10–12) | not started | — |
 | [P18](phases/P18-evaluation-and-demo-readiness.md) | RFP eval, export, demo (TASK-13–16) | not started | — |
 | [P19](phases/P19-rag-observability.md) | RAG tracing, logging, health (TASK-17–21) | proposed, not approved | — |
 
 Context shared by P13–P18: [RFP-CONTEXT.md](phases/RFP-CONTEXT.md) (architecture, strategy, parallelism rules).
-**Next:** P15 TASK-06 (P14 done). P11 T39 only needs a live Gemini baseline run pasted into the task; it touches no V3 files.
+**Next:** P15 TASK-07 (TASK-06 done). P11 T39 only needs a live Gemini baseline run pasted into the task; it touches no V3 files.
 
 ## Changing an earlier phase
 

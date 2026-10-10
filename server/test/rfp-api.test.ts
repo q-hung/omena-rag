@@ -5,7 +5,9 @@ import { db } from '../src/db/index.ts';
 import { employees, rfpAnswerSources, rfpAnswers, rfpQuestions, rfpReviews } from '../src/db/schema.ts';
 import { seed } from '../src/seed.ts';
 import { deriveQuestionState } from '../src/services/rfp-state.ts';
+import { buildPdf } from '../src/ingest/extract/pdfBytes.ts';
 import { asBrowser, buildTestApp } from './helpers/app.ts';
+import { multipart } from './helpers/multipart.ts';
 
 const PASSWORD = 'test-password';
 
@@ -165,5 +167,87 @@ describe('RFP create / read API', () => {
       expect.objectContaining({ rank: 1, citationNumber: 1, title: 'SSO setup guide' }),
     ]);
     expect(q.latestAnswer.reviews.map((r: { verdict: string }) => r.verdict)).toEqual(['needs_work', 'accepted']);
+  });
+});
+
+describe('RFP intake and draft editing', () => {
+  const json = (cookie: Record<string, string>, method: 'POST' | 'PUT', url: string, payload?: unknown) =>
+    app.inject(asBrowser({ method, url, cookies: cookie, payload: payload as object }));
+  const upload = (title: string, file: { name: string; bytes: Buffer }) => {
+    const body = multipart({ title }, file);
+    return app.inject(
+      asBrowser({ method: 'POST', url: '/api/rfps', cookies: ada.cookie, headers: body.headers, payload: body.payload }),
+    );
+  };
+
+  it('extracts pasted text into a draft, then edit, confirm and lock', async () => {
+    const res = await json(ada.cookie, 'POST', '/api/rfps', { title: 'Pasted', text: '## Sec\n1. Do you support SAML?\n2. Uptime SLA?' });
+    expect(res.statusCode).toBe(201);
+    const rfp = res.json();
+    expect(rfp.status).toBe('draft');
+    expect(rfp.questions.map((q: { text: string; section: string }) => [q.text, q.section])).toEqual([
+      ['Do you support SAML?', 'Sec'],
+      ['Uptime SLA?', 'Sec'],
+    ]);
+
+    const edited = await json(ada.cookie, 'PUT', `/api/rfps/${rfp.id}/questions`, {
+      questions: [{ text: 'Uptime SLA?' }, { text: 'Added by hand', section: 'Extra' }],
+    });
+    expect(edited.statusCode).toBe(200);
+    expect(edited.json().questions.map((q: { seq: number; text: string }) => [q.seq, q.text])).toEqual([
+      [1, 'Uptime SLA?'],
+      [2, 'Added by hand'],
+    ]);
+
+    const asRei = await json(rei.cookie, 'PUT', `/api/rfps/${rfp.id}/questions`, { questions: [{ text: 'Hijack?' }] });
+    expect(asRei.statusCode).toBe(403);
+    expect((await json(rei.cookie, 'POST', `/api/rfps/${rfp.id}/confirm`)).statusCode).toBe(403);
+
+    const confirmed = await json(ada.cookie, 'POST', `/api/rfps/${rfp.id}/confirm`);
+    expect(confirmed.json().status).toBe('confirmed');
+    expect((await json(ada.cookie, 'PUT', `/api/rfps/${rfp.id}/questions`, { questions: [{ text: 'Late?' }] })).statusCode).toBe(409);
+    expect((await json(ada.cookie, 'POST', `/api/rfps/${rfp.id}/extract`)).statusCode).toBe(409);
+  });
+
+  it('confirm with zero questions → 409; paste with no questions stays a draft', async () => {
+    const res = await json(ada.cookie, 'POST', '/api/rfps', { title: 'Empty', text: 'Nothing to see here.' });
+    expect(res.json()).toMatchObject({ status: 'draft', questions: [] });
+    const confirm = await json(ada.cookie, 'POST', `/api/rfps/${res.json().id}/confirm`);
+    expect(confirm.statusCode).toBe(409);
+    expect(confirm.json().error.code).toBe('NO_QUESTIONS');
+  });
+
+  it('re-runs extraction and rejects > 50 questions', async () => {
+    const res = await json(ada.cookie, 'POST', '/api/rfps', { title: 'Redo', text: '1. A?\n2. B?' });
+    await json(ada.cookie, 'PUT', `/api/rfps/${res.json().id}/questions`, { questions: [{ text: 'Only?' }] });
+    const again = await json(ada.cookie, 'POST', `/api/rfps/${res.json().id}/extract`);
+    expect(again.json().questions.map((q: { text: string }) => q.text)).toEqual(['A?', 'B?']);
+
+    const many = Array.from({ length: 51 }, (_, i) => `${i + 1}. Q${i}?`).join('\n');
+    const tooMany = await json(ada.cookie, 'POST', '/api/rfps', { title: 'Many', text: many });
+    expect(tooMany.statusCode).toBe(400);
+    expect(tooMany.json().error.code).toBe('TOO_MANY_QUESTIONS');
+  });
+
+  it('accepts a Markdown upload, rejects a PNG renamed .pdf, fails an image-only PDF', async () => {
+    const md = await upload('MD', { name: 'q.md', bytes: Buffer.from('# Sec\n- Do you encrypt data?\n') });
+    expect(md.statusCode).toBe(201);
+    expect(md.json()).toMatchObject({ status: 'draft', sourceKind: 'file' });
+    expect(md.json().questions[0]).toMatchObject({ text: 'Do you encrypt data?', section: 'Sec' });
+
+    const pdf = await upload('PDF', { name: 'q.pdf', bytes: buildPdf(['1. Do you support SSO?']) });
+    expect(pdf.json().questions.map((q: { text: string }) => q.text)).toEqual(['Do you support SSO?']);
+
+    const png = await upload('PNG', { name: 'q.pdf', bytes: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]) });
+    expect(png.statusCode).toBe(400);
+
+    const scan = await upload('Scan', { name: 'scan.pdf', bytes: buildPdf(['']) });
+    expect(scan.statusCode).toBe(201);
+    expect(scan.json()).toMatchObject({
+      status: 'extraction_failed',
+      extractionError: "No page has a text layer. OCR isn't supported.",
+    });
+    const rescue = await json(ada.cookie, 'POST', `/api/rfps/${scan.json().id}/extract`, { text: '1. Pasted instead?' });
+    expect(rescue.json()).toMatchObject({ status: 'draft', extractionError: null });
   });
 });
