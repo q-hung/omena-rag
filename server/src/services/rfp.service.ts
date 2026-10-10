@@ -2,7 +2,7 @@ import { extname } from 'node:path';
 import { desc, eq, inArray } from 'drizzle-orm';
 import { db } from '../db/index.ts';
 import { extract } from '../ingest/extract.ts';
-import { employees, rfpAnswerSources, rfpAnswers, rfpQuestions, rfpReviews, rfps } from '../db/schema.ts';
+import { QUESTION_STATUSES, employees, rfpAnswerSources, rfpAnswers, rfpQuestions, rfpReviews, rfps } from '../db/schema.ts';
 import { badRequest, conflict, notFound } from '../errors.ts';
 import { MD_CHAR_LIMIT, inspectFile } from './document-upload.service.ts';
 import { requireOwner } from './generate.service.ts';
@@ -224,6 +224,10 @@ export async function getRfp(id: number, employeeId: number) {
     createdAt: rfp.createdAt.toISOString(),
     createdBy: creator,
     ownedByMe: rfp.createdBy === employeeId,
+    progress: {
+      total: questions.length,
+      ...Object.fromEntries(QUESTION_STATUSES.map((st) => [st, questions.filter((q) => q.status === st).length])),
+    },
     questions: questions.map((q) => {
       const answer = latestByQuestion.get(q.id);
       const reviews = answer ? (reviewsBy.get(answer.id) ?? []) : [];

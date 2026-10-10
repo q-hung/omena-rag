@@ -10,6 +10,9 @@ import { ProviderError } from '../llm/errors.ts';
 import { createProvider } from '../llm/provider.ts';
 import type { Provider } from '../llm/types.ts';
 import { rowsOf } from '../db/rows.ts';
+import type { RfpAnswerDeps } from '../services/rfp-answer.service.ts';
+import { claimQuestion, failStaleQuestions, processQuestion } from '../services/rfp-queue.service.ts';
+import { utcToday } from '../lib/format.ts';
 
 const STALE_MS = 10 * 60 * 1000;
 const BUDGET_FAIL = 'Daily budget reached — retry later';
@@ -190,15 +193,27 @@ export async function processVersion(versionId: number, provider?: Provider): Pr
   }
 }
 
-export async function runWorker(options: { once?: boolean; intervalMs?: number } = {}): Promise<void> {
+export async function runWorker(
+  options: { once?: boolean; intervalMs?: number; rfp?: RfpAnswerDeps } = {},
+): Promise<void> {
   const once = options.once ?? process.argv.includes('--once');
   const intervalMs = options.intervalMs ?? 2_000;
+  let budgetDay = '';
   for (;;) {
     await sweepAbandonedReservations();
     await failStaleProcessing();
+    await failStaleQuestions();
     const claimed = await claimVersion();
     if (claimed) {
       await processVersion(claimed.id);
+      continue;
+    }
+    // PROC-03: after budget_reached, leave the rest queued until the next UTC day.
+    const question = budgetDay === utcToday() ? null : await claimQuestion();
+    if (question) {
+      if (await processQuestion(question, options.rfp)) {
+        budgetDay = utcToday();
+      }
       continue;
     }
     if (once) {

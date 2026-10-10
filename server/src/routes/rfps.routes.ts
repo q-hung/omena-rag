@@ -3,6 +3,7 @@ import type { App } from '../app.ts';
 import type { Config } from '../config/config.ts';
 import { regenerateQuestion, type RfpAnswerDeps } from '../services/rfp-answer.service.ts';
 import { badRequest } from '../errors.ts';
+import { queueQuestions } from '../services/rfp-queue.service.ts';
 import { confirmRfp, createRfp, createRfpFromSource, getRfp, listRfps, reextract, replaceQuestions } from '../services/rfp.service.ts';
 
 const createBody = z.object({
@@ -77,6 +78,11 @@ export function registerRfps(app: App, config: Config, deps?: RfpAnswerDeps): vo
   );
   app.post('/api/rfps/:id/confirm', { schema: { params: idParam } }, async (request) =>
     confirmRfp(request.params.id, request.employeeId!),
+  );
+  app.post(
+    '/api/rfps/:id/generate',
+    { schema: { params: idParam, querystring: z.object({ force: z.enum(['0', '1']).default('0') }) } },
+    async (request) => queueQuestions(request.params.id, request.employeeId!, request.query.force === '1'),
   );
   app.post('/api/rfps/:id/extract', { schema: { params: idParam, body: extractBody } }, async (request) =>
     reextract(request.params.id, request.employeeId!, request.body?.text),
