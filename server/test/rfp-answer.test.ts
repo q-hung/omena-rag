@@ -426,8 +426,7 @@ describe('background processing (PROC-01..03)', () => {
         }),
       ),
     });
-    expect(versionStatusAtGenerate).not.toBe('queued');
-    expect(versionStatusAtGenerate).not.toBe('processing');
+    expect(versionStatusAtGenerate).toBe('ready');
   });
 
   it('PROC-03: budget_reached fails one question and leaves the rest queued', async () => {
