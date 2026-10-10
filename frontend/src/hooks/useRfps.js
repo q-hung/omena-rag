@@ -39,6 +39,7 @@ export function useRfps({ onToast } = {}) {
   const saveQuestions = useCallback((id, questions) =>
     draftCall(`/rfps/${id}/questions`, { method: 'PUT', body: { questions } }), [draftCall]);
   const confirm = useCallback((id) => draftCall(`/rfps/${id}/confirm`, { method: 'POST' }), [draftCall]);
+  const generateAll = useCallback((id) => draftCall(`/rfps/${id}/generate`, { method: 'POST' }), [draftCall]);
   const reextract = useCallback((id, text) =>
     draftCall(`/rfps/${id}/extract`, { method: 'POST', body: text ? { text } : undefined }), [draftCall]);
 
@@ -56,5 +57,5 @@ export function useRfps({ onToast } = {}) {
     }
   }, [onToast, load]);
 
-  return { rfps, rfp, generating, error, refresh, load, create, saveQuestions, confirm, reextract, generate };
+  return { rfps, rfp, generating, error, refresh, load, create, saveQuestions, confirm, reextract, generateAll, generate };
 }

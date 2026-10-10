@@ -1,6 +1,6 @@
 # P15 · Multi-question RFP processing (V3 M3)
 
-Status: TASK-06 done; TASK-07 not started
+Status: done (TASK-07 manual browser check pending)
 Depends on: P14
 Requirements: REQ_V3 §6, §7.1
 Recheck when changed (downstream): P16, P17 (worker claim, status transitions)
@@ -67,11 +67,11 @@ A 30-question RFP can't run in one HTTP request (V3-D4). Per-question processing
 
 **Acceptance criteria**
 
-- [ ] PROC-01: 3 questions, stub fails #2 → 1 and 3 `done`, 2 `failed`; Retry on 2 → `done`; 1 and 3 have still exactly one answer each
-- [ ] PROC-02: two concurrent workers never process the same question; calling Generate all twice queues nothing new; a stale `processing` question (> 2 min) is re-queued, and after 3 attempts becomes `failed`/`stale`
-- [ ] KB versions are claimed before questions
+- [x] PROC-01: 3 questions, stub fails #2 → 1 and 3 `done`, 2 `failed`; Retry on 2 → `done`; 1 and 3 have still exactly one answer each
+- [x] PROC-02: two concurrent workers never process the same question; calling Generate all twice queues nothing new; a stale `processing` question (> 2 min) is re-queued, and after 3 attempts becomes `failed`/`stale`
+- [x] KB versions are claimed before questions
 - [ ] Manually: confirm the fixture RFP → Generate all → chips move queued → processing → draft without reload
-- [ ] `server/test/worker.test.ts` and `rfp-answer.test.ts` extended
+- [x] `server/test/worker.test.ts` and `rfp-answer.test.ts` extended
 
 **Dependencies**
 

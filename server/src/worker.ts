@@ -6,6 +6,7 @@ export {
   processVersion,
   runWorker,
 } from './ingest/indexing.ts';
+export { claimQuestion, failStaleQuestions } from './services/rfp-queue.service.ts';
 
 const entry = process.argv[1] ?? '';
 if (entry.endsWith('worker.ts') || entry.endsWith('worker.js')) {

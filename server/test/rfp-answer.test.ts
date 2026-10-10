@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SESSION_COOKIE } from '../src/services/auth.service.ts';
 import { db } from '../src/db/index.ts';
@@ -9,7 +9,10 @@ import type { Provider } from '../src/llm/types.ts';
 import { retrieve, type Passage } from '../src/rag/retrieve.ts';
 import { seed } from '../src/seed.ts';
 import { applyEvidenceRules, type EvidenceInput } from '../src/services/rfp-answer.service.ts';
-import { runWorker } from '../src/worker.ts';
+import { budgetReached } from '../src/errors.ts';
+import { queueDocument } from '../src/services/document-upload.service.ts';
+import { failStaleQuestions, runWorker } from '../src/worker.ts';
+import { documentVersions } from '../src/db/schema.ts';
 import { asBrowser, buildTestApp } from './helpers/app.ts';
 
 const PASSWORD = 'test-password';
@@ -295,5 +298,145 @@ describe.sequential('answerQuestion', () => {
     await pending;
     hang = null;
     await hungApp.inject(asBrowser({ method: 'POST', url: `/api/documents/${topDocumentId}/restore`, cookies: ada }));
+  });
+});
+
+describe('background processing (PROC-01..03)', () => {
+  const calls: string[] = [];
+  const stub = stubProvider();
+  const workerProvider = (opts: { failOn?: string; budget?: boolean; onGenerate?: () => Promise<void> } = {}): Provider => ({
+    ...stub,
+    embedQuery: async (text, deadline) => {
+      if (opts.budget) {
+        throw budgetReached();
+      }
+      return stub.embedQuery(text, deadline);
+    },
+    generateStructured: async (input, deadline) => {
+      calls.push(input.prompt);
+      await opts.onGenerate?.();
+      if (opts.failOn && input.prompt.includes(opts.failOn)) {
+        throw new ProviderError('INVALID_OUTPUT', 'malformed', true);
+      }
+      return stub.generateStructured(input, deadline);
+    },
+  });
+  const rfpDeps = (p: Provider) => ({ provider: p, sleep: async () => {} });
+
+  const createRfp = async (texts: string[], cookie = ada) => {
+    // earlier tests leave stray queued rows; park them so only this test's questions run
+    await db().update(rfpQuestions).set({ status: 'pending' }).where(eq(rfpQuestions.status, 'queued'));
+    calls.length = 0;
+    const res = await app.inject(
+      asBrowser({
+        method: 'POST',
+        url: '/api/rfps',
+        cookies: cookie,
+        payload: { title: texts[0], questions: texts.map((text) => ({ text })) },
+      }),
+    );
+    return res.json() as { id: number; questions: { id: number }[] };
+  };
+  const generate = (id: number, cookie = ada, query = '') =>
+    app.inject(asBrowser({ method: 'POST', url: `/api/rfps/${id}/generate${query}`, cookies: cookie }));
+  const statuses = async (ids: number[]) =>
+    (await db().select().from(rfpQuestions).where(inArray(rfpQuestions.id, ids)).orderBy(rfpQuestions.seq)).map(
+      (q) => q.status,
+    );
+  const answerCount = async (id: number) =>
+    (await db().select().from(rfpAnswers).where(eq(rfpAnswers.questionId, id))).length;
+
+  it('PROC-01: a failed question is isolated and retryable; generate twice queues nothing new', async () => {
+    const rfp = await createRfp(['Do you support SAML SSO?', 'FAILME marker question', 'What is the refund window?']);
+    const ids = rfp.questions.map((q) => q.id);
+    const first = await generate(rfp.id);
+    expect(first.json().progress).toMatchObject({ queued: 3, pending: 0, total: 3 });
+    expect((await generate(rfp.id)).json().progress).toMatchObject({ queued: 3 });
+
+    await runWorker({ once: true, rfp: rfpDeps(workerProvider({ failOn: 'FAILME' })) });
+    expect(await statuses(ids)).toEqual(['done', 'failed', 'done']);
+    const failed = await db().select().from(rfpQuestions).where(eq(rfpQuestions.id, ids[1]!));
+    expect(failed[0]!.errorCode).toBe('INVALID_OUTPUT');
+    expect((await generate(rfp.id)).json().progress).toMatchObject({ queued: 1, done: 2 });
+
+    // retry the failed one synchronously (stub in hungApp does not fail on the marker)
+    await db().update(rfpQuestions).set({ status: 'failed' }).where(eq(rfpQuestions.id, ids[1]!));
+    expect((await regen(hungApp, ada, ids[1]!)).statusCode).toBe(200);
+    expect(await statuses(ids)).toEqual(['done', 'done', 'done']);
+    expect(await Promise.all(ids.map(answerCount))).toEqual([1, 1, 1]);
+  });
+
+  it('generate is creator-only and needs a confirmed RFP', async () => {
+    const rfp = await createRfp(['Creator only?']);
+    expect((await generate(rfp.id, rei)).statusCode).toBe(403);
+    const draft = await app.inject(
+      asBrowser({ method: 'POST', url: '/api/rfps', cookies: ada, payload: { title: 'd', text: '1. Draft?' } }),
+    );
+    const res = await generate(draft.json().id);
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error.code).toBe('RFP_NOT_CONFIRMED');
+  });
+
+  it('PROC-02: two concurrent workers answer each question exactly once', async () => {
+    const rfp = await createRfp(['Q one SSO?', 'Q two refund?', 'Q three webhooks?', 'Q four plans?']);
+    const ids = rfp.questions.map((q) => q.id);
+    await generate(rfp.id);
+    const deps = rfpDeps(workerProvider({ onGenerate: () => new Promise((r) => setTimeout(r, 30)) }));
+    await Promise.all([runWorker({ once: true, rfp: deps }), runWorker({ once: true, rfp: deps })]);
+    expect(await statuses(ids)).toEqual(['done', 'done', 'done', 'done']);
+    expect(await Promise.all(ids.map(answerCount))).toEqual([1, 1, 1, 1]);
+    expect(calls).toHaveLength(4);
+  });
+
+  it('PROC-02: a stale processing question is re-queued, then failed as stale after 3 attempts', async () => {
+    const rfp = await createRfp(['Stale one?', 'Stale two?']);
+    const [a, b] = rfp.questions.map((q) => q.id) as [number, number];
+    const old = new Date(Date.now() - 3 * 60_000);
+    const token = '00000000-0000-4000-8000-000000000001';
+    await db().update(rfpQuestions).set({ status: 'processing', generationToken: token, generationStartedAt: old, attempts: 1 }).where(eq(rfpQuestions.id, a));
+    await db().update(rfpQuestions).set({ status: 'processing', generationToken: token, generationStartedAt: old, attempts: 3 }).where(eq(rfpQuestions.id, b));
+    expect(await failStaleQuestions()).toBe(2);
+    const rows = await db().select().from(rfpQuestions).where(inArray(rfpQuestions.id, [a, b])).orderBy(rfpQuestions.seq);
+    expect(rows.map((r) => [r.status, r.errorCode, r.generationToken])).toEqual([
+      ['queued', null, null],
+      ['failed', 'stale', null],
+    ]);
+  });
+
+  it('claims KB versions before RFP questions', async () => {
+    const rfp = await createRfp(['Which doc comes first?']);
+    await generate(rfp.id);
+    const { version } = await queueDocument({
+      title: 'Worker order doc',
+      category: 'Plans',
+      effectiveAt: '2026-10-01',
+      filename: 'order.md',
+      bytes: Buffer.from('# Order\n\nVersions are indexed before questions.\n'),
+      employeeId: null,
+    });
+    let versionStatusAtGenerate = '';
+    await runWorker({
+      once: true,
+      rfp: rfpDeps(
+        workerProvider({
+          onGenerate: async () => {
+            const [v] = await db().select().from(documentVersions).where(eq(documentVersions.id, version.id));
+            versionStatusAtGenerate = v!.indexingStatus;
+          },
+        }),
+      ),
+    });
+    expect(versionStatusAtGenerate).toBe('ready');
+  });
+
+  it('PROC-03: budget_reached fails one question and leaves the rest queued', async () => {
+    const rfp = await createRfp(['Budget one?', 'Budget two?', 'Budget three?']);
+    const ids = rfp.questions.map((q) => q.id);
+    await generate(rfp.id);
+    await runWorker({ once: true, rfp: rfpDeps(workerProvider({ budget: true })) });
+    expect(await statuses(ids)).toEqual(['failed', 'queued', 'queued']);
+    const [first] = await db().select().from(rfpQuestions).where(eq(rfpQuestions.id, ids[0]!));
+    expect(first!.errorCode).toBe('budget_reached');
+    expect(await Promise.all(ids.map(answerCount))).toEqual([0, 0, 0]);
   });
 });

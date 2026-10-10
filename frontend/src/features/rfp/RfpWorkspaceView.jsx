@@ -21,6 +21,15 @@ export default function RfpWorkspaceView({ app }) {
     r.load(id).catch(() => navigate('/rfps'));
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const live = r.rfp && String(r.rfp.id) === String(id) && (r.rfp.progress?.queued > 0 || r.rfp.progress?.processing > 0);
+  useEffect(() => {
+    if (!live) {
+      return undefined;
+    }
+    const t = setInterval(() => r.load(id).catch(() => {}), 3000);
+    return () => clearInterval(t);
+  }, [live, id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const rfp = r.rfp && String(r.rfp.id) === String(id) ? r.rfp : null;
   if (!rfp) {
     return null;
@@ -28,10 +37,11 @@ export default function RfpWorkspaceView({ app }) {
   if (rfp.status !== 'confirmed') {
     return <RfpDraftView key={`${rfp.id}-${rfp.status}-${rfp.questions.map((x) => x.id).join()}`} rfp={rfp} rfps={r} />;
   }
+  const p = rfp.progress;
   const q = rfp.questions.find((x) => x.id === selected) ?? rfp.questions[0];
   const a = q?.latestAnswer;
   const cites = citesOf(a);
-  const busy = r.generating === q?.id;
+  const busy = r.generating === q?.id || q?.status === 'queued' || q?.status === 'processing';
   const err = r.error?.questionId === q?.id ? r.error : null;
   const failedCode = err?.code ?? (q?.status === 'failed' ? q.errorCode : null);
   const select = (qid) => {
@@ -44,6 +54,10 @@ export default function RfpWorkspaceView({ app }) {
       <div className="flex h-[60px] flex-none items-center gap-4 border-b border-hairline bg-white px-8">
         <h1 className="text-base font-bold">{rfp.title}</h1>
         <span className="ml-auto" />
+        <span className="text-xs text-secondary">
+          {p.done}/{p.total} drafted{p.queued + p.processing > 0 ? ` · ${p.queued + p.processing} in progress` : ''}{p.failed > 0 ? ` · ${p.failed} failed` : ''}
+        </span>
+        <Button size="sm" disabled={!rfp.ownedByMe || p.pending + p.failed === 0} onClick={() => r.generateAll(rfp.id)}>Generate all</Button>
         <Button size="sm" variant="secondary" onClick={() => navigate('/rfps')}>All RFPs</Button>
       </div>
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(240px,0.8fr)_minmax(440px,1.7fr)_minmax(300px,1fr)]">

@@ -386,7 +386,7 @@ async function saveAnswer(input: {
   });
 }
 
-async function failQuestion(questionId: number, token: string, error: unknown): Promise<void> {
+export async function failQuestion(questionId: number, token: string, error: unknown): Promise<void> {
   const code = error instanceof ProviderError ? error.code : error instanceof AppError ? error.code : 'ERROR';
   await db()
     .update(rfpQuestions)
