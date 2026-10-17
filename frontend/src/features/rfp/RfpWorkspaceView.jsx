@@ -44,20 +44,17 @@ export default function RfpWorkspaceView({ app }) {
   for (const x of rfp.questions) {
     counts[x.reviewState] = (counts[x.reviewState] ?? 0) + 1;
   }
-  const shown = filter === 'all' ? rfp.questions : rfp.questions.filter((x) => x.reviewState === filter);
+  // A filter whose state no longer has questions (e.g. the last Draft was just accepted) falls back to All.
+  const active = filter === 'all' || counts[filter] ? filter : 'all';
+  const shown = active === 'all' ? rfp.questions : rfp.questions.filter((x) => x.reviewState === active);
   const q = rfp.questions.find((x) => x.id === selected) ?? shown[0] ?? rfp.questions[0];
   const a = q?.latestAnswer;
   const cites = citesOf(a);
   const busy = r.generating === q?.id || q?.status === 'queued' || q?.status === 'processing';
   const err = r.error?.questionId === q?.id ? r.error : null;
   const failedCode = err?.code ?? (q?.status === 'failed' ? q.errorCode : null);
-  const next = () => {
-    const i = rfp.questions.findIndex((x) => x.id === q.id);
-    const n = rfp.questions[i + 1];
-    if (n) {
-      select(n.id);
-    }
-  };
+  // Next question in the current list (honours the filter); none on the last one.
+  const nextQ = q && shown.find((x) => x.seq > q.seq);
   const select = (qid) => {
     setSelected(qid);
     setActiveCite(null);
@@ -80,8 +77,8 @@ export default function RfpWorkspaceView({ app }) {
         <section className="flex flex-col overflow-auto border-r border-hairline bg-white">
           <div className="flex flex-wrap gap-1.5 border-b border-hairline p-3">
             {REVIEW_FILTERS.filter((f) => f === 'all' || counts[f]).map((f) => (
-              <button key={f} type="button" onClick={() => setFilter(f)} aria-pressed={filter === f}
-                className={`px-2 py-1 text-[11px] font-bold uppercase tracking-caps ${filter === f ? 'bg-black text-white' : 'bg-almost-white text-black hover:bg-hairline'}`}>
+              <button key={f} type="button" onClick={() => setFilter(f)} aria-pressed={active === f}
+                className={`px-2 py-1 text-[11px] font-bold uppercase tracking-caps ${active === f ? 'bg-black text-white' : 'bg-almost-white text-black hover:bg-hairline'}`}>
                 {FILTER_LABEL[f]}{f === 'all' ? ` ${rfp.questions.length}` : ` ${counts[f]}`}
               </button>
             ))}
@@ -125,7 +122,7 @@ export default function RfpWorkspaceView({ app }) {
                 <>
                   <DraftText text={a.editedText ?? a.answerText} cites={cites} factIds={[]} activeCite={activeCite}
                     onCite={setActiveCite} onFact={() => {}} />
-                  <RfpReviewPanel key={`${q.id}-${a.id}`} rfp={rfp} q={q} cites={cites} rfps={r} onNext={next} />
+                  <RfpReviewPanel key={`${q.id}-${a.id}`} rfp={rfp} q={q} cites={cites} rfps={r} onNext={nextQ ? () => select(nextQ.id) : undefined} />
                   {a.gaps?.length > 0 && (
                     <div className="max-w-[72ch] border border-hairline bg-almost-white p-4 text-sm">
                       <div className="eyebrow mb-2">GAPS</div>

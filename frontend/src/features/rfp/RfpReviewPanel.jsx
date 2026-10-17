@@ -84,7 +84,7 @@ export default function RfpReviewPanel({ rfp, q, cites, rfps, onNext }) {
               <Button size="sm" variant="secondary" disabled={busy} onClick={() => { setError(''); setDialog('needs_work'); }}>Needs work</Button>
               <Button size="sm" variant="secondary" disabled={busy || !Object.keys(cites).length}
                 onClick={() => { setError(''); setDialog('wrong_evidence'); }}>Wrong evidence</Button>
-              {reviewed && <Button size="sm" variant="ghost" onClick={onNext}>Next question →</Button>}
+              {reviewed && onNext && <Button size="sm" variant="ghost" onClick={onNext}>Next question →</Button>}
             </div>
           )}
         </>
