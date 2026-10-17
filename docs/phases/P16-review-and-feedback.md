@@ -1,6 +1,6 @@
 # P16 · Review and feedback (V3 M4)
 
-Status: TASK-08 done; TASK-09 not started
+Status: done (TASK-08–09)
 Depends on: P15
 Requirements: REQ_V3 §9, §13
 Recheck when changed (downstream): P17, P18 (feedback feeds eval/export)
@@ -68,10 +68,10 @@ Delivers the full user workflow from REQ_V3 §1.
 
 **Acceptance criteria**
 
-- [ ] Manually with the stub: accept as-is, edit then accept, needs work with note, wrong evidence on citation [1] — each persists across reload and updates the chips and progress
-- [ ] Other employee's RFP opens without write actions
-- [ ] Regenerating an accepted question shows the new draft as `draft` and the old review in history
-- [ ] `pnpm --filter frontend build` passes
+- [x] Manually with the stub: accept as-is, edit then accept, needs work with note, wrong evidence on citation [1] — each persists across reload and updates the chips and progress
+- [x] Other employee's RFP opens without write actions
+- [x] Regenerating an accepted question shows the new draft as `draft` and the old review in history
+- [x] `pnpm --filter frontend build` passes
 
 **Dependencies**
 

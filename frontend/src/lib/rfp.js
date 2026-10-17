@@ -43,3 +43,6 @@ export function citesOf(answer) {
   }
   return cites;
 }
+
+export const REVIEW_FILTERS = ['all', 'not_generated', 'processing', 'failed', 'draft', 'accepted', 'needs_work', 'wrong_evidence'];
+export const FILTER_LABEL = { all: 'All', ...QUESTION_STATE_LABEL };
