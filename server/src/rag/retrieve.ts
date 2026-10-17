@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import type { Config } from '../config/config.ts';
 import { db } from '../db/index.ts';
 import { isoDate } from '../lib/format.ts';
 import { rowsOf } from '../db/rows.ts';
@@ -44,6 +45,18 @@ export function rrf(lists: number[][], limit = 8, k = RRF_K): { id: number; scor
     .map(([id, score]) => ({ id, score }))
     .sort((a, b) => b.score - a.score || a.id - b.id)
     .slice(0, limit);
+}
+
+/** Stub mode has no real embeddings, so it searches by token overlap with no score floor. */
+export function searchOptions(cfg: Config, query: string): RetrieveOpts {
+  const stub = cfg.LLM_PROVIDER === 'stub';
+  return {
+    model: cfg.EMBEDDING_MODEL,
+    minScore: stub ? 0 : cfg.RETRIEVAL_MIN_SCORE,
+    lexicalQuery: stub ? query : undefined,
+    mode: cfg.RETRIEVAL_MODE,
+    queryText: query,
+  };
 }
 
 export async function retrieve(queryEmbedding: number[], opts: RetrieveOpts): Promise<Passage[]> {

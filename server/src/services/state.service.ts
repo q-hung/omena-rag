@@ -16,6 +16,10 @@ export const STATES = [
   'answer_ready',
 ] as const;
 
+/** A generation lock older than this is dead: another request may take it over. One value for SQL and TS. */
+export const STALE_LOCK_MINUTES = 2;
+export const LOCK_TTL = sql`make_interval(mins => ${sql.raw(String(STALE_LOCK_MINUTES))})`;
+
 export type ConversationState = (typeof STATES)[number];
 
 export function deriveState(input: {
@@ -53,7 +57,7 @@ export function deriveState(input: {
 export const STATE_SQL = sql`
   case
     when c.generation_token is not null
-      and c.generation_started_at > now() - interval '2 minutes' then 'generating'
+      and c.generation_started_at > now() - ${LOCK_TTL} then 'generating'
     when r.conversation_id is not null then 'saved'
     when a.id is null or a.turn_id is distinct from lt.id then 'failed'
     when a.outcome = 'clarification_required' then 'awaiting_clarification'
@@ -99,7 +103,7 @@ export async function conversationStatesById(ids: number[]): Promise<Map<number,
 }
 
 export function lockHeld(startedAt: Date | null | undefined, now = Date.now()): boolean {
-  return !!startedAt && now - startedAt.getTime() < 2 * 60_000;
+  return !!startedAt && now - startedAt.getTime() < STALE_LOCK_MINUTES * 60_000;
 }
 
 export function topicsOf(input: { outcome?: string | null; citedCategories: string[]; citedFacts: boolean }): string[] {

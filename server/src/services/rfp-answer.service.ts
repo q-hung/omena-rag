@@ -7,16 +7,17 @@ import { rowsOf } from '../db/rows.ts';
 import { EVIDENCE_STATUSES, rfpAnswers, rfpQuestions } from '../db/schema.ts';
 import { AppError, conflict, notFound } from '../errors.ts';
 import { paidAttempt, type CallPurpose } from '../llm/budget.ts';
-import { ProviderError, isRetryable } from '../llm/errors.ts';
+import { ProviderError } from '../llm/errors.ts';
 import { formatQueryForEmbedding } from '../llm/format.ts';
 import { createProvider } from '../llm/provider.ts';
 import { rfpAnswerJsonSchema, rfpAnswerSchema, type RfpAnswerOutput } from '../llm/rfp-schema.ts';
-import { MAX_RETRIES } from '../llm/retry.ts';
+import { retryAttempts } from '../llm/retry.ts';
 import type { Provider } from '../llm/types.ts';
 import { normalise } from '../rag/normalise.ts';
-import { retrieve, type Passage } from '../rag/retrieve.ts';
+import { retrieve, searchOptions, type Passage } from '../rag/retrieve.ts';
 import { buildRfpPrompt, RFP_PROMPT_VERSION } from '../rag/rfp-prompt.ts';
 import { REQUEST_DEADLINE_MS, requireOwner } from './generate.service.ts';
+import { LOCK_TTL } from './state.service.ts';
 
 // REQ_V3 §8. The model proposes a status; the server can only lower it.
 export type EvidenceStatus = (typeof EVIDENCE_STATUSES)[number];
@@ -90,7 +91,7 @@ export async function regenerateQuestion(input: {
           case
             when q.status = 'queued' then 1
             when q.status = 'processing'
-              and (q.generation_started_at is null or q.generation_started_at > now() - interval '2 minutes')
+              and (q.generation_started_at is null or q.generation_started_at > now() - ${LOCK_TTL})
               then 1
             else 0
           end as busy
@@ -154,7 +155,7 @@ export async function takeQuestionLock(
         attempts = attempts + 1,
         error_code = null
     where id = ${id}
-      and (generation_token is null or generation_started_at < now() - interval '2 minutes')
+      and (generation_token is null or generation_started_at < now() - ${LOCK_TTL})
     returning id
   `);
 }
@@ -195,13 +196,7 @@ export async function answerQuestion(
     },
     cfg,
   );
-  const passages = await search(vector, {
-    model: cfg.EMBEDDING_MODEL,
-    minScore: cfg.LLM_PROVIDER === 'stub' ? 0 : cfg.RETRIEVAL_MIN_SCORE,
-    lexicalQuery: cfg.LLM_PROVIDER === 'stub' ? query : undefined,
-    mode: cfg.RETRIEVAL_MODE,
-    queryText: query,
-  });
+  const passages = await search(vector, searchOptions(cfg, query));
 
   if (passages.length === 0) {
     const ruled = applyEvidenceRules({
@@ -272,17 +267,9 @@ async function paidRfpGenerate(
   questionId: number,
   cfg: Config,
 ): Promise<{ output: RfpAnswerOutput; model: string }> {
-  const now = deps.now ?? Date.now;
-  const sleep = deps.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
-  let last: unknown;
-  for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
-    if (now() >= deadline) {
-      throw last instanceof ProviderError
-        ? last
-        : new ProviderError('DEADLINE', 'The request deadline passed before a new attempt could start.');
-    }
-    try {
-      return await paidAttempt(
+  return retryAttempts(
+    (attempt) =>
+      paidAttempt(
         {
           kind: 'rfp_generate',
           purpose: PURPOSE,
@@ -307,20 +294,9 @@ async function paidRfpGenerate(
           return { value: { output: result.output, model: result.model }, usage: result.usage };
         },
         cfg,
-      );
-    } catch (error) {
-      last = error;
-      if (!isRetryable(error) || attempt === MAX_RETRIES + 1) {
-        throw error;
-      }
-      const wait = Math.min(8_000, 200 * 2 ** (attempt - 1)) * (0.5 + Math.random());
-      if (now() + wait >= deadline) {
-        throw error;
-      }
-      await sleep(wait);
-    }
-  }
-  throw last;
+      ),
+    { deadline, now: deps.now, sleep: deps.sleep },
+  );
 }
 
 async function saveAnswer(input: {
