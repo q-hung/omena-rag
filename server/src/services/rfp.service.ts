@@ -1,13 +1,15 @@
 import { extname } from 'node:path';
-import { desc, eq, inArray } from 'drizzle-orm';
+import { desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '../db/index.ts';
+import { rowsOf } from '../db/rows.ts';
 import { extract } from '../ingest/extract.ts';
 import { QUESTION_STATUSES, employees, rfpAnswerSources, rfpAnswers, rfpQuestions, rfpReviews, rfps } from '../db/schema.ts';
 import { badRequest, conflict, notFound } from '../errors.ts';
 import { MD_CHAR_LIMIT, inspectFile } from './document-upload.service.ts';
 import { requireOwner } from './generate.service.ts';
 import { extractQuestions } from './rfp-extract.ts';
-import { deriveQuestionState } from './rfp-state.ts';
+import { staleAnswerIds } from './rfp-review.service.ts';
+import { RFP_STATE_FROM, RFP_STATE_SQL, deriveQuestionState } from './rfp-state.ts';
 
 export type NewRfpQuestion = { text: string; section?: string };
 
@@ -163,14 +165,41 @@ export async function listRfps(input: { employeeId: number; mine: '0' | '1' }) {
     .from(rfps)
     .where(input.mine === '1' ? eq(rfps.createdBy, input.employeeId) : undefined)
     .orderBy(desc(rfps.createdAt), desc(rfps.id));
+  const counts = new Map<number, Record<string, number>>();
+  if (rows.length) {
+    const states = rowsOf(
+      await db().execute(sql`
+        select q.rfp_id, ${RFP_STATE_SQL} as state, count(*)::int as n
+        from ${RFP_STATE_FROM}
+        where q.rfp_id in (${sql.join(rows.map((r) => sql`${r.id}`), sql`, `)})
+        group by q.rfp_id, state
+      `),
+    );
+    for (const s of states) {
+      const c = counts.get(Number(s.rfp_id)) ?? {};
+      c[String(s.state)] = Number(s.n);
+      counts.set(Number(s.rfp_id), c);
+    }
+  }
   return {
-    rfps: rows.map((r) => ({
-      id: r.id,
-      title: r.title,
-      status: r.status,
-      createdAt: r.createdAt.toISOString(),
-      ownedByMe: r.createdBy === input.employeeId,
-    })),
+    rfps: rows.map((r) => {
+      const c = counts.get(r.id) ?? {};
+      const total = Object.values(c).reduce((a, b) => a + b, 0);
+      return {
+        id: r.id,
+        title: r.title,
+        status: r.status,
+        createdAt: r.createdAt.toISOString(),
+        ownedByMe: r.createdBy === input.employeeId,
+        // generated = has an answer (anything past not_generated / failed / processing)
+        progress: {
+          total,
+          generated: total - (c.not_generated ?? 0) - (c.failed ?? 0) - (c.processing ?? 0),
+          accepted: c.accepted ?? 0,
+          failed: c.failed ?? 0,
+        },
+      };
+    }),
   };
 }
 
@@ -212,6 +241,16 @@ export async function getRfp(id: number, employeeId: number) {
         .where(inArray(rfpReviews.answerId, answerIds))
         .orderBy(rfpReviews.answerId, rfpReviews.id)
     : [];
+  const stale = await staleAnswerIds(db(), answerIds);
+  const history = questionIds.length
+    ? await db()
+        .select({ review: rfpReviews, questionId: rfpAnswers.questionId })
+        .from(rfpReviews)
+        .innerJoin(rfpAnswers, eq(rfpAnswers.id, rfpReviews.answerId))
+        .where(inArray(rfpAnswers.questionId, questionIds))
+        .orderBy(rfpReviews.id)
+    : [];
+  const historyBy = groupBy(history, (h) => h.questionId);
   const sourcesBy = groupBy(sourceRows, (s) => s.answerId);
   const reviewsBy = groupBy(reviewRows, (r) => r.answerId);
 
@@ -239,6 +278,17 @@ export async function getRfp(id: number, employeeId: number) {
         section: q.section,
         status: q.status,
         errorCode: q.errorCode,
+        reviewHistory: (historyBy.get(q.id) ?? []).map(({ review: r }) => ({
+          id: r.id,
+          answerId: r.answerId,
+          verdict: r.verdict,
+          finalText: r.finalText,
+          flaggedCitations: r.flaggedCitations,
+          note: r.note,
+          sourceStale: r.sourceStale,
+          reviewerId: r.reviewerId,
+          createdAt: r.createdAt.toISOString(),
+        })),
         reviewState: deriveQuestionState({
           status: q.status,
           hasAnswer: !!answer,
@@ -249,6 +299,7 @@ export async function getRfp(id: number, employeeId: number) {
               id: answer.id,
               answerText: answer.answerText,
               editedText: answer.editedText,
+              sourceStale: stale.has(answer.id),
               evidenceStatus: answer.evidenceStatus,
               modelEvidenceStatus: answer.modelEvidenceStatus,
               gaps: answer.gaps,

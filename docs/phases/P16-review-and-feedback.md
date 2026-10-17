@@ -1,6 +1,6 @@
 # P16 · Review and feedback (V3 M4)
 
-Status: not started
+Status: TASK-08 done; TASK-09 not started
 Depends on: P15
 Requirements: REQ_V3 §9, §13
 Recheck when changed (downstream): P17, P18 (feedback feeds eval/export)
@@ -32,13 +32,13 @@ Review is the human gate that makes answers trustworthy, and the stored decision
 
 **Acceptance criteria**
 
-- [ ] Edit with `[7]` when 2 citations → 400; `answer_text` unchanged after edit
-- [ ] Accept stores `final_text` = edited text; accept with empty text → 409; review on a non-latest answer → 409 `NOT_LATEST`; review while `processing` → 409
-- [ ] `wrong_evidence` without citations or with an unknown citation → 400
-- [ ] Accept → needs work → accept keeps 3 rows; state follows the latest
-- [ ] Archiving a cited document makes `sourceStale: true`; an accept then stores `source_stale = true`
-- [ ] SQL and TS state derivations agree on every row; B reviewing A's answer → 403
-- [ ] New `server/test/rfp-review.test.ts`
+- [x] Edit with `[7]` when 2 citations → 400; `answer_text` unchanged after edit
+- [x] Accept stores `final_text` = edited text; accept with empty text → 409; review on a non-latest answer → 409 `NOT_LATEST`; review while `processing` → 409
+- [x] `wrong_evidence` without citations or with an unknown citation → 400
+- [x] Accept → needs work → accept keeps 3 rows; state follows the latest
+- [x] Archiving a cited document makes `sourceStale: true`; an accept then stores `source_stale = true`
+- [x] SQL and TS state derivations agree on every row; B reviewing A's answer → 403
+- [x] New `server/test/rfp-review.test.ts`
 
 **Dependencies**
 
