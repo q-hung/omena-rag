@@ -146,7 +146,7 @@ describe('RFP-WF-01 SQL and TS state derivations agree', () => {
       questions: [{ text: 'seed question' }],
     });
     const rfpId = created.json().id as number;
-    const [{ id: adaId }] = rowsOf(await db().execute(sql`select id from employees where email = 'ada@omena.example'`)) as { id: number }[];
+    const adaId = Number(rowsOf(await db().execute(sql`select id from employees where email = 'ada@omena.example'`))[0]!.id);
     const verdicts = [undefined, 'accepted', 'needs_work', 'wrong_evidence'] as const;
     const expected = new Map<number, string>();
     let seq = 10;
