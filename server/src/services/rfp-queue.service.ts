@@ -8,8 +8,8 @@ import { ProviderError } from '../llm/errors.ts';
 import { answerQuestion, failQuestion, type RfpAnswerDeps } from './rfp-answer.service.ts';
 import { requireOwner } from './generate.service.ts';
 import { getRfp } from './rfp.service.ts';
+import { LOCK_TTL } from './state.service.ts';
 
-const STALE_MINUTES = 2;
 const MAX_ATTEMPTS = 3;
 
 /** REQ_V3 §7.1 step 1: one statement; done/queued/processing are untouched unless `force` adds done. */
@@ -64,7 +64,7 @@ export async function failStaleQuestions(): Promise<number> {
           error_code = case when attempts < ${MAX_ATTEMPTS} then null else 'stale' end,
           generation_token = null, generation_started_at = null
       where status = 'processing'
-        and generation_started_at < now() - ${`${STALE_MINUTES} minutes`}::interval
+        and generation_started_at < now() - ${LOCK_TTL}
       returning id
     `),
   );

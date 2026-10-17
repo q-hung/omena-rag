@@ -17,21 +17,20 @@ import {
   AppError,
   badRequest,
   conflict,
-  generationQuota,
   notFound,
   notOwner,
 } from '../errors.ts';
-import { GENERATE_QUOTA, money, paidAttempt, type CallPurpose } from '../llm/budget.ts';
-import { ProviderError, isRetryable } from '../llm/errors.ts';
+import { assertGenerateQuota, money, paidAttempt, type CallPurpose } from '../llm/budget.ts';
+import { ProviderError } from '../llm/errors.ts';
 import { formatQueryForEmbedding } from '../llm/format.ts';
 import { createProvider } from '../llm/provider.ts';
-import { MAX_RETRIES } from '../llm/retry.ts';
+import { retryAttempts } from '../llm/retry.ts';
 import type { GenerateInput, Provider } from '../llm/types.ts';
 import { utcToday } from '../lib/format.ts';
 import { normalise, type Normalised } from '../rag/normalise.ts';
 import { buildPrompt, type PromptTurn } from '../rag/prompt.ts';
-import { retrieve, type Passage } from '../rag/retrieve.ts';
-import { lockHeld } from '../services/state.service.ts';
+import { retrieve, searchOptions, type Passage } from '../rag/retrieve.ts';
+import { LOCK_TTL, lockHeld } from '../services/state.service.ts';
 import { rowsOf } from '../db/rows.ts';
 
 export const REQUEST_DEADLINE_MS = 90_000;
@@ -74,7 +73,7 @@ export async function createConversation(input: {
       .values({ accountId: input.accountId, createdBy: input.employeeId })
       .returning();
     await tx.execute(sql`select id from conversations where id = ${conv!.id} for update`);
-    await assertQuota(tx, input.employeeId);
+    await assertGenerateQuota(tx, input.employeeId);
     await takeLock(tx, conv!.id, token);
     const [turn] = await tx
       .insert(turns)
@@ -109,7 +108,7 @@ export async function regenerateConversation(input: {
     }
     requireOwner({ createdBy: Number(conv.created_by) }, input.employeeId);
     await assertNotSaved(tx, input.conversationId);
-    await assertQuota(tx, input.employeeId);
+    await assertGenerateQuota(tx, input.employeeId);
     if (!rowsOf(await takeLock(tx, input.conversationId, token)).length) {
       throw conflict('GENERATION_IN_PROGRESS', 'This conversation is already generating an answer.');
     }
@@ -170,7 +169,7 @@ export async function replyConversation(input: {
       throw conflict('NOT_AWAITING_CLARIFICATION', 'Reply only when Jarvis has asked for clarification.');
     }
     const selected = validateSelections(selections, latest.clarifications);
-    await assertQuota(tx, input.employeeId);
+    await assertGenerateQuota(tx, input.employeeId);
     if (!rowsOf(await takeLock(tx, input.conversationId, token)).length) {
       throw conflict('GENERATION_IN_PROGRESS', 'This conversation is already generating an answer.');
     }
@@ -280,13 +279,7 @@ async function runOutsideTxn(
     cfg,
   );
 
-  const passages = await search(vector, {
-    model: cfg.EMBEDDING_MODEL,
-    minScore: cfg.LLM_PROVIDER === 'stub' ? 0 : cfg.RETRIEVAL_MIN_SCORE,
-    lexicalQuery: cfg.LLM_PROVIDER === 'stub' ? query : undefined,
-    mode: cfg.RETRIEVAL_MODE,
-    queryText: query,
-  });
+  const passages = await search(vector, searchOptions(cfg, query));
   await deps.afterRetrieve?.(passages);
 
   const promptTurns: PromptTurn[] = turnRows.map((t) => ({
@@ -349,16 +342,9 @@ async function paidGenerate(
   },
   cfg: Config,
 ) {
-  const sleep = opts.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
-  let last: unknown;
-  for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
-    if (opts.now() >= deadline) {
-      throw last instanceof ProviderError
-        ? last
-        : new ProviderError('DEADLINE', 'The request deadline passed before a new attempt could start.');
-    }
-    try {
-      return await paidAttempt(
+  return retryAttempts(
+    (attempt) =>
+      paidAttempt(
         {
           kind: 'generate',
           purpose: opts.purpose,
@@ -373,20 +359,9 @@ async function paidGenerate(
           return { value: result, usage: result.usage };
         },
         cfg,
-      );
-    } catch (error) {
-      last = error;
-      if (!isRetryable(error) || attempt === MAX_RETRIES + 1) {
-        throw error;
-      }
-      const wait = Math.min(8_000, 200 * 2 ** (attempt - 1)) * (0.5 + Math.random());
-      if (opts.now() + wait >= deadline) {
-        throw error;
-      }
-      await sleep(wait);
-    }
-  }
-  throw last;
+      ),
+    { deadline, now: opts.now, sleep: opts.sleep },
+  );
 }
 
 async function saveAnswer(input: {
@@ -451,7 +426,7 @@ async function takeLock(tx: { execute: (q: ReturnType<typeof sql>) => Promise<un
     update conversations
     set generation_token = ${token}::uuid, generation_started_at = now()
     where id = ${id}
-      and (generation_token is null or generation_started_at < now() - interval '2 minutes')
+      and (generation_token is null or generation_started_at < now() - ${LOCK_TTL})
     returning id
   `);
 }
@@ -461,25 +436,6 @@ async function clearLock(conversationId: number, token: string): Promise<void> {
     .update(conversations)
     .set({ generationToken: null, generationStartedAt: null })
     .where(and(eq(conversations.id, conversationId), eq(conversations.generationToken, token)));
-}
-
-async function assertQuota(tx: { execute: (q: ReturnType<typeof sql>) => Promise<unknown> }, employeeId: number) {
-  const day = utcToday();
-  const start = `${day}T00:00:00.000Z`;
-  const end = `${nextUtcDay(day)}T00:00:00.000Z`;
-  const counted = await tx.execute(sql`
-    select count(*)::int as n
-    from provider_calls
-    where employee_id = ${employeeId}
-      and kind = 'generate'
-      and attempt = 1
-      and created_at >= ${start}::timestamptz
-      and created_at < ${end}::timestamptz
-  `);
-  const n = Number(rowsOf(counted)[0]?.n ?? 0);
-  if (n >= GENERATE_QUOTA) {
-    throw generationQuota();
-  }
 }
 
 async function recordFailure(
@@ -567,10 +523,6 @@ async function isRefundV3(): Promise<boolean> {
     .innerJoin(documentVersions, eq(documents.activeVersionId, documentVersions.id))
     .where(eq(documents.title, 'Refund policy'));
   return (row?.n ?? 0) >= 3;
-}
-
-function nextUtcDay(day: string): string {
-  return new Date(Date.parse(`${day}T00:00:00.000Z`) + 86_400_000).toISOString().slice(0, 10);
 }
 
 export function generationLockHeld(row: { generationToken: string | null; generationStartedAt: Date | null }, now = Date.now()) {

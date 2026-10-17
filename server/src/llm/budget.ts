@@ -3,7 +3,8 @@ import { config as loadCached, type Config } from '../config/config.ts';
 import { db } from '../db/index.ts';
 import { budgetDays, CALL_KINDS, CALL_PURPOSES, providerCalls } from '../db/schema.ts';
 import { budgetReached, generationQuota } from '../errors.ts';
-import { utcToday } from '../lib/format.ts';
+import { rowsOf } from '../db/rows.ts';
+import { addDays, utcToday } from '../lib/format.ts';
 import { MAX_OUTPUT_TOKENS } from './gemini.ts';
 import { ProviderError } from './errors.ts';
 
@@ -41,6 +42,26 @@ export type Reservation = {
 
 export type Usage = { inputTokens?: number; outputTokens?: number };
 
+/** Throws when the employee has used today's quota of first generate attempts (retries don't count). */
+export async function assertGenerateQuota(
+  tx: { execute: (q: ReturnType<typeof sql>) => Promise<unknown> },
+  employeeId: number,
+  day = utcToday(),
+): Promise<void> {
+  const counted = await tx.execute(sql`
+    select count(*)::int as n
+    from provider_calls
+    where employee_id = ${employeeId}
+      and kind = 'generate'
+      and attempt = 1
+      and created_at >= ${`${day}T00:00:00.000Z`}::timestamptz
+      and created_at < ${`${addDays(day, 1)}T00:00:00.000Z`}::timestamptz
+  `);
+  if (Number(rowsOf(counted)[0]?.n ?? 0) >= GENERATE_QUOTA) {
+    throw generationQuota();
+  }
+}
+
 export function money(n: number): string {
   return (Math.round(n * 1e6) / 1e6).toFixed(6);
 }
@@ -73,21 +94,9 @@ export async function reserve(input: ReserveInput, cfg: Config = loadCached()): 
 
   return db().transaction(async (tx) => {
     if (input.kind === 'generate' && input.attempt === 1 && input.employeeId) {
-      const start = `${day}T00:00:00.000Z`;
-      const end = `${nextUtcDay(day)}T00:00:00.000Z`;
-      const counted = await tx
-        .select({ n: sql<number>`count(*)::int` })
-        .from(providerCalls)
-        .where(
-          sql`${providerCalls.employeeId} = ${input.employeeId}
-            and ${providerCalls.kind} = 'generate'
-            and ${providerCalls.attempt} = 1
-            and ${providerCalls.createdAt} >= ${start}::timestamptz
-            and ${providerCalls.createdAt} < ${end}::timestamptz`,
-        );
-      if ((counted[0]?.n ?? 0) >= GENERATE_QUOTA) {
-        throw generationQuota();
-      }
+      // Serialize this employee's checks until the row below commits, so concurrent first attempts can't all pass.
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext('generate_quota'), ${input.employeeId})`);
+      await assertGenerateQuota(tx, input.employeeId, day);
     }
 
     const upserted = await tx.execute(sql`
@@ -203,18 +212,4 @@ export async function sweepAbandonedReservations(now = Date.now()): Promise<numb
     .where(and(eq(providerCalls.status, 'reserved'), lt(providerCalls.createdAt, cutoff)))
     .returning({ id: providerCalls.id });
   return rows.length;
-}
-
-function nextUtcDay(day: string): string {
-  return new Date(Date.parse(`${day}T00:00:00.000Z`) + 86_400_000).toISOString().slice(0, 10);
-}
-
-function rowsOf(result: unknown): unknown[] {
-  if (Array.isArray(result)) {
-    return result;
-  }
-  if (result && typeof result === 'object' && 'rows' in result) {
-    return (result as { rows: unknown[] }).rows;
-  }
-  return [];
 }
