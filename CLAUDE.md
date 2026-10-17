@@ -48,3 +48,13 @@ affected behavior. Do not silently expand the MVP.
 Always use explicit `{}` on `if`, `else`, `for` and `while` bodies, with
 `} else {` on one line. No single-line `if (x) return;`. `pnpm lint`
 (Biome `useBlockStatements`) fails CI otherwise.
+
+## Function Design
+
+- Prefer functions that operate at one level of abstraction.
+- Orchestration functions should read like a sequence of business operations.
+- Extract meaningful domain concepts, not arbitrary code blocks.
+- Hide SQL/query details when they obscure business intent.
+- Do not split functions solely to reduce line count.
+- Keep transaction boundaries, ordering, and locking semantics explicit.
+- Prefer fewer cohesive helpers over many trivial wrappers.
