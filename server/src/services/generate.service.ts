@@ -136,39 +136,13 @@ export async function replyConversation(input: {
   deps?: GenerateDeps;
   log?: FastifyBaseLogger;
 }) {
-  const selections = [...new Set((input.selections ?? []).map((id) => id.trim()).filter(Boolean))];
-  const text = input.text?.trim() || null;
-  if (!selections.length && !text) {
-    throw badRequest('EMPTY_REPLY', 'Select a record or enter a reply.');
-  }
-  if (text && text.length > 1_000) {
-    throw badRequest('REPLY_TOO_LONG', 'A reply can be at most 1,000 characters.');
-  }
-
+  const reply = parseReply(input);
   const token = randomUUID();
   const started = await db().transaction(async (tx) => {
-    const [conv] = rowsOf(
-      await tx.execute(sql`select * from conversations where id = ${input.conversationId} for update`),
-    );
-    if (!conv) {
-      throw notFound('CONVERSATION_NOT_FOUND', 'No such conversation.');
-    }
-    requireOwner({ createdBy: Number(conv.created_by) }, input.employeeId);
+    await lockOwnedConversation(tx, input.conversationId, input.employeeId);
     await assertNotSaved(tx, input.conversationId);
-
-    const [lastTurn] = await tx
-      .select()
-      .from(turns)
-      .where(eq(turns.conversationId, input.conversationId))
-      .orderBy(desc(turns.seq))
-      .limit(1);
-    const [latest] = lastTurn
-      ? await tx.select().from(answers).where(eq(answers.turnId, lastTurn.id)).orderBy(desc(answers.id)).limit(1)
-      : [];
-    if (latest?.outcome !== 'clarification_required') {
-      throw conflict('NOT_AWAITING_CLARIFICATION', 'Reply only when Jarvis has asked for clarification.');
-    }
-    const selected = validateSelections(selections, latest.clarifications);
+    const { lastTurn, pending } = await pendingClarification(tx, input.conversationId);
+    const selected = validateSelections(reply.selections, pending.clarifications);
     await assertGenerateQuota(tx, input.employeeId);
     if (!rowsOf(await takeLock(tx, input.conversationId, token)).length) {
       throw conflict('GENERATION_IN_PROGRESS', 'This conversation is already generating an answer.');
@@ -177,9 +151,9 @@ export async function replyConversation(input: {
       .insert(turns)
       .values({
         conversationId: input.conversationId,
-        seq: lastTurn!.seq + 1,
+        seq: lastTurn.seq + 1,
         kind: 'clarification_reply',
-        text,
+        text: reply.text,
         selectedFacts: selected.length ? selected : null,
         createdBy: input.employeeId,
       })
@@ -188,6 +162,44 @@ export async function replyConversation(input: {
   });
 
   return finish(started, input);
+}
+
+function parseReply(input: { selections?: string[]; text?: string }) {
+  const selections = [...new Set((input.selections ?? []).map((id) => id.trim()).filter(Boolean))];
+  const text = input.text?.trim() || null;
+  if (!selections.length && !text) {
+    throw badRequest('EMPTY_REPLY', 'Select a record or enter a reply.');
+  }
+  if (text && text.length > 1_000) {
+    throw badRequest('REPLY_TOO_LONG', 'A reply can be at most 1,000 characters.');
+  }
+  return { selections, text };
+}
+
+type Tx = Parameters<Parameters<ReturnType<typeof db>['transaction']>[0]>[0];
+
+async function lockOwnedConversation(tx: Tx, conversationId: number, employeeId: number) {
+  const [conv] = rowsOf(await tx.execute(sql`select * from conversations where id = ${conversationId} for update`));
+  if (!conv) {
+    throw notFound('CONVERSATION_NOT_FOUND', 'No such conversation.');
+  }
+  requireOwner({ createdBy: Number(conv.created_by) }, employeeId);
+}
+
+async function pendingClarification(tx: Tx, conversationId: number) {
+  const [lastTurn] = await tx
+    .select()
+    .from(turns)
+    .where(eq(turns.conversationId, conversationId))
+    .orderBy(desc(turns.seq))
+    .limit(1);
+  const [latest] = lastTurn
+    ? await tx.select().from(answers).where(eq(answers.turnId, lastTurn.id)).orderBy(desc(answers.id)).limit(1)
+    : [];
+  if (!lastTurn || latest?.outcome !== 'clarification_required') {
+    throw conflict('NOT_AWAITING_CLARIFICATION', 'Reply only when Jarvis has asked for clarification.');
+  }
+  return { lastTurn, pending: latest };
 }
 
 async function finish(
