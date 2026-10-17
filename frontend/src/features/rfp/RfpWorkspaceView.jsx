@@ -3,9 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
 import {
-  citesOf, EVIDENCE_LABEL, EVIDENCE_TIP, EVIDENCE_TONE, QUESTION_STATE_LABEL, QUESTION_STATE_TONE,
+  citesOf, EVIDENCE_LABEL, EVIDENCE_TIP, EVIDENCE_TONE, FILTER_LABEL, QUESTION_STATE_LABEL, QUESTION_STATE_TONE, REVIEW_FILTERS,
 } from '../../lib/rfp';
 import RfpDraftView from './RfpDraftView';
+import RfpReviewPanel from './RfpReviewPanel';
 import DraftText from '../workspace/DraftText';
 import EvidenceCard from '../workspace/EvidenceCard';
 
@@ -16,6 +17,7 @@ export default function RfpWorkspaceView({ app }) {
   const { rfps: r } = app;
   const [selected, setSelected] = useState(null);
   const [activeCite, setActiveCite] = useState(null);
+  const [filter, setFilter] = useState('all');
 
   useEffect(() => {
     r.load(id).catch(() => navigate('/rfps'));
@@ -38,12 +40,24 @@ export default function RfpWorkspaceView({ app }) {
     return <RfpDraftView key={`${rfp.id}-${rfp.status}-${rfp.questions.map((x) => x.id).join()}`} rfp={rfp} rfps={r} />;
   }
   const p = rfp.progress;
-  const q = rfp.questions.find((x) => x.id === selected) ?? rfp.questions[0];
+  const counts = {};
+  for (const x of rfp.questions) {
+    counts[x.reviewState] = (counts[x.reviewState] ?? 0) + 1;
+  }
+  const shown = filter === 'all' ? rfp.questions : rfp.questions.filter((x) => x.reviewState === filter);
+  const q = rfp.questions.find((x) => x.id === selected) ?? shown[0] ?? rfp.questions[0];
   const a = q?.latestAnswer;
   const cites = citesOf(a);
   const busy = r.generating === q?.id || q?.status === 'queued' || q?.status === 'processing';
   const err = r.error?.questionId === q?.id ? r.error : null;
   const failedCode = err?.code ?? (q?.status === 'failed' ? q.errorCode : null);
+  const next = () => {
+    const i = rfp.questions.findIndex((x) => x.id === q.id);
+    const n = rfp.questions[i + 1];
+    if (n) {
+      select(n.id);
+    }
+  };
   const select = (qid) => {
     setSelected(qid);
     setActiveCite(null);
@@ -55,14 +69,24 @@ export default function RfpWorkspaceView({ app }) {
         <h1 className="text-base font-bold">{rfp.title}</h1>
         <span className="ml-auto" />
         <span className="text-xs text-secondary">
-          {p.done}/{p.total} drafted{p.queued + p.processing > 0 ? ` · ${p.queued + p.processing} in progress` : ''}{p.failed > 0 ? ` · ${p.failed} failed` : ''}
+          {p.done}/{p.total} drafted · {counts.accepted ?? 0} accepted{p.queued + p.processing > 0 ? ` · ${p.queued + p.processing} in progress` : ''}{p.failed > 0 ? ` · ${p.failed} failed` : ''}
         </span>
-        <Button size="sm" disabled={!rfp.ownedByMe || p.pending + p.failed === 0} onClick={() => r.generateAll(rfp.id)}>Generate all</Button>
+        {rfp.ownedByMe && (
+          <Button size="sm" disabled={p.pending + p.failed === 0} onClick={() => r.generateAll(rfp.id)}>Generate all</Button>
+        )}
         <Button size="sm" variant="secondary" onClick={() => navigate('/rfps')}>All RFPs</Button>
       </div>
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(240px,0.8fr)_minmax(440px,1.7fr)_minmax(300px,1fr)]">
         <section className="flex flex-col overflow-auto border-r border-hairline bg-white">
-          {rfp.questions.map((x) => (
+          <div className="flex flex-wrap gap-1.5 border-b border-hairline p-3">
+            {REVIEW_FILTERS.filter((f) => f === 'all' || counts[f]).map((f) => (
+              <button key={f} type="button" onClick={() => setFilter(f)} aria-pressed={filter === f}
+                className={`px-2 py-1 text-[11px] font-bold uppercase tracking-caps ${filter === f ? 'bg-black text-white' : 'bg-almost-white text-black hover:bg-hairline'}`}>
+                {FILTER_LABEL[f]}{f === 'all' ? ` ${rfp.questions.length}` : ` ${counts[f]}`}
+              </button>
+            ))}
+          </div>
+          {shown.map((x) => (
             <button key={x.id} type="button" onClick={() => select(x.id)}
               className={`flex flex-col gap-2 border-b border-hairline px-5 py-4 text-left ${x.id === q?.id ? 'bg-supply-green-tint' : 'hover:bg-almost-white'}`}>
               <span className="font-mono text-xs text-muted">Q{x.seq}{x.section ? ` · ${x.section}` : ''}</span>
@@ -80,9 +104,11 @@ export default function RfpWorkspaceView({ app }) {
                 <p className="text-base font-semibold">{q.text}</p>
               </div>
               <div className="flex items-center gap-3">
-                <Button size="sm" disabled={busy || !rfp.ownedByMe} onClick={() => r.generate(rfp.id, q.id)}>
-                  {busy ? 'Generating…' : a ? 'Regenerate' : 'Generate'}
-                </Button>
+                {rfp.ownedByMe && (
+                  <Button size="sm" disabled={busy} onClick={() => r.generate(rfp.id, q.id)}>
+                    {busy ? 'Generating…' : a ? 'Regenerate' : 'Generate'}
+                  </Button>
+                )}
                 {a && (
                   <span title={EVIDENCE_TIP}>
                     <Badge tone={EVIDENCE_TONE[a.evidenceStatus]}>{EVIDENCE_LABEL[a.evidenceStatus]}</Badge>
@@ -92,13 +118,14 @@ export default function RfpWorkspaceView({ app }) {
               {failedCode && (
                 <div className="flex items-center gap-3 border-2 border-black bg-white p-4 text-sm">
                   <span className="flex-1">Generation failed: <span className="font-mono">{failedCode}</span></span>
-                  <Button size="sm" variant="secondary" disabled={busy} onClick={() => r.generate(rfp.id, q.id)}>Retry</Button>
+                  {rfp.ownedByMe && <Button size="sm" variant="secondary" disabled={busy} onClick={() => r.generate(rfp.id, q.id)}>Retry</Button>}
                 </div>
               )}
               {a && (
                 <>
                   <DraftText text={a.editedText ?? a.answerText} cites={cites} factIds={[]} activeCite={activeCite}
                     onCite={setActiveCite} onFact={() => {}} />
+                  <RfpReviewPanel key={`${q.id}-${a.id}`} rfp={rfp} q={q} cites={cites} rfps={r} onNext={next} />
                   {a.gaps?.length > 0 && (
                     <div className="max-w-[72ch] border border-hairline bg-almost-white p-4 text-sm">
                       <div className="eyebrow mb-2">GAPS</div>

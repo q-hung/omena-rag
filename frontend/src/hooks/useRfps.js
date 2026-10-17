@@ -7,8 +7,8 @@ export function useRfps({ onToast } = {}) {
   const [generating, setGenerating] = useState(null);
   const [error, setError] = useState(null);
 
-  const refresh = useCallback(async () => {
-    const data = await api('/rfps');
+  const refresh = useCallback(async (mine = true) => {
+    const data = await api(`/rfps?mine=${mine ? 1 : 0}`);
     setRfps(data.rfps);
   }, []);
 
@@ -43,6 +43,20 @@ export function useRfps({ onToast } = {}) {
   const reextract = useCallback((id, text) =>
     draftCall(`/rfps/${id}/extract`, { method: 'POST', body: text ? { text } : undefined }), [draftCall]);
 
+  // Review writes return the fresh RFP; resolve to null on success or the server's message.
+  const write = useCallback(async (path, options) => {
+    try {
+      setRfp(await api(path, options));
+      return null;
+    } catch (e) {
+      return e.message;
+    }
+  }, []);
+  const saveEdit = useCallback((answerId, editedText) =>
+    write(`/rfp-answers/${answerId}`, { method: 'PATCH', body: { editedText } }), [write]);
+  const review = useCallback((answerId, body) =>
+    write(`/rfp-answers/${answerId}/reviews`, { method: 'POST', body }), [write]);
+
   const generate = useCallback(async (rfpId, questionId) => {
     setGenerating(questionId);
     setError(null);
@@ -57,5 +71,5 @@ export function useRfps({ onToast } = {}) {
     }
   }, [onToast, load]);
 
-  return { rfps, rfp, generating, error, refresh, load, create, saveQuestions, confirm, reextract, generateAll, generate };
+  return { rfps, rfp, generating, error, refresh, load, create, saveQuestions, confirm, reextract, generateAll, generate, saveEdit, review };
 }
