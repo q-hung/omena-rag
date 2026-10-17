@@ -3,6 +3,7 @@ import type { App } from '../app.ts';
 import type { Config } from '../config/config.ts';
 import { regenerateQuestion, type RfpAnswerDeps } from '../services/rfp-answer.service.ts';
 import { badRequest } from '../errors.ts';
+import { editRfpAnswer, reviewRfpAnswer } from '../services/rfp-review.service.ts';
 import { queueQuestions } from '../services/rfp-queue.service.ts';
 import { confirmRfp, createRfp, createRfpFromSource, getRfp, listRfps, reextract, replaceQuestions } from '../services/rfp.service.ts';
 
@@ -35,6 +36,12 @@ function parse<T>(schema: z.ZodType<T>, body: unknown): T {
   }
   return r.data;
 }
+const editBody = z.object({ editedText: z.string().max(20_000) });
+const reviewBody = z.object({
+  verdict: z.enum(['accepted', 'needs_work', 'wrong_evidence']),
+  note: z.string().max(1_000).optional(),
+  flaggedCitations: z.array(z.number().int().positive()).max(50).optional(),
+});
 const idParam = z.object({ id: z.coerce.number().int().positive() });
 const listQuery = z.object({
   mine: z.enum(['0', '1']).default('1'),
@@ -94,6 +101,24 @@ export function registerRfps(app: App, config: Config, deps?: RfpAnswerDeps): vo
 
   app.get('/api/rfps/:id', { schema: { params: idParam } }, async (request) => {
     return getRfp(request.params.id, request.employeeId!);
+  });
+
+  app.patch('/api/rfp-answers/:id', { schema: { params: idParam, body: editBody } }, async (request) => {
+    const rfpId = await editRfpAnswer({
+      answerId: request.params.id,
+      employeeId: request.employeeId!,
+      editedText: request.body.editedText,
+    });
+    return getRfp(rfpId, request.employeeId!);
+  });
+
+  app.post('/api/rfp-answers/:id/reviews', { schema: { params: idParam, body: reviewBody } }, async (request, reply) => {
+    const rfpId = await reviewRfpAnswer({
+      answerId: request.params.id,
+      employeeId: request.employeeId!,
+      ...request.body,
+    });
+    return reply.status(201).send(await getRfp(rfpId, request.employeeId!));
   });
 
   app.post('/api/rfp-questions/:id/regenerate', { schema: { params: idParam } }, async (request) => {
