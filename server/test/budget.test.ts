@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { loadConfig } from '../src/config/config.ts';
 import { db } from '../src/db/index.ts';
@@ -110,6 +110,33 @@ describe.sequential('budget', () => {
     await expect(
       reserve({ ...base, kind: 'generate', attempt: 1, employeeId: otherId, inputChars: 3 }, cfg),
     ).resolves.toMatchObject({ kind: 'generate' });
+  });
+
+  it('lets only one of several concurrent first attempts take the last quota slot', async () => {
+    const [row] = (
+      await db().execute(sql`
+        select count(*)::int as n from provider_calls
+        where employee_id = ${otherId} and kind = 'generate' and attempt = 1 and created_at >= date_trunc('day', now())
+      `)
+    ).rows as { n: number }[];
+    const n = row!.n;
+    await db().insert(providerCalls).values(
+      Array.from({ length: GENERATE_QUOTA - 1 - n }, () => ({
+        kind: 'generate' as const,
+        purpose: 'app' as const,
+        attempt: 1,
+        model: 'quota',
+        employeeId: otherId,
+        status: 'ok' as const,
+        estimatedCostUsd: '0.000001',
+      })),
+    );
+    const results = await Promise.allSettled(
+      Array.from({ length: 5 }, () =>
+        reserve({ ...base, kind: 'generate', attempt: 1, employeeId: otherId, inputChars: 3 }, cfg),
+      ),
+    );
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
   });
 
   it('marks a 15-minute-old reservation abandoned without changing spend', async () => {

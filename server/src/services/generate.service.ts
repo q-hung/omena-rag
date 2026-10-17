@@ -73,7 +73,7 @@ export async function createConversation(input: {
       .values({ accountId: input.accountId, createdBy: input.employeeId })
       .returning();
     await tx.execute(sql`select id from conversations where id = ${conv!.id} for update`);
-    await assertQuota(tx, input.employeeId);
+    await assertGenerateQuota(tx, input.employeeId);
     await takeLock(tx, conv!.id, token);
     const [turn] = await tx
       .insert(turns)
@@ -108,7 +108,7 @@ export async function regenerateConversation(input: {
     }
     requireOwner({ createdBy: Number(conv.created_by) }, input.employeeId);
     await assertNotSaved(tx, input.conversationId);
-    await assertQuota(tx, input.employeeId);
+    await assertGenerateQuota(tx, input.employeeId);
     if (!rowsOf(await takeLock(tx, input.conversationId, token)).length) {
       throw conflict('GENERATION_IN_PROGRESS', 'This conversation is already generating an answer.');
     }
@@ -169,7 +169,7 @@ export async function replyConversation(input: {
       throw conflict('NOT_AWAITING_CLARIFICATION', 'Reply only when Jarvis has asked for clarification.');
     }
     const selected = validateSelections(selections, latest.clarifications);
-    await assertQuota(tx, input.employeeId);
+    await assertGenerateQuota(tx, input.employeeId);
     if (!rowsOf(await takeLock(tx, input.conversationId, token)).length) {
       throw conflict('GENERATION_IN_PROGRESS', 'This conversation is already generating an answer.');
     }
@@ -436,10 +436,6 @@ async function clearLock(conversationId: number, token: string): Promise<void> {
     .update(conversations)
     .set({ generationToken: null, generationStartedAt: null })
     .where(and(eq(conversations.id, conversationId), eq(conversations.generationToken, token)));
-}
-
-async function assertQuota(tx: { execute: (q: ReturnType<typeof sql>) => Promise<unknown> }, employeeId: number) {
-  await assertGenerateQuota(tx, employeeId);
 }
 
 async function recordFailure(

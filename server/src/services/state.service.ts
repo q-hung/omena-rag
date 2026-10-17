@@ -18,7 +18,7 @@ export const STATES = [
 
 /** A generation lock older than this is dead: another request may take it over. One value for SQL and TS. */
 export const STALE_LOCK_MINUTES = 2;
-export const LOCK_TTL = sql`make_interval(mins => ${sql.raw(String(STALE_LOCK_MINUTES))})`;
+export const LOCK_TTL = sql`make_interval(mins => ${STALE_LOCK_MINUTES})`;
 
 export type ConversationState = (typeof STATES)[number];
 

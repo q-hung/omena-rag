@@ -94,6 +94,8 @@ export async function reserve(input: ReserveInput, cfg: Config = loadCached()): 
 
   return db().transaction(async (tx) => {
     if (input.kind === 'generate' && input.attempt === 1 && input.employeeId) {
+      // Serialize this employee's checks until the row below commits, so concurrent first attempts can't all pass.
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext('generate_quota'), ${input.employeeId})`);
       await assertGenerateQuota(tx, input.employeeId, day);
     }
 
