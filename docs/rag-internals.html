@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jarvis RAG Internals</title>
+<style>
+:root{--bg:#fafaf8;--fg:#1c1c1a;--mut:#6b6b66;--card:#fff;--line:#e2e1dc;--acc:#0b6bcb;--acc2:#e8f1fb;--ok:#1a7f4b;--bad:#b3261e;--warn:#9a6700;--code:#f3f2ee}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#151514;--fg:#ecebe6;--mut:#9a9992;--card:#1e1e1c;--line:#34332f;--acc:#6ab0f3;--acc2:#1c2a3a;--ok:#4cc38a;--bad:#f2766e;--warn:#e3b341;--code:#262522}}
+:root[data-theme=dark]{--bg:#151514;--fg:#ecebe6;--mut:#9a9992;--card:#1e1e1c;--line:#34332f;--acc:#6ab0f3;--acc2:#1c2a3a;--ok:#4cc38a;--bad:#f2766e;--warn:#e3b341;--code:#262522}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.55 -apple-system,system-ui,Segoe UI,sans-serif}
+.wrap{display:grid;grid-template-columns:220px 1fr;max-width:1180px;margin:0 auto}
+nav{position:sticky;top:0;align-self:start;height:100vh;padding:24px 16px;border-right:1px solid var(--line)}
+nav h1{font-size:15px;margin:0 0 4px}nav small{color:var(--mut)}
+nav a{display:block;padding:6px 10px;margin:2px 0;border-radius:6px;color:var(--fg);text-decoration:none;font-size:14px}
+nav a.on,nav a:hover{background:var(--acc2);color:var(--acc)}
+nav button{margin-top:16px}
+main{padding:28px 32px 80px;min-width:0}
+section{display:none}section.on{display:block}
+h2{margin:0 0 4px;font-size:24px}h3{margin:28px 0 8px;font-size:17px}
+p.lead{color:var(--mut);margin:0 0 20px}
+code,pre{font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+code{background:var(--code);padding:1px 5px;border-radius:4px}
+pre{background:var(--code);padding:12px;border-radius:8px;overflow:auto;margin:8px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin:12px 0}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--mut);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+button{font:inherit;font-size:13.5px;padding:6px 12px;border-radius:7px;border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
+button:hover{border-color:var(--acc)}button.p{background:var(--acc);color:#fff;border-color:var(--acc)}
+input,select{font:inherit;font-size:13.5px;padding:5px 8px;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--fg)}
+.steps{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 12px}
+.step{padding:6px 10px;border:1px solid var(--line);border-radius:999px;font-size:13px;cursor:pointer;background:var(--card)}
+.step.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.step.tx{border-style:dashed}
+.pill{display:inline-block;font-size:11.5px;padding:1px 8px;border-radius:999px;border:1px solid var(--line);color:var(--mut);margin-right:4px}
+.pill.db{color:var(--acc);border-color:var(--acc)}.pill.net{color:var(--warn);border-color:var(--warn)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.log{font:12.5px/1.6 ui-monospace,Menlo,monospace;background:var(--code);border-radius:8px;padding:10px;min-height:90px;max-height:220px;overflow:auto}
+.log .ok{color:var(--ok)}.log .bad{color:var(--bad)}.log .w{color:var(--warn)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
+.state{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.node{padding:6px 12px;border-radius:8px;border:1px solid var(--line);font-size:13px;background:var(--card)}
+.node.on{border-color:var(--acc);background:var(--acc2);color:var(--acc);font-weight:600}
+.node.bad.on{border-color:var(--bad);color:var(--bad);background:transparent}
+.node.ok.on{border-color:var(--ok);color:var(--ok);background:transparent}
+.callout{border-left:3px solid var(--warn);padding:8px 12px;background:var(--card);border-radius:0 8px 8px 0;margin:12px 0;font-size:14px}
+.callout.bad{border-color:var(--bad)}
+.callout b{display:block;margin-bottom:2px}
+@media(max-width:760px){.wrap{grid-template-columns:1fr}nav{position:static;height:auto;border:0;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:4px}nav h1,nav small{width:100%}main{padding:20px 16px}.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav>
+  <h1>Jarvis RAG internals</h1><small>For engineers on call</small>
+  <div style="height:12px"></div>
+  <a href="#overview" data-t="overview">Overview</a>
+  <a href="#ask" data-t="ask">Ask data flow</a>
+  <a href="#ingest" data-t="ingest">Ingest pipeline</a>
+  <a href="#locks" data-t="locks">Locking</a>
+  <a href="#queue" data-t="queue">Queue and crash sim</a>
+  <a href="#retrieval" data-t="retrieval">Retrieval</a>
+  <a href="#budget" data-t="budget">Budget and quota</a>
+  <a href="#ops" data-t="ops">Failure modes</a>
+  <button id="theme">Toggle theme</button>
+</nav>
+<main>
+
+<section id="overview">
+  <h2>Overview</h2>
+  <p class="lead">Two processes, one Postgres. Postgres is the queue, the lock manager, the vector store and the budget ledger. There is no Redis and no broker.</p>
+  <div class="card">
+<pre>
+ browser ──HTTP──▶ api (Fastify)  ──────────────┐
+                    routes → services → db      │
+                                                ▼
+                         ┌──────────── PostgreSQL + pgvector ────────────┐
+                         │ document_* (files, versions, chunks 768-d)    │
+                         │ conversations / turns / answers  (lock cols)  │
+                         │ rfp_questions / rfp_answers      (lock cols)  │
+                         │ provider_calls / budget_days     (cost ledger)│
+                         └───────────────────────────────────────────────┘
+                                                ▲
+ worker (pnpm worker) ── polls every 2s ────────┘
+   claim version → extract (child proc) → chunk → embed → activate
+   claim RFP question → retrieve → generate → save
+                         │
+                         ▼ Gemini (embed + generate), or stub in tests</pre>
+  </div>
+  <h3>Rules that hold the design together</h3>
+  <table>
+    <tr><th>Rule</th><th>Why it matters</th><th>Where</th></tr>
+    <tr><td>No DB transaction is open across a network call</td><td>Holding a row lock for a 90 s LLM call would starve every other writer. Generation uses short T1 (take lock), long unlocked work, short T2 (token-checked save).</td><td><code>generate.service.ts</code></td></tr>
+    <tr><td>Lock = token + timestamp on the row, not a Postgres lock</td><td>It survives across transactions and processes. Staleness is a TTL, so a crashed holder self-heals.</td><td><code>takeLock</code>, <code>takeQuestionLock</code></td></tr>
+    <tr><td>Every write that completes a lock-holder's work re-checks the token</td><td>A holder that was timed out and replaced must not overwrite the new holder's result (<code>LOCK_TAKEN</code>).</td><td><code>saveAnswer</code> (both services)</td></tr>
+    <tr><td>Retrieval only sees the active, non-archived version</td><td>Access filter lives in SQL, so a bug in app code cannot leak a superseded policy.</td><td><code>rag/retrieve.ts</code></td></tr>
+    <tr><td>Money is reserved before the call, reconciled after</td><td>Concurrent callers cannot jointly overspend the daily cap.</td><td><code>llm/budget.ts</code></td></tr>
+    <tr><td>Routes never import <code>db/</code></td><td>Enforced by <code>pnpm check:layers</code>. All SQL and locking lives in services.</td><td>CLAUDE.md</td></tr>
+  </table>
+</section>
+
+<section id="ask">
+  <h2>Ask data flow</h2>
+  <p class="lead">Click a step. Dashed steps are database transactions; the others run with no transaction open.</p>
+  <div class="steps" id="askSteps"></div>
+  <div class="card" id="askBody"></div>
+  <h3>Prompt assembly facts</h3>
+  <ul>
+    <li>Account facts are never dropped. When the 6,000 token budget (chars ÷ 4) is exceeded, passages are removed from the tail until it fits. <code>rag/prompt.ts</code></li>
+    <li>Employee text is wrapped in <code>&lt;untrusted&gt;</code> and the instructions say to ignore commands inside it. Passages are also declared data.</li>
+    <li>The model cites with <code>[F#]</code> and <code>[S#]</code>. <code>normalise()</code> resolves them, renumbers citations in order of first use, strips invalid ones (adds review reason <code>invalid_citation_removed</code>) and forces outcomes after two clarification rounds.</li>
+    <li>The facts snapshot (<code>as_of</code>) is stored on the answer, so the saved answer is reproducible even after the account changes.</li>
+  </ul>
+</section>
+
+<section id="ingest">
+  <h2>Ingest pipeline</h2>
+  <p class="lead">Upload is cheap and synchronous. Everything expensive happens in the worker.</p>
+  <div class="steps" id="ingSteps"></div>
+  <div class="card" id="ingBody"></div>
+  <h3>Version state machine</h3>
+  <div class="state" id="vsm"></div>
+  <div class="row" id="vsmBtns"></div>
+  <p style="color:var(--mut);font-size:13.5px" id="vsmNote"></p>
+  <h3>Chunking</h3>
+  <ul>
+    <li>Target 500 tokens (chars ÷ 4). Markdown splits per section and keeps <code>section.path</code> as the heading; PDF splits per page and keeps <code>page_number</code>.</li>
+    <li>Oversized sections split on blank lines, greedily packed; a single paragraph over the limit is hard-cut every 2,000 chars.</li>
+    <li>Embedding input is <code>title: {heading} | text: {chunk}</code> for documents and <code>task: search result | query: {q}</code> for queries. Asymmetric formats are part of the contract: changing them requires re-embedding everything.</li>
+    <li>Each chunk row stores <code>embedding_model</code>. Retrieval filters on it, so a model swap does not mix vector spaces; old chunks simply stop matching until re-indexed.</li>
+  </ul>
+</section>
+
+<section id="locks">
+  <h2>Locking</h2>
+  <p class="lead">Five distinct mechanisms. Know which one protects which invariant.</p>
+  <table>
+    <tr><th>Mechanism</th><th>Protects</th><th>Mode</th><th>Code</th></tr>
+    <tr><td><b>Row lock</b> <code>FOR UPDATE</code> on <code>conversations</code></td><td>Serialises start-of-generation, reply, regenerate, save, edit. One writer at a time per conversation.</td><td>Short txn</td><td><code>generate.service</code>, <code>review.service</code></td></tr>
+    <tr><td><b>Token lease</b> <code>generation_token</code> + <code>generation_started_at</code></td><td>Exclusive right to run a long generation with no txn held. TTL 2 min (<code>STALE_LOCK_MINUTES</code>).</td><td>Lease</td><td><code>takeLock</code>, <code>takeQuestionLock</code></td></tr>
+    <tr><td><b><code>FOR UPDATE SKIP LOCKED</code></b></td><td>Many workers claim different queued rows without blocking or double claiming.</td><td>Queue pop</td><td><code>claimVersion</code>, <code>claimQuestion</code></td></tr>
+    <tr><td><b>Document row lock</b> <code>FOR UPDATE</code> / <code>FOR SHARE</code></td><td>Activation, archive, delete, retry take UPDATE. Saving a reviewed answer takes SHARE on cited documents (ordered by id) so a cited doc cannot change under the stale check.</td><td>Short txn</td><td><code>activateVersion</code>, <code>reviewConversation</code></td></tr>
+    <tr><td><b>Advisory lock</b> <code>pg_advisory_xact_lock(hashtext('generate_quota'), employeeId)</code></td><td>Per-employee daily quota. Without it, N concurrent first attempts all read count&lt;50 and all pass.</td><td>Txn scoped</td><td><code>budget.reserve</code></td></tr>
+  </table>
+
+  <h3>Generation lease: T1 / work / T2</h3>
+<pre>T1 (txn):  SELECT ... FOR UPDATE conversation
+           assertNotSaved, assertGenerateQuota
+           UPDATE conversations SET token=$new, started=now()
+             WHERE id=$id AND (token IS NULL OR started &lt; now() - 2min)   -- 0 rows = 409
+work:      snapshot, embed query, retrieve, build prompt, LLM   (NO txn, 90 s deadline)
+T2 (txn):  SELECT generation_token ... FOR UPDATE
+           if token != mine  -&gt; 409 LOCK_TAKEN (discard result)
+           INSERT answers, answer_sources; UPDATE ... SET token=NULL
+on error:  clearLock WHERE token = mine   (token-guarded, cannot clear someone else's)</pre>
+  <div class="callout"><b>Ordering gotcha</b>The lease TTL is 2 minutes and the request deadline is 90 s. That margin is the whole safety argument: a live holder should always finish or fail before its lease can be stolen. If you raise the deadline, raise the TTL first.</div>
+
+  <h3>Try it: lease takeover</h3>
+  <div class="card">
+    <div class="row">
+      <button data-a="A">Request A takes lock</button>
+      <button data-a="B">Request B takes lock</button>
+      <button data-a="t">Advance 3 min</button>
+      <button data-a="saveA">A saves (T2)</button>
+      <button data-a="saveB">B saves (T2)</button>
+      <button data-a="r">Reset</button>
+    </div>
+    <div>Lock holder: <b id="lkHolder">none</b> · age: <b id="lkAge">0</b> min</div>
+    <div class="log" id="lkLog"></div>
+  </div>
+  <p style="color:var(--mut);font-size:13.5px">Try: A takes, advance 3 min, B takes (succeeds), A saves (rejected with LOCK_TAKEN, A's paid LLM call is wasted but correctness holds).</p>
+
+  <h3>Save-time stale-source check</h3>
+  <p>Saving a reviewed answer takes <code>FOR UPDATE</code> on the conversation, then <code>FOR SHARE</code> on every cited document in id order (a consistent order avoids deadlocks with concurrent activations), then runs one query: any cited chunk that is missing, belongs to an archived doc, or is no longer the document's active version raises <code>SOURCE_STALE</code>. The RFP side exposes the same check read-only as <code>sourceStale</code>.</p>
+</section>
+
+<section id="queue">
+  <h2>Queue and crash simulator</h2>
+  <p class="lead">Both queues (document versions, RFP questions) use <code>SKIP LOCKED</code> to claim and a sweeper to recover from dead workers. They differ in recovery policy.</p>
+  <table>
+    <tr><th></th><th>Document version</th><th>RFP question</th></tr>
+    <tr><td>Claim</td><td><code>queued → processing</code>, order by id</td><td><code>queued → processing</code>, order by rfp_id, seq; <code>attempts+1</code>; new <code>generation_token</code></td></tr>
+    <tr><td>Stale after</td><td>10 min (<code>STALE_MS</code>)</td><td>2 min (<code>LOCK_TTL</code>)</td></tr>
+    <tr><td>Sweeper result</td><td><code>failed</code> "Indexing timed out." Manual retry only.</td><td>Back to <code>queued</code> until attempts = 3, then <code>failed/stale</code>. Token cleared.</td></tr>
+    <tr><td>Zombie protection</td><td>None on the version row (see Failure modes)</td><td>Token check in T2 rejects the old holder</td></tr>
+  </table>
+  <div class="card">
+    <div class="row">
+      <select id="qKind"><option value="q">RFP question queue</option><option value="v">Document version queue</option></select>
+      <button data-q="claim1">Worker 1 claims</button>
+      <button data-q="claim2">Worker 2 claims</button>
+      <button data-q="crash">Crash the holder</button>
+      <button data-q="adv">Advance past TTL + sweep</button>
+      <button data-q="add">Enqueue item</button>
+      <button data-q="r">Reset</button>
+    </div>
+    <table id="qTable"></table>
+    <div class="log" id="qLog"></div>
+  </div>
+  <h3>Worker loop order</h3>
+<pre>for (;;) {
+  sweepAbandonedReservations()   // reserved &gt; 10 min → error/abandoned
+  failStaleProcessing()          // versions
+  failStaleQuestions()           // questions
+  v = claimVersion();  if (v) { processVersion(v); continue }   // indexing wins
+  q = budgetDay === today ? null : claimQuestion()
+  if (q) { if (processQuestion(q)) budgetDay = today; continue }
+  if (once) return; sleep(2s)
+}</pre>
+  <ul>
+    <li>Indexing has priority over RFP answers: new KB content lands before answers that should cite it.</li>
+    <li>After <code>budget_reached</code> the worker stops claiming questions until the next UTC day. Versions still index (embedding is cheap and also budgeted).</li>
+    <li><code>pnpm worker --once</code> drains both queues and exits. Tests use <code>runWorker({ once: true, rfp: { provider } })</code>.</li>
+  </ul>
+</section>
+
+<section id="retrieval">
+  <h2>Retrieval</h2>
+  <p class="lead">One SQL access filter, two modes. Default is <code>vector</code>; <code>hybrid</code> is opt-in via <code>RETRIEVAL_MODE</code>.</p>
+<pre>FROM document_chunks c
+JOIN document_versions v ON v.id = c.version_id
+JOIN documents d ON d.active_version_id = v.id AND d.archived_at IS NULL
+WHERE c.embedding_model = $model
+ORDER BY c.embedding &lt;=&gt; $query_vec  LIMIT 8      -- cosine; score = 1 - distance</pre>
+  <ul>
+    <li><b>vector</b>: top 8 by cosine, drop anything under <code>RETRIEVAL_MIN_SCORE</code> (0.5 live). Empty result is a valid outcome and drives <code>insufficient_evidence</code>.</li>
+    <li><b>hybrid</b>: vector top 20 (floor applied) + lexical top 20 (<code>websearch_to_tsquery</code> with <code>&amp;</code> rewritten to <code>|</code>, ranked by <code>ts_rank_cd</code> over the generated <code>search_tsv</code> GIN column), fused with RRF, top 8. Lexical-only hits bypass the floor. Fused scores are on the RRF scale, not cosine, so they are not comparable with vector scores in <code>answer_sources.score</code>.</li>
+    <li><b>stub</b> (tests): token overlap over all eligible chunks, no floor. Not a performance model.</li>
+  </ul>
+  <div class="callout"><b>Scale ceiling</b>No vector index exists (no HNSW or IVFFlat in the migrations), so every query is an exact scan of 768-d vectors, filtered by join. Fine at demo size. Add HNSW when chunk count reaches the tens of thousands, and re-check that the filter join still lets the planner use it (post-filtering can return fewer than 8 rows).</div>
+
+  <h3>Try it: Reciprocal Rank Fusion</h3>
+  <div class="card">
+    <div class="row">Vector list (best first): <input id="rrfA" value="11,4,7,2" size="22"></div>
+    <div class="row">Lexical list (best first): <input id="rrfB" value="7,9,11,5" size="22"></div>
+    <div class="row">k: <input id="rrfK" type="number" value="60" style="width:70px"> <button class="p" id="rrfGo">Fuse</button></div>
+    <table id="rrfOut"></table>
+    <p style="color:var(--mut);font-size:13.5px;margin:6px 0 0">score(id) = Σ 1 / (k + rank). Chunks that appear in both lists win. Ties break by lower id (deterministic).</p>
+  </div>
+</section>
+
+<section id="budget">
+  <h2>Budget and quota</h2>
+  <p class="lead">Every embedding and generation call goes through <code>paidAttempt</code>: reserve, call, reconcile.</p>
+<pre>reserve():   (txn)
+  [generate attempt 1] pg_advisory_xact_lock(employee) ; count today's attempt-1 rows &lt; 50
+  INSERT budget_days(day, spent) VALUES (today, est)
+    ON CONFLICT (day) DO UPDATE SET spent = spent + est
+    WHERE spent + est &lt;= DAILY_BUDGET          -- 0 rows returned = budget_reached
+  INSERT provider_calls(status='reserved', estimated_cost)
+fn():        network call, NO txn
+reconcile(): (txn) status=ok|error; if usage known: spent += (actual - estimate)
+sweep():     reserved &gt; 10 min → error/abandoned   (budget NOT refunded: conservative)</pre>
+  <ul>
+    <li>The cap check is inside the upsert's <code>WHERE</code>, so it is atomic. No read-then-write race.</li>
+    <li>The estimate is pessimistic (input chars ÷ 3 plus <code>MAX_OUTPUT_TOKENS</code>), so a call can be rejected while real spend is below the cap.</li>
+    <li>Quota counts only <code>attempt = 1</code> generate rows. Retries are free to the employee; failure markers are written with <code>attempt = 0</code> so they never count.</li>
+    <li>Retries: up to 2 retries with jittered exponential backoff (200 ms base, 8 s cap), only for 429, 5xx, timeouts, and never past the 90 s deadline. Each retry is its own paid attempt and its own reservation.</li>
+    <li>Days are UTC. <code>budget_days</code> rolls over by key, no cron needed.</li>
+  </ul>
+  <h3>Try it: reservations</h3>
+  <div class="card">
+    <div class="row">Daily cap $<input id="bCap" type="number" step="0.01" value="0.10" style="width:80px"> Estimate $<input id="bEst" type="number" step="0.01" value="0.04" style="width:80px"> Actual $<input id="bAct" type="number" step="0.01" value="0.015" style="width:80px"></div>
+    <div class="row">
+      <button data-b="res">Reserve</button>
+      <button data-b="rec">Reconcile oldest open</button>
+      <button data-b="ab">Abandon oldest open (sweep)</button>
+      <button data-b="r">Reset</button>
+    </div>
+    <div>Spent: <b id="bSpent">$0.000</b> · open reservations: <b id="bOpen">0</b></div>
+    <div class="log" id="bLog"></div>
+  </div>
+</section>
+
+<section id="ops">
+  <h2>Failure modes</h2>
+  <p class="lead">What breaks in production, how it shows up, and what to check. Items marked <i>ceiling</i> are known limits of the current design, not bugs to hotfix.</p>
+  <table>
+    <tr><th>Symptom</th><th>Cause</th><th>Check / action</th></tr>
+    <tr><td>Version stuck <code>processing</code></td><td>Worker died mid-index.</td><td>Sweeper fails it after 10 min with "Indexing timed out."; retry from the KB UI (<code>retryVersion</code>, latest version only).</td></tr>
+    <tr><td>Version <code>failed</code>: "No page has a text layer"</td><td>Scanned PDF. OCR is unsupported by design.</td><td>Re-export with a text layer. Blank-page warnings are not persisted.</td></tr>
+    <tr><td>"Extraction timed out" / memory limit</td><td>Parser runs in a child process: 60 s wall, <code>--max-old-space-size=256</code>, empty env, SIGKILL.</td><td>The worker survives a hostile PDF. Do not move extraction in-process.</td></tr>
+    <tr><td>409 <code>INDEXING_IN_PROGRESS</code></td><td>Second upload of a document whose previous version is queued/processing.</td><td>Expected. One in-flight version per document.</td></tr>
+    <tr><td>409 <code>DUPLICATE_HASH</code></td><td>Same sha256 as the active version.</td><td>Expected. Dedup against the active version only, not older ones.</td></tr>
+    <tr><td>409 <code>GENERATION_IN_PROGRESS</code></td><td>Lease held and under 2 min old.</td><td>Wait. If it never clears, the holder crashed; it frees itself after the TTL.</td></tr>
+    <tr><td>Answer vanished after a slow request (<code>LOCK_TAKEN</code>)</td><td>Request exceeded the lease and another took over.</td><td>Logged as an expected conflict, not an error. Cost was still spent and recorded.</td></tr>
+    <tr><td>Conversation state <code>failed</code> with no log</td><td>Unexpected error (non-AppError, non-ProviderError).</td><td>Logged as "generation failed unexpectedly" with message and stack only. Never log the error object: pg errors carry row data.</td></tr>
+    <tr><td>RFP questions stay <code>queued</code></td><td><code>budget_reached</code> parked the worker until next UTC day.</td><td>Raise <code>DAILY_BUDGET_USD</code> or wait; Generate all re-queues the failed one.</td></tr>
+    <tr><td>Questions flip queued ⇄ processing</td><td>Provider slower than 2 min, so the sweeper re-queues a live holder.</td><td>After 3 attempts it fails as <code>stale</code>. The old holder's save is rejected by token.</td></tr>
+    <tr><td>SOURCE_STALE on save</td><td>A cited document got a new active version or was archived after generation.</td><td>Regenerate. Intended: reviewed answers must not cite superseded sources.</td></tr>
+  </table>
+
+  <h3>Known ceilings and sharp edges</h3>
+  <div class="callout bad"><b>Indexing has no zombie guard</b>The sweeper marks a slow-but-alive version <code>failed</code>, but nothing stops that worker from later calling <code>activateVersion</code>, which flips the row to <code>ready</code>. Questions have a token for this; versions do not. Consequence is benign today (the result is valid), but a user may have already hit Retry, giving two workers indexing the same version. Chunk inserts are protected by the <code>(version_id, chunk_index)</code> unique key and the delete-then-insert inside the document lock, so the outcome is last writer wins, not corruption.</div>
+  <div class="callout"><b>Pre-activation delete is outside the txn</b><code>processVersion</code> deletes the version's chunks before extraction, then <code>activateVersion</code> deletes again inside the lock. The first delete only matters for retries; retrieval never sees a non-active version's chunks anyway.</div>
+  <div class="callout"><b>Activation only moves forward</b>A version becomes active only if its number is higher than the current active one. Out-of-order completion (v3 finishes before v2) leaves v3 active. Rollback to an older version is not supported by this path.</div>
+  <div class="callout"><b>One question at a time per worker</b>No intra-worker parallelism. Throughput scales by running more workers (safe thanks to SKIP LOCKED), bounded by provider rate limits and the daily budget.</div>
+  <div class="callout"><b>Embedding batch ceiling</b><code>EMBED_BATCH_SIZE = 100</code> matches the provider's per-request cap. Each batch has a 60 s deadline and its own reservation, so a large document costs several ledger rows.</div>
+  <div class="callout"><b>Dates and money</b>All UTC through one validated <code>utc()</code>; money is integer minor units. The frontend keeps a native-Date copy of the formatters, and both outputs must stay identical.</div>
+
+  <h3>On-call checklist</h3>
+<pre>-- stuck indexing
+select id, indexing_status, processing_started_at, indexing_error from document_versions
+ where indexing_status in ('processing','failed') order by id desc limit 20;
+-- stuck questions
+select id, status, attempts, error_code, generation_started_at from rfp_questions
+ where status in ('processing','failed') order by id;
+-- today's spend and open reservations
+select * from budget_days order by day desc limit 3;
+select status, count(*) from provider_calls where created_at &gt; now() - interval '1 day' group by 1;
+-- who holds a conversation lease
+select id, generation_token, generation_started_at from conversations
+ where generation_token is not null;</pre>
+</section>
+
+</main>
+</div>
+
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+// ---- tabs
+function show(id){if(!$('#'+id))id='overview';$$('section').forEach(s=>s.classList.toggle('on',s.id===id));$$('nav a').forEach(a=>a.classList.toggle('on',a.dataset.t===id));try{history.replaceState(null,'','#'+id)}catch(e){}}
+$$('nav a').forEach(a=>a.onclick=e=>{e.preventDefault();show(a.dataset.t)});
+show(location.hash.slice(1)||'overview');
+$('#theme').onclick=()=>{const d=document.documentElement;const dark=getComputedStyle(d).getPropertyValue('--bg').trim()==='#151514';d.dataset.theme=dark?'light':'dark'};
+
+// ---- stepper helper
+function stepper(stepsEl,bodyEl,data){
+  const draw=i=>{
+    $$('#'+stepsEl+' .step').forEach((e,j)=>e.classList.toggle('on',i===j));
+    const d=data[i];
+    $('#'+bodyEl).innerHTML=`<div>${d.tags.map(t=>`<span class="pill ${t[0]}">${t[1]}</span>`).join('')}</div><h3 style="margin-top:8px">${d.t}</h3><p>${d.b}</p>${d.code?`<pre>${d.code}</pre>`:''}<p style="color:var(--mut);font-size:13px;margin:0">${d.f}</p>`;
+  };
+  $('#'+stepsEl).innerHTML=data.map((d,i)=>`<span class="step ${d.tx?'tx':''}" data-i="${i}">${i+1}. ${d.s}</span>`).join('');
+  $$('#'+stepsEl+' .step').forEach(e=>e.onclick=()=>draw(+e.dataset.i));
+  draw(0);
+}
+
+stepper('askSteps','askBody',[
+ {s:'Request',tags:[['','API']],t:'POST /api/conversations',b:'Route validates with zod, checks the session cookie (<code>jarvis_session</code>) and origin (<code>APP_ORIGIN</code>), then calls the service. Handlers stay thin: no db or drizzle imports.',f:'routes/conversations.routes.ts, plugins/auth.ts, plugins/security.ts'},
+ {s:'T1: take lease',tx:1,tags:[['db','DB txn']],t:'Create conversation, take the generation lease',b:'One short transaction: insert conversation, lock its row, check the employee quota (50 first attempts per UTC day), set <code>generation_token</code>, insert turn 1. Regenerate and reply do the same after <code>FOR UPDATE</code> on the existing row and fail with 409 if the lease is live.',code:'UPDATE conversations SET generation_token=$tok, generation_started_at=now()\n WHERE id=$id AND (generation_token IS NULL OR generation_started_at &lt; now()-2min)',f:'generate.service.ts: createConversation / regenerateConversation / replyConversation, takeLock'},
+ {s:'Account snapshot',tags:[['db','DB read-only']],t:'Build the account facts',b:'A <code>read only</code> transaction assembles facts (plan, payments, webhooks, features) with every derived value precomputed (days, amounts). The model never does arithmetic. Any DB failure becomes <code>503 account_data_unavailable</code>, never an empty result that looks like "no data".',f:'account-context.service.ts (CTX-05)'},
+ {s:'Embed query',tags:[['net','Network'],['db','ledger']],t:'Retrieval query to vector',b:'Query = turn 1 + latest reply + selected fact values. Formatted as <code>task: search result | query: ...</code>, embedded through <code>paidAttempt</code> (reserve, call, reconcile). Deadline for the whole request is 90 s.',f:'generate.service.ts runOutsideTxn, llm/format.ts, llm/budget.ts'},
+ {s:'Retrieve',tags:[['db','DB read']],t:'Top passages under the SQL access filter',b:'Vector (or hybrid) search over chunks of active, non-archived versions with the matching <code>embedding_model</code>. Score floor 0.5 (live). Zero passages is legitimate and leads to <code>insufficient_evidence</code>.',f:'rag/retrieve.ts'},
+ {s:'Prompt',tags:[['','Pure']],t:'buildPrompt',b:'Instructions + facts + passages + history + untrusted question. Trims passages (never facts) to a 6,000 token estimate. Passage ids are renumbered S1..Sn after trimming.',f:'rag/prompt.ts (PROMPT_VERSION v2)'},
+ {s:'Generate',tags:[['net','Network'],['db','ledger']],t:'LLM call with retries',b:'Structured output validated by zod. Up to 2 retries on 429/5xx/timeout with jittered backoff, each retry a separate reservation with <code>attempt</code> incremented. No retry past the deadline.',f:'llm/gemini.ts, llm/retry.ts, llm/schema.ts'},
+ {s:'Normalise',tags:[['','Pure']],t:'Validate citations and derive review reasons',b:'Resolves <code>[F#]</code> / <code>[S#]</code> to real facts and chunks, drops unknown ones, renumbers, enforces clarification limits, and only lets the model contribute two review reasons (<code>policy_applicability</code>, <code>exception_unclear</code>). Everything else is computed in code.',f:'rag/normalise.ts'},
+ {s:'T2: save',tx:1,tags:[['db','DB txn']],t:'Token-checked save',b:'Lock the conversation row, compare <code>generation_token</code> with ours. Mismatch means the lease was taken over: throw <code>LOCK_TAKEN</code> and discard. Otherwise insert the answer, its sources, the facts snapshot and model/prompt versions, then clear the lease.',code:'SELECT generation_token FROM conversations WHERE id=$id FOR UPDATE\nIF token != mine THEN 409 LOCK_TAKEN',f:'generate.service.ts saveAnswer'},
+ {s:'Review',tx:1,tags:[['db','DB txn']],t:'Edit, then save as reviewed',b:'Edit writes <code>edited_text</code> under <code>FOR UPDATE</code>; <code>answer_text</code> is immutable. Save locks the conversation, rejects if a lease is live, not latest, clarification or out of scope, then <code>FOR SHARE</code> on cited documents in id order, then the stale-source check, then inserts the <code>reviewed_answers</code> snapshot (with category, so topic badges survive a document delete).',f:'review.service.ts'}
+]);
+
+stepper('ingSteps','ingBody',[
+ {s:'Upload',tx:1,tags:[['db','DB txn']],t:'Validate and queue',b:'Extension whitelist (<code>.pdf</code>, <code>.md</code>), 3 MB cap, PDF must start with <code>%PDF-</code>, Markdown must be strict UTF-8, no NUL, at most 300,000 chars. sha256 content hash. Document + version + raw bytes are inserted in one transaction with <code>indexing_status=queued</code>. New versions are refused if one is already queued/processing, or if the hash equals the active version.',f:'document-upload.service.ts. Original bytes live in <code>document_files</code> (Postgres), so retry never needs the client.'},
+ {s:'Claim',tx:1,tags:[['db','DB txn']],t:'SKIP LOCKED claim',b:'Worker pops the lowest queued id without blocking on rows other workers hold, flips it to <code>processing</code>, stamps <code>processing_started_at</code>.',code:'SELECT id FROM document_versions WHERE indexing_status=\'queued\'\n ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 1',f:'ingest/indexing.ts claimVersion'},
+ {s:'Extract',tags:[['','Child process']],t:'Sandboxed parse',b:'Spawns <code>node --max-old-space-size=256 extract-child.ts</code> with an empty environment, passes bytes as base64 on stdin, 60 s timeout then SIGKILL. A malicious or huge PDF can kill only the child. Output is a typed <code>ExtractResult</code> (pdf pages or md sections) plus warnings.',f:'ingest/extract.ts, extract/pdf.ts, extract/markdown.ts'},
+ {s:'Chunk',tags:[['','Pure']],t:'Split to about 500 tokens',b:'Per page (PDF) or per section (Markdown). Empty result fails the version with "no extractable text".',f:'rag/chunk.ts'},
+ {s:'Embed',tags:[['net','Network'],['db','ledger']],t:'Batch embeddings, 100 per call',b:'Each batch is a <code>paidAttempt</code> with kind <code>embed_document</code>. A short response (fewer vectors than inputs) is an <code>INVALID_OUTPUT</code> error, never silently padded. Budget exhaustion fails the version with "Daily budget reached".',f:'ingest/indexing.ts processVersion'},
+ {s:'Activate',tx:1,tags:[['db','DB txn']],t:'Atomic swap-in',b:'Under <code>FOR UPDATE</code> on the document row: delete old chunks of this version, insert new ones (768-d, with model name), mark <code>ready</code>, and set <code>documents.active_version_id</code> only if this version number is greater than the current active one. Because retrieval joins on <code>active_version_id</code>, the switch is instantaneous and all-or-nothing from a reader\'s point of view.',f:'ingest/indexing.ts activateVersion'},
+ {s:'Fail / retry',tags:[['','Recovery']],t:'Failure handling',b:'Any exception marks the version <code>failed</code> with a sanitised message (single line, under 200 chars, else "Indexing failed."). Retry is allowed only for the latest version and only when failed, under the document lock.',f:'document.service.ts retryVersion'}
+]);
+
+// ---- version state machine
+(function(){
+  const nodes=['queued','processing','ready','failed'];let cur='queued';
+  const notes={queued:'Waiting for a worker. Retry re-enters here.',processing:'A worker holds it. If nothing finishes within 10 min the sweeper fails it.',ready:'Chunks exist and the version is active if it is the newest. Terminal.',failed:'Terminal until someone retries (latest version only).'};
+  const moves={queued:[['Worker claims','processing']],processing:[['Indexed OK','ready'],['Extract/embed error','failed'],['10 min sweep','failed']],ready:[],failed:[['Retry','queued']]};
+  const draw=()=>{
+    $('#vsm').innerHTML=nodes.map(n=>`<span class="node ${n==='failed'?'bad':n==='ready'?'ok':''} ${n===cur?'on':''}">${n}</span>`).join('<span style="align-self:center;color:var(--mut)">→</span>');
+    $('#vsmBtns').innerHTML=moves[cur].map(m=>`<button data-to="${m[1]}">${m[0]}</button>`).join('')+'<button data-to="queued" data-reset="1">Reset</button>';
+    $('#vsmNote').textContent=notes[cur];
+    $$('#vsmBtns button').forEach(b=>b.onclick=()=>{cur=b.dataset.to;draw()});
+  };draw();
+})();
+
+// ---- lease sim
+(function(){
+  let holder=null,age=0,log=[];
+  const out=(m,c)=>{log.push(`<div class="${c||''}">${m}</div>`);$('#lkLog').innerHTML=log.join('');$('#lkLog').scrollTop=1e9;$('#lkHolder').textContent=holder||'none';$('#lkAge').textContent=age};
+  const take=w=>{if(holder===null||age>=2){out(holder&&age>=2?`${w} took over a stale lease from ${holder} (age ${age} min)`:`${w} took the lock`,'ok');holder=w;age=0}else out(`${w}: 409 GENERATION_IN_PROGRESS (holder ${holder}, age ${age} min < 2)`,'bad')};
+  const save=w=>{if(holder!==w){out(`${w} save: 409 LOCK_TAKEN. Result discarded (holder is ${holder||'nobody'})`,'bad')}else{out(`${w} saved answer, lease cleared`,'ok');holder=null;age=0}};
+  $$('#locks [data-a]').forEach(b=>b.onclick=()=>{const a=b.dataset.a;
+    if(a==='A'||a==='B')take(a);else if(a==='t'){age+=3;out('clock +3 min','w')}
+    else if(a==='saveA')save('A');else if(a==='saveB')save('B');else{holder=null;age=0;log=[];out('reset')}});
+  out('ready');
+})();
+
+// ---- queue sim
+(function(){
+  let items,clock,nid,log;
+  const reset=()=>{items=[1,2,3].map(i=>({id:i,st:'queued',att:0,by:null,t:0,err:''}));clock=0;nid=4;log=[];draw();say('reset')};
+  const say=(m,c)=>{log.push(`<div class="${c||''}">${m}</div>`);$('#qLog').innerHTML=log.join('');$('#qLog').scrollTop=1e9};
+  const isQ=()=>$('#qKind').value==='q';
+  const ttl=()=>isQ()?2:10;
+  const draw=()=>{$('#qTable').innerHTML='<tr><th>id</th><th>status</th><th>attempts</th><th>held by</th><th>age (min)</th><th>error</th></tr>'+items.map(i=>`<tr><td>${i.id}</td><td>${i.st}</td><td>${i.att}</td><td>${i.by||''}</td><td>${i.st==='processing'?clock-i.t:''}</td><td>${i.err}</td></tr>`).join('')};
+  const claim=w=>{const r=items.find(i=>i.st==='queued');if(!r){say(`${w}: nothing claimable (queued rows held or empty)`,'w');return}
+    // skip locked: a row already processing is invisible to the pop
+    r.st='processing';r.by=w;r.t=clock;r.att++;say(`${w} claimed #${r.id} (SKIP LOCKED passed over rows already held)`,'ok');draw()};
+  $$('#queue [data-q]').forEach(b=>b.onclick=()=>{const a=b.dataset.q;
+    if(a==='claim1')claim('worker-1');else if(a==='claim2')claim('worker-2');
+    else if(a==='add'){items.push({id:nid++,st:'queued',att:0,by:null,t:0,err:''});say('enqueued','');draw()}
+    else if(a==='crash'){const p=items.find(i=>i.st==='processing');if(!p){say('no holder to crash','w');return}p.by=p.by+' (dead)';say(`${p.by} stopped heartbeating on #${p.id}; row stays processing`,'bad');draw()}
+    else if(a==='adv'){clock+=ttl()+1;let n=0;items.forEach(i=>{if(i.st==='processing'&&clock-i.t>=ttl()){n++;
+        if(isQ()){if(i.att<3){i.st='queued';i.by=null;say(`sweep: #${i.id} re-queued (attempt ${i.att} of 3), token cleared`,'w')}else{i.st='failed';i.err='stale';i.by=null;say(`sweep: #${i.id} failed/stale after 3 attempts`,'bad')}}
+        else{i.st='failed';i.err='Indexing timed out.';say(`sweep: version #${i.id} failed after ${ttl()} min. Manual retry only.`,'bad')}}});
+      if(!n)say('sweep: nothing stale','');draw()}
+    else reset()});
+  $('#qKind').onchange=reset;
+  reset();
+})();
+
+// ---- RRF
+function rrfGo(){
+  const parse=s=>s.split(',').map(x=>+x.trim()).filter(Number.isFinite);
+  const k=+$('#rrfK').value||60,m=new Map(),src=new Map();
+  [['vec',parse($('#rrfA').value)],['lex',parse($('#rrfB').value)]].forEach(([n,l])=>l.forEach((id,i)=>{m.set(id,(m.get(id)||0)+1/(k+i+1));src.set(id,(src.get(id)||[]).concat(n+'#'+(i+1)))}));
+  const rows=[...m].sort((a,b)=>b[1]-a[1]||a[0]-b[0]).slice(0,8);
+  $('#rrfOut').innerHTML='<tr><th>rank</th><th>chunk id</th><th>RRF score</th><th>appears in</th></tr>'+rows.map((r,i)=>`<tr><td>${i+1}</td><td>${r[0]}</td><td>${r[1].toFixed(5)}</td><td>${src.get(r[0]).join(', ')}</td></tr>`).join('');
+}
+$('#rrfGo').onclick=rrfGo;rrfGo();
+
+// ---- budget sim
+(function(){
+  let spent=0,open=[],log=[];
+  const say=(m,c)=>{log.push(`<div class="${c||''}">${m}</div>`);$('#bLog').innerHTML=log.join('');$('#bLog').scrollTop=1e9;$('#bSpent').textContent='$'+spent.toFixed(3);$('#bOpen').textContent=open.length};
+  const v=id=>+$(id).value;
+  $$('#budget [data-b]').forEach(b=>b.onclick=()=>{const a=b.dataset.b,cap=v('#bCap'),est=v('#bEst'),act=v('#bAct');
+    if(a==='res'){ if(est>cap){say('estimate alone exceeds cap: budget_reached before touching the DB','bad');return}
+      if(spent+est<=cap+1e-9){spent+=est;open.push(est);say(`reserved $${est.toFixed(3)} (upsert WHERE spent+est <= cap passed)`,'ok')}else say(`budget_reached: ${spent.toFixed(3)} + ${est.toFixed(3)} > ${cap.toFixed(3)}. Upsert returned 0 rows.`,'bad')}
+    else if(a==='rec'){const e=open.shift();if(e===undefined){say('nothing open','w');return}spent+=act-e;say(`reconciled: spent += (${act.toFixed(3)} - ${e.toFixed(3)}) = ${(act-e).toFixed(3)}`,'ok')}
+    else if(a==='ab'){const e=open.shift();if(e===undefined){say('nothing open','w');return}say(`abandoned after 10 min: row becomes error/abandoned, $${e.toFixed(3)} stays counted (conservative)`,'w')}
+    else{spent=0;open=[];log=[];say('reset')}});
+  say('ready');
+})();
+</script>
+</body>
+</html>

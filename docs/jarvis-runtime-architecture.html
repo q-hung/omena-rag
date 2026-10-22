@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jarvis Runtime Architecture</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Noto+Serif:ital@0;1&family=Noto+Sans+KR:wght@400;500;600&family=Noto+Serif+KR:wght@400&family=Noto+Sans+TC:wght@400;500;600&family=Noto+Serif+TC:wght@400&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── Tokens ─────────────────────────────────────────────────── */
+    :root {
+      --color-paper:       #f5f5f5;
+      --color-paper-2:     #ececec;
+      --color-ink:         #2d3142;
+      --color-muted:       #4f5d75;
+      --color-soft:        #5a6580;
+      --color-rule:        rgba(45,49,66,0.12);
+      --color-rule-solid:  rgba(79,93,117,0.25);
+      --color-accent:      #bf4520;
+      --color-accent-tint: rgba(191,69,32,0.08);
+      --color-link:        #2e5aa8;
+      --font-sans:   'Geist', system-ui, sans-serif;
+      --font-serif:  'Instrument Serif', 'Noto Serif', 'Noto Serif KR', 'Times New Roman', serif;
+      --font-mono:   'Geist Mono', ui-monospace, Menlo, monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      min-height: 100vh;
+      padding: 3rem 2rem;
+      color: var(--color-ink);
+    }
+
+    .container { max-width: 1200px; margin: 0 auto; }
+
+    /* ── Header ─────────────────────────────────────────────────── */
+    .header { margin-bottom: 2.5rem; }
+
+    .header-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.75rem;
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.75rem, 3vw + 1rem, 2.5rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      color: var(--color-ink);
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      font-family: var(--font-sans);
+      font-size: 1rem;
+      line-height: 1.55;
+      color: var(--color-muted);
+      max-width: 52ch;
+    }
+
+    /* ── Diagram container ────────────────────────────────────────── */
+    /* Default: clean, borderless — diagram sits directly on the page paper.
+       For the framed/boxed variant, uncomment the background/border/padding below. */
+    .diagram-container {
+      background: transparent;
+      border: none;
+      padding: 0;
+      overflow-x: auto;
+      /* background: var(--color-paper-2); */
+      /* border: 1px solid var(--color-rule); */
+      /* border-radius: 8px; */
+      /* padding: 1.5rem; */
+    }
+
+    svg { width: 100%; min-width: 1100px; display: block; }  /* == viewBox width: never scale the type ramp down */
+    /* Paper has no scrollbar, so the local scroller would clip instead of
+       scroll. Let the diagram scale down to the sheet: smaller but whole
+       beats sharp but cut off. Must come after the svg rule above - a media
+       query adds no specificity, so a later plain rule would win. */
+    @media print {
+      .diagram-container { overflow-x: visible; }
+      svg { min-width: 0; }
+    }
+
+    /* ── Info cards ───────────────────────────────────────────────── */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+
+    .card {
+      background: #ffffff;
+      border-radius: 6px;
+      border: 1px solid var(--color-rule);
+      padding: 1.25rem;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 0.875rem;
+      padding-bottom: 0.875rem;
+      border-bottom: 1px solid rgba(45,49,66,0.08);
+    }
+
+    .card-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .card-dot.ink    { background: var(--color-ink); }
+    .card-dot.muted  { background: var(--color-muted); }
+    .card-dot.coral  { background: var(--color-accent); }
+    .card-dot.link   { background: var(--color-link); }
+    .card-dot.soft   { background: var(--color-soft); }
+
+    .card h3 {
+      font-family: var(--font-sans);
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--color-ink);
+      letter-spacing: -0.005em;
+    }
+
+    .card ul {
+      list-style: none;
+      color: var(--color-muted);
+      font-size: 0.8125rem;
+      line-height: 1.55;
+    }
+
+    .card li {
+      margin-bottom: 0.3rem;
+      padding-left: 0.875rem;
+      position: relative;
+    }
+
+    .card li::before {
+      content: '-';
+      position: absolute;
+      left: 0;
+      color: rgba(45,49,66,0.25);
+      font-size: 0.75rem;
+    }
+
+    /* ── Footer ─────────────────────────────────────────────────── */
+    .footer {
+      margin-top: 2rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid rgba(45,49,66,0.10);
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      color: var(--color-soft);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <p class="header-eyebrow">Runtime architecture · 2026-10-22</p>
+      <h1>Jarvis</h1>
+      <p class="subtitle">How an employee question reaches the model: one request path, one background worker, one external dependency.</p>
+    </div>
+    <div class="diagram-container">
+<svg viewBox="0 100 1100 500" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="jarvis-runtime-title jarvis-runtime-desc">
+  <title id="jarvis-runtime-title">Jarvis runtime architecture</title>
+  <desc id="jarvis-runtime-desc">An employee's browser calls the Fastify API, which runs services and the RAG pipeline against PostgreSQL and the LLM provider that reaches Gemini, while a worker indexes documents and RFP questions.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+    <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#f5f5f5"/>
+  <rect x="16" y="120" width="140" height="400" rx="8" fill="transparent" stroke="rgba(45,49,66,0.18)" stroke-width="1" stroke-dasharray="6,4"/>
+  <text x="28" y="138" fill="#4f5d75" font-size="8" font-weight="500" font-family="'Geist Mono', monospace" letter-spacing="0.12em">CLIENT ZONE</text>
+  <text x="28" y="150" fill="#5a6580" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.08em">UNTRUSTED</text>
+  <rect x="196" y="120" width="684" height="400" rx="8" fill="transparent" stroke="rgba(45,49,66,0.18)" stroke-width="1" stroke-dasharray="6,4"/>
+  <text x="208" y="138" fill="#4f5d75" font-size="8" font-weight="500" font-family="'Geist Mono', monospace" letter-spacing="0.12em">APP ZONE · DOCKER COMPOSE</text>
+  <text x="208" y="150" fill="#5a6580" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.08em">TRUSTED · api + worker</text>
+  <rect x="936" y="120" width="152" height="400" rx="8" fill="transparent" stroke="rgba(45,49,66,0.18)" stroke-width="1" stroke-dasharray="6,4"/>
+  <text x="948" y="138" fill="#4f5d75" font-size="8" font-weight="500" font-family="'Geist Mono', monospace" letter-spacing="0.12em">EXTERNAL</text>
+  <text x="948" y="150" fill="#5a6580" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.08em">THIRD PARTY</text>
+  <rect x="706" y="408" width="152" height="96" rx="6" fill="transparent" stroke="rgba(45,49,66,0.30)" stroke-width="1" stroke-dasharray="4,4"/>
+  <text x="714" y="498" fill="#5a6580" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.08em">SANDBOX · 256 MB</text>
+  <line x1="140" y1="208" x2="214" y2="208" stroke="#bf4520" stroke-width="1.2" marker-end="url(#arrow-accent)"/>
+  <rect x="160.0" y="190" width="34" height="13" fill="#f5f5f5"/>
+  <text x="177" y="199" fill="#bf4520" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">HTTPS</text>
+  <line x1="342" y1="208" x2="382" y2="208" stroke="#bf4520" stroke-width="1.2" marker-end="url(#arrow-accent)"/>
+  <line x1="510" y1="208" x2="550" y2="208" stroke="#bf4520" stroke-width="1.2" marker-end="url(#arrow-accent)"/>
+  <line x1="678" y1="208" x2="718" y2="208" stroke="#bf4520" stroke-width="1.2" marker-end="url(#arrow-accent)"/>
+  <line x1="846" y1="208" x2="948" y2="208" stroke="#bf4520" stroke-width="1.2" marker-end="url(#arrow-accent)"/>
+  <rect x="897.0" y="190" width="34" height="13" fill="#f5f5f5"/>
+  <text x="914" y="199" fill="#bf4520" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">HTTPS</text>
+  <line x1="470" y1="240" x2="470" y2="320" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+  <line x1="614" y1="240" x2="614" y2="320" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+  <line x1="718" y1="352" x2="650" y2="352" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+  <line x1="782" y1="320" x2="782" y2="240" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+  <rect x="788" y="275" width="38" height="13" fill="#f5f5f5"/>
+  <text x="792" y="284" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="start" letter-spacing="0.06em">EMBED</text>
+  <line x1="782" y1="384" x2="782" y2="420" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+  <rect x="740" y="391" width="36" height="13" fill="#f5f5f5"/>
+  <text x="772" y="400" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="end" letter-spacing="0.06em">SPAWN</text>
+  <rect x="28" y="176" width="112" height="64" rx="6" fill="#f5f5f5"/>
+  <rect x="28" y="176" width="112" height="64" rx="6" fill="rgba(79,93,117,0.10)" stroke="#5a6580" stroke-width="1"/>
+  <rect x="36" y="182" width="26" height="12" rx="2" fill="transparent" stroke="rgba(90,101,128,0.4)" stroke-width="0.8"/>
+  <text x="49.0" y="191" fill="#5a6580" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">EXT</text>
+  <text x="84.0" y="210" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">React SPA</text>
+  <text x="84.0" y="226" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">jarvis_session</text>
+  <rect x="214" y="176" width="128" height="64" rx="6" fill="#f5f5f5"/>
+  <rect x="214" y="176" width="128" height="64" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+  <rect x="222" y="182" width="26" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+  <text x="235.0" y="191" fill="#2d3142" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">API</text>
+  <text x="278.0" y="210" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Fastify API</text>
+  <text x="278.0" y="226" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">auth · zod routes</text>
+  <rect x="382" y="176" width="128" height="64" rx="6" fill="#f5f5f5"/>
+  <rect x="382" y="176" width="128" height="64" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+  <rect x="390" y="182" width="26" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+  <text x="403.0" y="191" fill="#2d3142" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">SVC</text>
+  <text x="446.0" y="210" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Services</text>
+  <text x="446.0" y="226" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">ask · review · rfp</text>
+  <rect x="550" y="176" width="128" height="64" rx="6" fill="#f5f5f5"/>
+  <rect x="550" y="176" width="128" height="64" rx="6" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1"/>
+  <rect x="558" y="182" width="26" height="12" rx="2" fill="transparent" stroke="rgba(191,69,32,0.50)" stroke-width="0.8"/>
+  <text x="571.0" y="191" fill="#bf4520" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">RAG</text>
+  <text x="614.0" y="210" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">RAG pipeline</text>
+  <text x="614.0" y="226" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">retrieve · prompt</text>
+  <rect x="718" y="176" width="128" height="64" rx="6" fill="#f5f5f5"/>
+  <rect x="718" y="176" width="128" height="64" rx="6" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+  <rect x="726" y="182" width="26" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.22)" stroke-width="0.8"/>
+  <text x="739.0" y="191" fill="#5a6580" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">LLM</text>
+  <text x="782.0" y="210" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">LLM provider</text>
+  <text x="782.0" y="226" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">gemini | stub</text>
+  <rect x="948" y="176" width="132" height="64" rx="6" fill="#f5f5f5"/>
+  <rect x="948" y="176" width="132" height="64" rx="6" fill="rgba(79,93,117,0.10)" stroke="#5a6580" stroke-width="1"/>
+  <rect x="956" y="182" width="26" height="12" rx="2" fill="transparent" stroke="rgba(90,101,128,0.4)" stroke-width="0.8"/>
+  <text x="969.0" y="191" fill="#5a6580" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">EXT</text>
+  <text x="1014.0" y="210" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Gemini API</text>
+  <text x="1014.0" y="226" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">embed · generate</text>
+  <rect x="430" y="320" width="220" height="64" rx="6" fill="#f5f5f5"/>
+  <rect x="430" y="320" width="220" height="64" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+  <rect x="438" y="326" width="26" height="12" rx="2" fill="transparent" stroke="rgba(79,93,117,0.50)" stroke-width="0.8"/>
+  <text x="451.0" y="335" fill="#4f5d75" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">DB</text>
+  <text x="540.0" y="354" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">PostgreSQL + pgvector</text>
+  <text x="540.0" y="370" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">chunks · accounts · queue</text>
+  <rect x="718" y="320" width="128" height="64" rx="6" fill="#f5f5f5"/>
+  <rect x="718" y="320" width="128" height="64" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+  <rect x="726" y="326" width="26" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+  <text x="739.0" y="335" fill="#2d3142" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">JOB</text>
+  <text x="782.0" y="354" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Worker</text>
+  <text x="782.0" y="370" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">index · rfp queue</text>
+  <rect x="718" y="420" width="128" height="56" rx="6" fill="#f5f5f5"/>
+  <rect x="718" y="420" width="128" height="56" rx="6" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+  <rect x="726" y="426" width="26" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.22)" stroke-width="0.8"/>
+  <text x="739.0" y="435" fill="#5a6580" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">PDF</text>
+  <text x="782.0" y="450" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Extract child</text>
+  <text x="782.0" y="465" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">text layer only</text>
+  <text x="16" y="559" fill="#2d3142" font-size="9" font-weight="500" font-family="'Geist Mono', monospace" letter-spacing="0.12em">LEGEND</text>
+  <line x1="90" y1="556" x2="110" y2="556" stroke="#bf4520" stroke-width="1.2" marker-end="url(#arrow-accent)"/>
+  <text x="114" y="559" fill="#4f5d75" font-size="9" font-family="'Geist', sans-serif">Primary path (Ask)</text>
+  <line x1="222" y1="556" x2="242" y2="556" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+  <text x="246" y="559" fill="#4f5d75" font-size="9" font-family="'Geist', sans-serif">Data access</text>
+  <line x1="322" y1="556" x2="342" y2="556" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+  <text x="346" y="559" fill="#4f5d75" font-size="9" font-family="'Geist', sans-serif">Async / spawn</text>
+  <rect x="430" y="551" width="14" height="10" rx="2" fill="transparent" stroke="rgba(45,49,66,0.30)" stroke-width="1" stroke-dasharray="3,3"/>
+  <text x="450" y="559" fill="#4f5d75" font-size="9" font-family="'Geist', sans-serif">Trust boundary</text>
+  <rect x="548" y="551" width="14" height="10" rx="2" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1"/>
+  <text x="568" y="559" fill="#4f5d75" font-size="9" font-family="'Geist', sans-serif">Focal</text>
+  <rect x="616" y="551" width="14" height="10" rx="2" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+  <text x="636" y="559" fill="#4f5d75" font-size="9" font-family="'Geist', sans-serif">Service</text>
+  <rect x="690" y="551" width="14" height="10" rx="2" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+  <text x="710" y="559" fill="#4f5d75" font-size="9" font-family="'Geist', sans-serif">Provider / child</text>
+  <rect x="810" y="551" width="14" height="10" rx="2" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+  <text x="830" y="559" fill="#4f5d75" font-size="9" font-family="'Geist', sans-serif">Store</text>
+  <rect x="870" y="551" width="14" height="10" rx="2" fill="rgba(79,93,117,0.10)" stroke="#5a6580" stroke-width="1"/>
+  <text x="890" y="559" fill="#4f5d75" font-size="9" font-family="'Geist', sans-serif">External / client</text>
+</svg>
+    </div>
+    <div class="cards" style="grid-template-columns: 1.1fr 1fr 0.9fr;">
+      <div class="card">
+        <div class="card-header"><span class="card-dot coral"></span><h3>Primary path: Ask</h3></div>
+        <ul>
+          <li>SPA posts to <code>/api/conversations</code> with the <code>jarvis_session</code> cookie.</li>
+          <li>Route validates with zod, a service loads account facts from PostgreSQL.</li>
+          <li>RAG retrieves chunks (SQL access filter, vector or hybrid RRF) and builds the prompt.</li>
+          <li>LLM provider embeds the query and generates; output is validated before it is stored.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-dot ink"></span><h3>Trust boundaries</h3></div>
+        <ul>
+          <li>Client to API: session cookie, <code>APP_ORIGIN</code> check, auth hook on every route.</li>
+          <li>API to Gemini: key stays server side; no key means the labeled stub provider.</li>
+          <li>Worker to extract child: separate process, 256 MB heap, killed on timeout.</li>
+          <li>LLM output and uploaded documents are untrusted input.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-dot muted"></span><h3>Data and async</h3></div>
+        <ul>
+          <li>PostgreSQL holds accounts, conversations, chunks (pgvector + tsvector) and the RFP queue.</li>
+          <li>Worker claims KB versions first, then RFP questions; <code>pnpm worker --once</code> drains both.</li>
+          <li>Token budget is reserved before and reconciled after each paid call.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer"><span>Jarvis · Runtime Architecture</span><span>2026-10-22</span></div>
+  </div>
+</body>
+</html>
