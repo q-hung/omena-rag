@@ -16,9 +16,28 @@ synthetic. MVP is complete (M0–M9), and the server layering refactor (M10) is 
 | [docs/TIMELINE.md](docs/TIMELINE.md) | Phases, status, tasks (start here) |
 | [REQ_V2.MD](REQ_V2.MD), [REQ_V3.MD](REQ_V3.MD) | Product requirements (Ask / RFP) |
 | [HANDOFF.md](HANDOFF.md) | Run commands and known limits |
-| [BUGS.md](BUGS.md) | Post-MVP defects with cause, fix and check |
+| [BUGS.md](BUGS.md) | Open defects (none now) |
 | [docs/DESIGN.md](docs/DESIGN.md) | Design notes |
 | [CLAUDE.md](CLAUDE.md) | Repository working rules |
+
+## Diagrams
+
+Standalone HTML pages in `docs/`; open them in a browser.
+
+| Diagram | Page |
+|---|---|
+| Runtime architecture | [docs/jarvis-runtime-architecture.html](docs/jarvis-runtime-architecture.html) |
+| Ask in 10 steps | [docs/rag-ask-steps.html](docs/rag-ask-steps.html) |
+| Ask data flow | [docs/rag-ask-flow.html](docs/rag-ask-flow.html) |
+| Ask: JSON at every step | [docs/rag-json-flow.html](docs/rag-json-flow.html) |
+| Prompt to LLM and back | [docs/rag-llm-flow.html](docs/rag-llm-flow.html) |
+| Text to vector to JSON | [docs/rag-swimlane.html](docs/rag-swimlane.html) |
+| Ask with LangChain | [docs/rag-langchain.html](docs/rag-langchain.html) |
+| Ingest and locking | [docs/rag-diagrams.html](docs/rag-diagrams.html) |
+| Cost and retry | [docs/rag-cost-retry.html](docs/rag-cost-retry.html) |
+| RFP question flow | [docs/rag-rfp-swimlane.html](docs/rag-rfp-swimlane.html) |
+| RAG internals | [docs/rag-internals.html](docs/rag-internals.html) |
+| RAG techniques used and missing (Vietnamese) | [docs/rag-techniques.html](docs/rag-techniques.html) |
 
 ## Stack
 
