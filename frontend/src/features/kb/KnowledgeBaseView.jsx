@@ -23,7 +23,7 @@ export default function KnowledgeBaseView({ app }) {
       />
 
       {!hasDocs && (
-        <div className="flex flex-col items-start gap-4 border border-hairline bg-white px-10 py-14">
+        <div className="flex flex-col items-start gap-4 rounded-xl border border-hairline bg-white shadow-xs px-10 py-14">
           <div className="text-[22px] font-bold">No documents yet</div>
           <div className="max-w-[56ch] text-base leading-normal text-secondary">
             Upload plan sheets, policies and FAQs. The assistant can only answer from documents that have finished indexing.
@@ -51,7 +51,7 @@ export default function KnowledgeBaseView({ app }) {
               Show archived
             </Checkbox>
           </div>
-          <div className="border border-hairline bg-white">
+          <div className="rounded-xl border border-hairline bg-white shadow-xs">
             <TableHeader cols={DOC_COLS} labels={['TITLE', 'CATEGORY', 'CURRENT VERSION', 'EFFECTIVE', 'INDEXING', 'ACTIONS']} />
             {rows.map((d) => <DocRow key={d.id} app={app} d={d} />)}
             {rows.length === 0 && <TableEmpty>No documents match this search.</TableEmpty>}
