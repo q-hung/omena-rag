@@ -20,6 +20,22 @@ synthetic. MVP is complete (M0–M9), and the server layering refactor (M10) is 
 | [docs/DESIGN.md](docs/DESIGN.md) | Design notes |
 | [CLAUDE.md](CLAUDE.md) | Repository working rules |
 
+## Screenshots
+
+Taken in stub mode, so the answers are scripted and the UI says **SIMULATED AI**.
+
+**Ask:** account facts (`[F#]`) and document evidence (`[1]`) beside an editable answer.
+
+![Ask](docs/screenshots/ask.png)
+
+**RFP review:** one answer per question with evidence status and Accept / Edit / Needs work / Wrong evidence.
+
+![RFP review](docs/screenshots/rfp-review.png)
+
+**Knowledge base:** versioned documents with indexing status.
+
+![Knowledge base](docs/screenshots/knowledge-base.png)
+
 ## Stack
 
 - **server/**: Node 26 locally (native TypeScript, strip-only); Docker image is Node 22. Fastify, Drizzle ORM, PostgreSQL 16 + pgvector, Zod, Luxon (UTC dates, server only), Vitest
