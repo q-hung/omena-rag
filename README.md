@@ -24,6 +24,8 @@ synthetic. MVP is complete (M0–M9), and the server layering refactor (M10) is 
 
 Taken in stub mode, so the answers are scripted and the UI says **SIMULATED AI**.
 
+![Sign in](docs/screenshots/login.png)
+
 **Ask:** account facts (`[F#]`) and document evidence (`[1]`) beside an editable answer.
 
 ![Ask](docs/screenshots/ask.png)

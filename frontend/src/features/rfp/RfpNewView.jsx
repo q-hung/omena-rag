@@ -44,14 +44,14 @@ export default function RfpNewView({ app }) {
         <label className="flex flex-col gap-1.5 text-sm font-semibold">
           Paste text
           <textarea value={text} maxLength={300000} disabled={!!file} onChange={(e) => setText(e.target.value)} rows={12}
-            className="border-2 border-rule bg-white p-3 font-mono text-sm outline-none focus:border-interactive disabled:bg-almost-white" />
+            className="rounded-lg border border-rule bg-white p-3 font-mono text-sm outline-none focus:border-accent focus:shadow-focus disabled:bg-almost-white" />
         </label>
         <label className="flex flex-col gap-1.5 text-sm font-semibold">
           Or upload a file
           <input type="file" accept=".pdf,.md,.markdown" onChange={(e) => pick(e.target.files[0] ?? null)} />
           <span className="text-xs font-normal text-secondary">PDF or Markdown · 3 MB or smaller</span>
         </label>
-        {error && <div className="border-2 border-black bg-white p-3 text-sm">{error}</div>}
+        {error && <div className="rounded-xl border border-hairline shadow-xs bg-white p-3 text-sm">{error}</div>}
         <div><Button disabled={!ready} onClick={submit}>{busy ? 'Extracting…' : 'Extract questions'}</Button></div>
       </div>
     </Page>

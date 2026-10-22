@@ -33,8 +33,8 @@ export default function EvidencePanel({ app, conv, state: st }) {
       {!cites.length && <div className="border border-hairline bg-almost-white p-4 text-sm leading-normal text-secondary">{empty}</div>}
 
       {conflictNums.length > 0 && (
-        <div className="border-2 border-black">
-          <div className="bg-alert px-[14px] py-2 text-xs font-bold tracking-caps text-black">CONFLICTING SOURCES</div>
+        <div className="rounded-xl border border-hairline shadow-xs">
+          <div className="bg-alert px-[14px] py-2 text-xs font-bold text-black">CONFLICTING SOURCES</div>
           <div className="flex flex-col gap-3 p-3">
             {cites.filter((cite) => conflictNums.includes(cite.number) || conflictNums.includes(String(cite.number))).map(card)}
           </div>

@@ -1,23 +1,9 @@
-/* Avenir is the brand font; Nunito Sans is the Brand Book's named substitute.
-   Self-hosted latin subsets from the mock bundle (SEC-04: no third-party origins). */
+/* Cruip Mosaic-style theme: Inter, gray surfaces, violet accent, rounded cards.
+   Fonts are self-hosted (SEC-04: no third-party origins): Inter ships in the npm package,
+   Roboto Mono as a latin subset in ./fonts. */
 @import 'tailwindcss';
+@import '@fontsource-variable/inter';
 
-@font-face {
-  font-family: 'Nunito Sans';
-  font-style: normal;
-  font-weight: 300 900;
-  font-display: swap;
-  src: url('./fonts/nunito-sans-latin.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: 'Nunito Sans';
-  font-style: italic;
-  font-weight: 400 700;
-  font-display: swap;
-  src: url('./fonts/nunito-sans-italic-latin.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
 @font-face {
   font-family: 'Roboto Mono';
   font-style: normal;
@@ -28,36 +14,49 @@
 }
 
 @theme {
-  --font-sans: 'Avenir', 'Avenir Next', 'Nunito Sans', 'Helvetica Neue', Helvetica, Tahoma, Verdana, Arial, sans-serif;
+  --font-sans: 'Inter Variable', Inter, ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'Roboto Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
-  --color-almost-white: #fafafa;
-  --color-light-grey: #eeeeee;
-  --color-secondary: #4a4a4a;
-  --color-muted: #767671;
-  --color-hairline: #e2e2df;
-  --color-rule: #c9c9c4;
-  --color-disabled: #9a9a96;
+  /* Surfaces and text (Tailwind gray scale). The legacy token names stay so components keep working. */
+  --color-black: #1f2937;
+  --color-almost-white: #f3f4f6;
+  --color-light-grey: #f3f4f6;
+  --color-secondary: #4b5563;
+  --color-muted: #6b7280;
+  --color-hairline: #e5e7eb;
+  --color-rule: #d1d5db;
+  --color-disabled: #9ca3af;
 
-  --color-night: #222328;
-  --color-night-hover: #242424;
-  --color-night-line: #32333a;
-  --color-night-muted: #b9b9b4;
-  --color-night-disabled: #6c6d74;
+  /* Sidebar and toast. */
+  --color-night: #374151;
+  --color-night-hover: #2b3544;
+  --color-night-line: #374151;
+  --color-night-muted: #9ca3af;
+  --color-night-disabled: #6b7280;
+  --color-sidebar: #1f2937;
 
-  --color-interactive: #1900ff;
-  --color-interactive-dark: #509aff;
-  --color-positive: #00ad00;
-  --color-negative: #ff2e00;
-  --color-alert: #ffde00;
+  /* Violet accent (Mosaic palette). */
+  --color-accent: #8470ff;
+  --color-accent-dark: #755ff8;
+  --color-accent-tint: #f1eeff;
+  --color-interactive: #755ff8;
+  --color-interactive-dark: #b7acff;
 
-  --color-supply-green: #007262;
-  --color-supply-green-tint: #e5f0ee;
+  --color-positive: #059669;
+  --color-positive-tint: #d1fae5;
+  --color-negative: #dc2626;
+  --color-negative-tint: #fee2e2;
+  --color-alert: #fef3c7;
+  --color-alert-text: #b45309;
 
-  --tracking-caps: 0.09em;
-  --shadow-overlay: 0 2px 24px rgba(0, 0, 0, 0.18);
-  --shadow-dialog: 0 8px 48px rgba(0, 0, 0, 0.32);
-  --shadow-focus: 0 0 0 3px rgba(25, 0, 255, 0.35);
+  --color-supply-green: #059669;
+  --color-supply-green-tint: #ecfdf5;
+
+  --tracking-caps: 0.04em;
+  --shadow-xs: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-overlay: 0 4px 16px rgba(0, 0, 0, 0.18);
+  --shadow-dialog: 0 10px 40px rgba(0, 0, 0, 0.25);
+  --shadow-focus: 0 0 0 3px rgba(132, 112, 255, 0.3);
   --ease-voima: cubic-bezier(0.2, 0, 0.2, 1);
 }
 
@@ -71,11 +70,10 @@
     -webkit-font-smoothing: antialiased;
   }
   h1, h2, h3, h4 { letter-spacing: -0.01em; }
-  a { color: var(--color-interactive); text-decoration: underline; text-underline-offset: 2px; }
-  a:hover { opacity: 0.7; }
-  a:active { opacity: 0.55; }
-  button:not(:disabled) { cursor: pointer; }
-  textarea:focus { outline: 3px solid var(--color-interactive); outline-offset: 0; border-color: var(--color-interactive); }
+  a { color: var(--color-interactive); text-decoration: none; }
+  a:hover { text-decoration: underline; text-underline-offset: 2px; }
+    button:not(:disabled) { cursor: pointer; }
+  textarea:focus { outline: none; border-color: var(--color-accent); box-shadow: var(--shadow-focus); }
 }
 
 .chunk-md ul { list-style: disc; padding-left: 1.5rem; }
@@ -83,7 +81,7 @@
 .chunk-md li + li { margin-top: 0.25rem; }
 .chunk-md table { width: 100%; border-collapse: collapse; margin: 0.5rem 0; }
 .chunk-md th, .chunk-md td { border: 1px solid var(--color-hairline); padding: 0.35rem 0.6rem; text-align: left; }
-.chunk-md pre { background: var(--color-light-grey); padding: 0.75rem 1rem; overflow-x: auto; font-family: var(--font-mono); font-size: 0.85rem; }
+.chunk-md pre { background: var(--color-light-grey); border-radius: 0.5rem; padding: 0.75rem 1rem; overflow-x: auto; font-family: var(--font-mono); font-size: 0.85rem; }
 .chunk-md :not(pre) > code { font-family: var(--font-mono); font-size: 0.9em; }
 .chunk-md p { margin-bottom: 0.75rem; }
 .chunk-md p:last-child { margin-bottom: 0; }
@@ -91,7 +89,8 @@
 /* Small caps section label used across panels and table headers. */
 @utility eyebrow {
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
+  text-transform: uppercase;
   letter-spacing: var(--tracking-caps);
-  color: var(--color-secondary);
+  color: var(--color-muted);
 }

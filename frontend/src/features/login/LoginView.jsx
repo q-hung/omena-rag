@@ -22,7 +22,7 @@ export default function LoginView({ onSignIn }) {
   return (
     <div className="flex min-h-screen flex-col bg-almost-white font-sans text-black">
       <div className="grid flex-1 place-items-center p-8">
-        <form onSubmit={submit} className="flex w-full max-w-[400px] flex-col gap-5 border border-hairline bg-white p-8">
+        <form onSubmit={submit} className="flex w-full max-w-[400px] flex-col gap-5 rounded-xl border border-hairline bg-white shadow-xs p-8">
           <div className="flex flex-col gap-1">
             <h1 className="text-[28px] font-bold">Jarvis</h1>
             <div className="text-sm text-secondary">Product Support Copilot for SubPilot · Omena employees only</div>
