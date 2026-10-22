@@ -1,15 +1,15 @@
 const TONES = {
-  neutral: 'bg-black text-white',
-  accent: 'bg-supply-green text-white',
-  positive: 'bg-positive text-white',
-  negative: 'bg-negative text-white',
-  alert: 'bg-alert text-black',
-  outline: 'text-black shadow-[inset_0_0_0_2px_currentColor]',
+  neutral: 'bg-light-grey text-secondary',
+  accent: 'bg-accent-tint text-accent-dark',
+  positive: 'bg-positive-tint text-positive',
+  negative: 'bg-negative-tint text-negative',
+  alert: 'bg-alert text-alert-text',
+  outline: 'text-secondary ring-1 ring-rule',
 };
 
 export default function Badge({ tone = 'neutral', children }) {
   return (
-    <span className={`inline-flex items-center px-2 py-[3px] text-[11px] font-bold uppercase leading-[1.2] tracking-caps ${TONES[tone] ?? TONES.neutral}`}>
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium leading-[1.2] ${TONES[tone] ?? TONES.neutral}`}>
       {children}
     </span>
   );

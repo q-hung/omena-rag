@@ -4,7 +4,7 @@ const CHIP = 'mx-0.5 inline-grid h-5 min-w-[22px] place-items-center border px-[
 
 export default function DraftText({ text, cites, factIds, activeCite, activeFact, onCite, onFact, boxed = true }) {
   return (
-    <div className={`flex max-w-[72ch] flex-col gap-4 text-base leading-[1.6] ${boxed ? 'border border-hairline bg-white px-8 py-7' : ''}`}>
+    <div className={`flex max-w-[72ch] flex-col gap-4 text-base leading-[1.6] ${boxed ? 'rounded-xl border border-hairline bg-white shadow-xs px-8 py-7' : ''}`}>
       {text.split(/\n\n+/).map((para, i) => {
         const label = para.match(/^(Observed|Possible causes[^:]*):/)?.[0];
         const body = label ? para.slice(label.length) : para;
@@ -35,7 +35,7 @@ export default function DraftText({ text, cites, factIds, activeCite, activeFact
               const on = String(activeCite) === n;
               return (
                 <button key={j} type="button" title="Show document evidence" onClick={() => onCite(on ? null : n)}
-                  className={`${CHIP} border-black ${on ? 'bg-black text-white' : 'bg-white text-black'}`}>
+                  className={`${CHIP} border-accent ${on ? 'bg-accent text-white' : 'bg-white text-black'}`}>
                   {n}
                 </button>
               );

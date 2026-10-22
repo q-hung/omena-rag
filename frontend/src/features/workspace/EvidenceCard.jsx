@@ -7,7 +7,7 @@ const STATUS_TONE = { Superseded: 'alert', Archived: 'alert', Deleted: 'negative
 export default function EvidenceCard({ cite, status, on, onToggle, onOpen }) {
   return (
     <div id={`cite-${cite.number}`} onClick={onToggle}
-      className={`flex cursor-pointer flex-col gap-2 bg-white p-[14px] ${on ? 'border-2 border-black' : 'border border-hairline'}`}>
+      className={`flex cursor-pointer flex-col gap-2 bg-white p-[14px] ${on ? 'border border-accent ring-1 ring-accent' : 'border border-hairline'}`}>
       <div className="flex items-center gap-2">
         <CiteNumber n={cite.number} active={on} />
         <span className="flex-1 text-sm font-bold">{cite.title}</span>
@@ -20,7 +20,7 @@ export default function EvidenceCard({ cite, status, on, onToggle, onOpen }) {
         {cite.page ? ` · Page ${cite.page}` : ''}
       </div>
       {cite.text && (
-        <div className={`-mx-[10px] px-[10px] py-2 text-sm leading-[1.55] ${on ? 'bg-supply-green-tint' : ''}`}>
+        <div className={`-mx-[10px] px-[10px] py-2 text-sm leading-[1.55] ${on ? 'bg-accent-tint' : ''}`}>
           {cite.heading && <span className="font-bold">{cite.heading}{/[.?!]$/.test(cite.heading) ? '' : '.'} </span>}
           {cite.text}
         </div>
