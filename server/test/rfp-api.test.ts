@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, like } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SESSION_COOKIE } from '../src/services/auth.service.ts';
 import { db } from '../src/db/index.ts';
@@ -131,10 +131,14 @@ describe('RFP create / read API', () => {
       createdBy: ada.id,
     }));
     await db().insert(rfps).values(rows);
-    const res = await app.inject({ method: 'GET', url: '/api/rfps?mine=0', cookies: ada.cookie });
-    expect(res.statusCode).toBe(200);
-    expect(res.json().rfps).toHaveLength(100);
-    expect(res.json().rfps[0].title).toBe('Bulk 100');
+    try {
+      const res = await app.inject({ method: 'GET', url: '/api/rfps?mine=0', cookies: ada.cookie });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().rfps).toHaveLength(100);
+      expect(res.json().rfps[0].title).toBe('Bulk 100');
+    } finally {
+      await db().delete(rfps).where(like(rfps.title, 'Bulk %'));
+    }
   });
 
   it('returns the latest answer, sources and reviews on GET', async () => {
