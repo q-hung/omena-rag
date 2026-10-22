@@ -11,11 +11,11 @@ Mark `[x]` when done or decided against (add a note).
 - [ ] **Stub S1 regex can match question text.** `\nS1 \|` can match a line inside the question block; anchor it before `<untrusted>`. Only the first line of the S1 passage is read. `server/src/llm/stub.ts`
 - [ ] **Oversized question is not capped in the prompt builder.** If the question alone exceeds 6,000 tokens, all passages are dropped and the prompt is still sent. Cap upstream (route zod) or document. `server/src/rag/rfp-prompt.ts`
 - [ ] **`prefix` closure recomputed each loop.** Compute once. `server/src/rag/rfp-prompt.ts`
-- [ ] **Passages are not wrapped as untrusted.** Instructions say to treat them as data, but only the question is delimited. Consider delimiting passages. `server/src/rag/rfp-prompt.ts`
+- [x] **Passages are not wrapped as untrusted.** Instructions say to treat them as data, but only the question is delimited. Consider delimiting passages. `server/src/rag/rfp-prompt.ts` Done: passages are one `<untrusted>` block, tags stripped, prompt `rfp-v2`.
 
 ## P14 TASK-03: RFP create / read API (uncommitted)
 
-- [ ] **`listRfps` is unbounded.** `mine=0` returns every RFP. Add `.limit(100)` or pagination. `server/src/services/rfp.service.ts`
+- [x] **`listRfps` is unbounded.** `mine=0` returns every RFP. Add `.limit(100)` or pagination. `server/src/services/rfp.service.ts` Done: limit 100.
 - [ ] **Skeleton hard-coding.** `sourceKind: 'paste'`, `status: 'confirmed'` and a null `sourceText` on create. Add a `// P15 replaces` note so extraction does not build on it. `server/src/services/rfp.service.ts`
 - [ ] **`getRfp` runs 5 sequential queries.** Creator, questions and sources are independent; use `Promise.all`. Minor. `server/src/services/rfp.service.ts`
 - [ ] **`creator` may be undefined.** A deleted employee gives `createdBy: undefined`. Confirm the FK forbids it. `server/src/services/rfp.service.ts`
@@ -24,7 +24,7 @@ Mark `[x]` when done or decided against (add a note).
 
 ## P14 TASK-04: answer one RFP question (`37494b5`)
 
-- [ ] **Unsafe text under INSUFFICIENT status.** When the model says `INSUFFICIENT_EVIDENCE` (or the server downgrades via `no_valid_citation`) with passages present, the model's free text is saved as the answer. Unsupported prose can survive, which hits SC3-3. Replace with the fixed insufficient text when the final status is INSUFFICIENT. Check REQ_V3 §8 and REV-02 first. `server/src/services/rfp-answer.service.ts`
+- [x] **Unsafe text under INSUFFICIENT status.** When the model says `INSUFFICIENT_EVIDENCE` (or the server downgrades via `no_valid_citation`) with passages present, the model's free text is saved as the answer. Unsupported prose can survive, which hits SC3-3. Replace with the fixed insufficient text when the final status is INSUFFICIENT. Check REQ_V3 §8 and REV-02 first. `server/src/services/rfp-answer.service.ts` Done: fixed text and no citation numbers when the final status is INSUFFICIENT.
 - [ ] **Duplicated retry loop and retrieve options.** `paidRfpGenerate` copies `paidGenerate` in `generate.service.ts`, and the retrieve options block (stub `minScore`, `lexicalQuery`) is repeated. Extract a shared helper before P15 adds a third copy. `server/src/services/rfp-answer.service.ts`, `server/src/services/generate.service.ts`
 - [ ] **Failure contract is implicit.** `ProviderError` is swallowed after `failQuestion`, so regenerate returns 200 with the question in state `failed`, while `AppError` is rethrown. Add a comment so the frontend reads `reviewState`, not the status code. `server/src/services/rfp-answer.service.ts`
 - [ ] **Per-passage source inserts.** One raw `insert` per passage inside the transaction. Batch into one multi-row insert. Minor. `server/src/services/rfp-answer.service.ts`

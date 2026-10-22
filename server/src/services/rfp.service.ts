@@ -159,12 +159,16 @@ export async function confirmRfp(id: number, employeeId: number) {
   return getRfp(id, employeeId);
 }
 
+// `mine=0` lists every employee's RFPs; newest 100 until the UI paginates.
+const RFP_LIST_LIMIT = 100;
+
 export async function listRfps(input: { employeeId: number; mine: '0' | '1' }) {
   const rows = await db()
     .select()
     .from(rfps)
     .where(input.mine === '1' ? eq(rfps.createdBy, input.employeeId) : undefined)
-    .orderBy(desc(rfps.createdAt), desc(rfps.id));
+    .orderBy(desc(rfps.createdAt), desc(rfps.id))
+    .limit(RFP_LIST_LIMIT);
   const counts = new Map<number, Record<string, number>>();
   if (rows.length) {
     const states = rowsOf(
