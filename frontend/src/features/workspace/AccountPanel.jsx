@@ -23,7 +23,7 @@ export default function AccountPanel({ app, conv }) {
           value={conv?.accountId ?? s.accountId}
           disabled={!!conv}
           onChange={(e) => app.selectAccount(Number(e.target.value))}
-          className="min-h-11 rounded-lg border border-rule bg-white px-3 text-sm font-semibold disabled:bg-light-grey disabled:text-secondary"
+          className="min-h-11 border-2 border-rule bg-white px-3 text-sm font-semibold disabled:bg-light-grey disabled:text-secondary"
         >
           {s.accounts.map((a) => (
             <option key={a.id} value={a.id}>{a.companyName} · {a.ref} · {cap(a.plan)} · {cap(a.status)}</option>
@@ -37,7 +37,7 @@ export default function AccountPanel({ app, conv }) {
         {conv && <div className="text-xs leading-[1.45] text-muted">The account is fixed for this conversation. Start a new question to change it.</div>}
       </div>
 
-      <div className="h-px bg-hairline" />
+      <div className="h-0.5 bg-black" />
 
       <div className="flex items-baseline justify-between gap-2">
         <div className="eyebrow">ACCOUNT FACTS</div>
@@ -49,12 +49,12 @@ export default function AccountPanel({ app, conv }) {
 
       {SECTIONS.map((sec) => (
         <div key={sec} className="flex flex-col gap-2">
-          <div className="text-xs font-bold text-secondary">{SECTION_LABEL[sec].toUpperCase()}</div>
+          <div className="text-xs font-bold tracking-caps text-secondary">{SECTION_LABEL[sec].toUpperCase()}</div>
           {facts.filter((f) => f.section === sec).map((f) => (
             <div
               key={f.id}
               id={`fact-${f.id}`}
-              className={`grid grid-cols-[34px_minmax(0,1fr)] gap-2 border-b border-hairline px-1 pb-2 text-sm transition-colors ${app.workspace.activeFact === f.id ? 'bg-accent-tint' : ''}`}
+              className={`grid grid-cols-[34px_minmax(0,1fr)] gap-2 border-b border-hairline px-1 pb-2 text-sm transition-colors ${app.workspace.activeFact === f.id ? 'bg-supply-green-tint' : ''}`}
             >
               <span className="pt-px font-mono text-[11px] font-bold">{f.id}</span>
               <span className="flex flex-col gap-0.5">

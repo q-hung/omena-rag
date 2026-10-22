@@ -68,7 +68,7 @@ export default function HistoryView({ app }) {
           ))}
         </div>
       </div>
-      <div className="rounded-xl border border-hairline bg-white shadow-xs">
+      <div className="border border-hairline bg-white">
         <TableHeader cols={COLS} labels={['ACCOUNT', 'QUESTION', 'STATE', 'CREATED']} />
         {h.rows.map((row) => {
           const flag = flagOf(row);

@@ -8,7 +8,7 @@ import { copyAnswer } from '../../lib/copy';
 import { GAP_LABEL, OUTCOME_LABEL, REASON_TEXT, finalText, saveHint } from '../../lib/model';
 import DraftText from './DraftText';
 
-const CARD = 'rounded-xl border border-hairline bg-white shadow-xs';
+const CARD = 'border border-hairline bg-white';
 const OUTCOME_TONE = { answer: 'outline', clarification_required: 'alert', insufficient_evidence: 'neutral', out_of_scope: 'neutral' };
 
 const SUGGESTIONS = {
@@ -43,7 +43,7 @@ export default function ConversationPanel({ app, conv, account, state: st, readO
         const isLast = t.seq === last.seq;
         return (
           <div key={t.seq} className="flex flex-col gap-4">
-            <div className="flex max-w-[72ch] flex-col gap-1 self-start border-l-4 border-accent rounded-r-lg bg-white px-5 py-3">
+            <div className="flex max-w-[72ch] flex-col gap-1 self-start border-l-4 border-black bg-white px-5 py-3">
               <span className="eyebrow">{t.kind === 'question' ? 'QUESTION' : 'YOUR REPLY'}</span>
               <span className="text-base leading-[1.5]">{t.text || (t.selectedFacts ?? []).join(', ')}</span>
               <span className="font-mono text-xs text-muted">{t.at} · {conv.createdBy?.name}</span>
@@ -52,7 +52,7 @@ export default function ConversationPanel({ app, conv, account, state: st, readO
               <div className={`px-6 py-5 text-sm font-bold ${CARD}`}>Generating…</div>
             )}
             {isLast && st === 'failed' && !readOnly && (
-              <div className="flex max-w-[72ch] flex-col items-start gap-3 rounded-xl border border-negative bg-white p-6">
+              <div className="flex max-w-[72ch] flex-col items-start gap-3 border-2 border-negative bg-white p-6">
                 <div className="flex items-center gap-[10px]">
                   <Badge tone="negative">Failed</Badge>
                   <span className="text-base font-bold">The answer couldn&apos;t be generated</span>
@@ -85,7 +85,7 @@ function Composer({ app, account }) {
           maxLength={2000}
           onChange={(e) => w.setQuestionText(e.target.value)}
           placeholder="Enter a support question about this account…"
-          className="min-h-[120px] resize-y rounded-lg border border-rule bg-white px-4 py-3 text-base leading-[1.5] focus:border-accent focus:shadow-focus focus:outline-none"
+          className="min-h-[120px] resize-y border-2 border-rule bg-white px-4 py-3 text-base leading-[1.5] focus:border-interactive focus:outline-none"
         />
         <div className="flex items-start gap-4">
           <span className="flex-1 text-xs leading-[1.45] text-muted">
@@ -111,7 +111,7 @@ function Composer({ app, account }) {
               key={row.id}
               type="button"
               onClick={() => w.open(row.id)}
-              className="flex flex-col items-start gap-1.5 rounded-xl border border-hairline bg-white shadow-xs px-4 py-3 text-left hover:border-accent"
+              className="flex flex-col items-start gap-1.5 border border-hairline bg-white px-4 py-3 text-left hover:border-black"
             >
               <span className="text-sm font-semibold leading-[1.4]">{row.question}</span>
               <span className="flex flex-wrap gap-1.5">
@@ -216,7 +216,7 @@ function Answer({ app, conv, a, full, readOnly }) {
             aria-label="Edit answer"
             value={w.editText}
             onChange={(e) => w.setEditText(e.target.value)}
-            className="min-h-[160px] resize-y rounded-lg border border-rule bg-white px-4 py-3 text-base leading-[1.5] focus:border-accent focus:shadow-focus focus:outline-none"
+            className="min-h-[160px] resize-y border-2 border-rule bg-white px-4 py-3 text-base leading-[1.5] focus:border-interactive focus:outline-none"
           />
           {w.editError && <div className="text-sm text-negative">{w.editError}</div>}
           <div className="flex gap-2">
@@ -324,7 +324,7 @@ function ReplyBox({ app, conv, a }) {
               maxLength={1000}
               onChange={(e) => setNotes((n) => ({ ...n, [i]: e.target.value }))}
               placeholder="Add a note"
-              className="min-h-[72px] resize-y rounded-lg border border-rule bg-white px-3 py-2 text-sm focus:border-accent focus:shadow-focus focus:outline-none"
+              className="min-h-[72px] resize-y border-2 border-rule bg-white px-3 py-2 text-sm focus:border-interactive focus:outline-none"
             />
           )}
         </fieldset>
@@ -336,7 +336,7 @@ function ReplyBox({ app, conv, a }) {
             value={freeText}
             maxLength={1000}
             onChange={(e) => setFreeText(e.target.value)}
-            className="min-h-[72px] resize-y rounded-lg border border-rule bg-white px-3 py-2 text-sm focus:border-accent focus:shadow-focus focus:outline-none"
+            className="min-h-[72px] resize-y border-2 border-rule bg-white px-3 py-2 text-sm focus:border-interactive focus:outline-none"
           />
         </label>
       ))}

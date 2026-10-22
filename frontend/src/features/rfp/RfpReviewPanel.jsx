@@ -66,7 +66,7 @@ export default function RfpReviewPanel({ rfp, q, cites, rfps, onNext }) {
       {editing ? (
         <div className="flex flex-col gap-2">
           <textarea aria-label="Edit answer" value={text} rows={8} onChange={(e) => setText(e.target.value)}
-            className="rounded-lg border border-rule bg-white p-3 text-base outline-none focus:border-accent focus:shadow-focus" />
+            className="border-2 border-rule bg-white p-3 text-base outline-none focus:border-interactive" />
           <div className="text-xs text-secondary">Markers like [1] can be removed but not added.</div>
           {error && <div className="text-sm text-negative">{error}</div>}
           <div className="flex gap-3">
@@ -104,7 +104,7 @@ export default function RfpReviewPanel({ rfp, q, cites, rfps, onNext }) {
             </div>
           )}
           <textarea aria-label="Note" value={note} rows={3} maxLength={NOTE_MAX} onChange={(e) => setNote(e.target.value)}
-            placeholder="Note (optional)" className="rounded-lg border border-rule p-3 text-sm outline-none focus:border-accent focus:shadow-focus" />
+            placeholder="Note (optional)" className="border-2 border-rule p-3 text-sm outline-none focus:border-interactive" />
           {error && <div className="text-sm text-negative">{error}</div>}
           <div className="flex gap-3">
             <Button size="sm" disabled={busy || (dialog === 'wrong_evidence' && !flagged.length)}
@@ -117,7 +117,7 @@ export default function RfpReviewPanel({ rfp, q, cites, rfps, onNext }) {
       </Dialog>
 
       {q.reviewHistory?.length > 0 && (
-        <div className="rounded-xl border border-hairline bg-white shadow-xs p-4">
+        <div className="border border-hairline bg-white p-4">
           <div className="eyebrow mb-2">REVIEW HISTORY</div>
           <ul className="flex flex-col gap-2 text-sm">
             {[...q.reviewHistory].reverse().map((r) => (

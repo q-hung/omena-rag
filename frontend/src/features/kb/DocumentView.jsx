@@ -22,7 +22,7 @@ export default function DocumentView({ app, doc: dd }) {
     <Page>
       <BackButton onClick={() => app.go('kb')} className="h-8 self-start">Knowledge base</BackButton>
 
-      <div className="flex items-end gap-4 border-b border-hairline pb-4">
+      <div className="flex items-end gap-4 border-b-4 border-black pb-4">
         <div className="flex flex-1 flex-col gap-1.5">
           <div className="eyebrow">{dd.cat.toUpperCase()}</div>
           <h1 className="text-4xl font-bold">{dd.title}</h1>
@@ -34,7 +34,7 @@ export default function DocumentView({ app, doc: dd }) {
       </div>
 
       {dd.staged && (
-        <div className="flex flex-col gap-2 rounded-xl border border-hairline bg-white shadow-xs px-6 py-5">
+        <div className="flex flex-col gap-2 border border-hairline bg-white px-6 py-5">
           <div className="flex items-center gap-3">
             <span className="text-base font-bold">v{dd.staged.v}</span>
             <Badge tone={INGEST_TONE[st]}>{INGEST_STATUS[st]}</Badge>
@@ -55,10 +55,10 @@ export default function DocumentView({ app, doc: dd }) {
             </div>
           )}
           {vObj?.warnings?.map((w) => (
-            <div key={w} className="rounded-xl border border-hairline shadow-xs bg-white px-4 py-3 text-sm"><strong>Warning.</strong> {w}</div>
+            <div key={w} className="border-2 border-black bg-white px-4 py-3 text-sm"><strong>Warning.</strong> {w}</div>
           ))}
           {vObj ? (
-            <div className="flex flex-col gap-6 rounded-xl border border-hairline bg-white shadow-xs px-10 py-8">
+            <div className="flex flex-col gap-6 border border-hairline bg-white px-10 py-8">
               <div className="flex flex-wrap items-center gap-6 font-mono text-xs text-secondary">
                 <span>v{vObj.v}</span>
                 <span>{vObj.format === 'pdf' ? `PDF · ${vObj.pages} pages` : 'Markdown'}</span>
@@ -66,7 +66,7 @@ export default function DocumentView({ app, doc: dd }) {
                 <span>Uploaded {vObj.up}</span>
                 <a
                   href={`/api/documents/${dd.id}/versions/${vObj.id}/file`}
-                  className="ml-auto inline-flex min-h-[34px] items-center border border-transparent px-[14px] text-xs font-bold hover:bg-current/7"
+                  className="ml-auto inline-flex min-h-[34px] items-center border-2 border-transparent px-[14px] text-xs font-bold uppercase tracking-caps hover:bg-current/7"
                 >
                   Download original
                 </a>
@@ -80,7 +80,7 @@ export default function DocumentView({ app, doc: dd }) {
               ))}
             </div>
           ) : (
-            <div className="rounded-xl border border-hairline bg-white shadow-xs px-10 py-8 text-sm text-secondary">No version of this document has finished indexing yet.</div>
+            <div className="border border-hairline bg-white px-10 py-8 text-sm text-secondary">No version of this document has finished indexing yet.</div>
           )}
         </div>
 
@@ -97,7 +97,7 @@ export default function DocumentView({ app, doc: dd }) {
               tone={v.v === dd.current ? 'positive' : 'outline'}
               detail={v.warnings?.join(' ')}
               selected={v.v === viewV}
-              className={v.v === viewV ? 'bg-accent-tint' : 'bg-white'}
+              className={v.v === viewV ? 'bg-supply-green-tint' : 'bg-white'}
               onClick={() => set({ selDocV: v.v })}
             />
           ))}

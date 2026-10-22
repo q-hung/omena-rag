@@ -42,24 +42,24 @@ export default function RfpDraftView({ rfp, rfps }) {
       <div className="flex-1 overflow-auto p-8">
         <div className="flex max-w-[880px] flex-col gap-4">
           {failed && (
-            <div className="flex flex-col gap-3 rounded-xl border border-hairline shadow-xs bg-white p-4 text-sm">
+            <div className="flex flex-col gap-3 border-2 border-black bg-white p-4 text-sm">
               <div>{rfp.extractionError}</div>
               <textarea value={paste} onChange={(e) => setPaste(e.target.value)} rows={6} placeholder="Paste the RFP text instead"
-                className="rounded-lg border border-rule p-3 font-mono text-sm outline-none focus:border-accent focus:shadow-focus" />
+                className="border-2 border-rule p-3 font-mono text-sm outline-none focus:border-interactive" />
               <div><Button size="sm" disabled={!owner || busy || !paste.trim()} onClick={() => run(() => rfps.reextract(rfp.id, paste))}>Extract from pasted text</Button></div>
             </div>
           )}
           {!failed && !items.length && (
-            <div className="rounded-xl border border-hairline bg-white shadow-xs p-4 text-sm text-secondary">No questions found. Add them manually.</div>
+            <div className="border border-hairline bg-white p-4 text-sm text-secondary">No questions found. Add them manually.</div>
           )}
           {!failed && items.map((x, i) => (
-            <div key={i} className="flex items-start gap-3 rounded-xl border border-hairline bg-white shadow-xs p-3">
+            <div key={i} className="flex items-start gap-3 border border-hairline bg-white p-3">
               <span className="w-8 pt-2 font-mono text-xs text-muted">Q{i + 1}</span>
               <div className="flex flex-1 flex-col gap-2">
                 <textarea value={x.text} rows={2} maxLength={2000} disabled={!owner} onChange={(e) => set(i, { text: e.target.value })}
-                  className="rounded-lg border border-rule p-2 text-sm outline-none focus:border-accent focus:shadow-focus" />
+                  className="border-2 border-rule p-2 text-sm outline-none focus:border-interactive" />
                 <input value={x.section} placeholder="Section (optional)" maxLength={200} disabled={!owner} onChange={(e) => set(i, { section: e.target.value })}
-                  className="rounded-lg border border-rule p-2 text-xs outline-none focus:border-accent focus:shadow-focus" />
+                  className="border-2 border-rule p-2 text-xs outline-none focus:border-interactive" />
               </div>
               <div className="flex flex-col gap-1">
                 <Button size="sm" variant="ghost" disabled={!owner || i === 0} onClick={() => move(i, -1)} aria-label="Move up">↑</Button>

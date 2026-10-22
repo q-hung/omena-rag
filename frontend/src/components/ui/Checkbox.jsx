@@ -1,4 +1,4 @@
-// Rounded checkbox rendered as a button with a label.
+// Square brand checkbox rendered as a button with a label.
 export default function Checkbox({ checked, onChange, boxSize = 16, className = '', children }) {
   return (
     <button
@@ -10,7 +10,7 @@ export default function Checkbox({ checked, onChange, boxSize = 16, className = 
     >
       <span
         style={{ width: boxSize, height: boxSize }}
-        className={`grid flex-none place-items-center rounded-sm border text-[11px] text-white ${checked ? 'border-accent bg-accent' : 'border-rule bg-white'}`}
+        className={`grid flex-none place-items-center border-2 border-black text-[11px] text-white ${checked ? 'bg-black' : 'bg-white'}`}
       >
         {checked ? '✓' : ''}
       </span>

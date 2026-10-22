@@ -78,14 +78,14 @@ export default function RfpWorkspaceView({ app }) {
           <div className="flex flex-wrap gap-1.5 border-b border-hairline p-3">
             {REVIEW_FILTERS.filter((f) => f === 'all' || counts[f]).map((f) => (
               <button key={f} type="button" onClick={() => setFilter(f)} aria-pressed={active === f}
-                className={`rounded-full px-2.5 py-1 text-xs font-medium ${active === f ? 'bg-accent text-white' : 'bg-light-grey text-secondary hover:bg-hairline'}`}>
+                className={`px-2 py-1 text-[11px] font-bold uppercase tracking-caps ${active === f ? 'bg-black text-white' : 'bg-almost-white text-black hover:bg-hairline'}`}>
                 {FILTER_LABEL[f]}{f === 'all' ? ` ${rfp.questions.length}` : ` ${counts[f]}`}
               </button>
             ))}
           </div>
           {shown.map((x) => (
             <button key={x.id} type="button" onClick={() => select(x.id)}
-              className={`flex flex-col gap-2 border-b border-hairline px-5 py-4 text-left ${x.id === q?.id ? 'bg-accent-tint' : 'hover:bg-almost-white'}`}>
+              className={`flex flex-col gap-2 border-b border-hairline px-5 py-4 text-left ${x.id === q?.id ? 'bg-supply-green-tint' : 'hover:bg-almost-white'}`}>
               <span className="font-mono text-xs text-muted">Q{x.seq}{x.section ? ` · ${x.section}` : ''}</span>
               <span className="text-sm">{x.text}</span>
               <span><Badge tone={QUESTION_STATE_TONE[x.reviewState]}>{QUESTION_STATE_LABEL[x.reviewState]}</Badge></span>
@@ -113,7 +113,7 @@ export default function RfpWorkspaceView({ app }) {
                 )}
               </div>
               {failedCode && (
-                <div className="flex items-center gap-3 rounded-xl border border-hairline shadow-xs bg-white p-4 text-sm">
+                <div className="flex items-center gap-3 border-2 border-black bg-white p-4 text-sm">
                   <span className="flex-1">Generation failed: <span className="font-mono">{failedCode}</span></span>
                   {rfp.ownedByMe && <Button size="sm" variant="secondary" disabled={busy} onClick={() => r.generate(rfp.id, q.id)}>Retry</Button>}
                 </div>

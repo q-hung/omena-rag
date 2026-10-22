@@ -1,8 +1,8 @@
-// White card with a title over a hairline (Version history, Cited in answers).
+// White box with a caps title over a heavy rule (Version history, Cited in answers).
 export default function Panel({ title, children }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-hairline bg-white shadow-xs">
-      <div className="border-b border-hairline px-5 py-3.5 text-sm font-semibold text-black">{title}</div>
+    <div className="border border-hairline bg-white">
+      <div className="border-b-2 border-black px-5 py-[14px] text-xs font-bold tracking-caps">{title}</div>
       {children}
     </div>
   );

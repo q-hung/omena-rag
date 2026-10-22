@@ -22,12 +22,12 @@ export default function RfpListView({ app }) {
       <div className="flex gap-2">
         {[[true, 'Mine'], [false, 'All']].map(([v, label]) => (
           <button key={label} type="button" onClick={() => setMine(v)} aria-pressed={mine === v}
-            className={`rounded-full px-3 py-1 text-xs font-medium ${mine === v ? 'bg-accent text-white' : 'bg-white text-secondary shadow-xs hover:bg-almost-white'}`}>
+            className={`px-3 py-1.5 text-xs font-bold uppercase tracking-caps ${mine === v ? 'bg-black text-white' : 'bg-white text-black hover:bg-almost-white'}`}>
             {label}
           </button>
         ))}
       </div>
-      {!r.rfps.length && <div className="rounded-xl border border-hairline bg-white shadow-xs p-6 text-sm text-secondary">No RFPs yet.</div>}
+      {!r.rfps.length && <div className="border border-hairline bg-white p-6 text-sm text-secondary">No RFPs yet.</div>}
       <div className="flex flex-col">
         {r.rfps.map((row) => (
           <button key={row.id} type="button" onClick={() => navigate(`/rfps/${row.id}`)}

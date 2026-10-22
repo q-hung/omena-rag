@@ -8,7 +8,7 @@ import { ApiError } from '../../lib/api';
 
 const CATS = ['Plans', 'Policies', 'Billing', 'FAQ', 'Security', 'Developer'];
 const FIELD = 'flex flex-col gap-1.5 text-sm font-semibold';
-const SELECT = 'min-h-11 rounded-lg border border-rule bg-white px-3 text-base font-normal';
+const SELECT = 'min-h-11 border-2 border-rule bg-white px-3 text-base font-normal';
 const LIMIT = 3 * 1024 * 1024;
 
 export default function UploadDialog({ app }) {
