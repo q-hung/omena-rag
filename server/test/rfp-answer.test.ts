@@ -185,6 +185,32 @@ describe.sequential('answerQuestion', () => {
     await isolated.close();
   });
 
+  it('replaces model prose with the fixed text when the final status is INSUFFICIENT', async () => {
+    const stub = stubProvider();
+    const provider: Provider = {
+      ...stub,
+      generateStructured: async (input, deadline) => {
+        const result = await stub.generateStructured(input, deadline);
+        return {
+          ...result,
+          output: { evidence_status: 'INSUFFICIENT_EVIDENCE', answer: 'We are SOC 2 certified [S1].', gaps: ['SOC 2'] },
+        } as typeof result;
+      },
+    };
+    const isolated = await buildTestApp(undefined, undefined, undefined, { provider });
+    const { questionId } = await createQuestion(isolated, ada, 'Do you support SAML SSO?');
+    const res = await regen(isolated, ada, questionId);
+    expect(res.statusCode).toBe(200);
+    const answer = res.json().questions[0].latestAnswer;
+    expect(answer.evidenceStatus).toBe('INSUFFICIENT_EVIDENCE');
+    expect(answer.answerText).toMatch(/doesn't contain enough evidence/);
+    expect(answer.answerText).not.toMatch(/SOC 2|\[1\]/);
+    const sources = await db().select().from(rfpAnswerSources).where(eq(rfpAnswerSources.answerId, answer.id));
+    expect(sources.length).toBeGreaterThan(0);
+    expect(sources.every((s) => s.citationNumber == null)).toBe(true);
+    await isolated.close();
+  });
+
   it('fails the question after three invalid outputs and clears the lock', async () => {
     failInvalid = true;
     generateCalls = 0;

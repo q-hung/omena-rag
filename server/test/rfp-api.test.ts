@@ -1,8 +1,8 @@
-import { eq } from 'drizzle-orm';
+import { eq, like } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SESSION_COOKIE } from '../src/services/auth.service.ts';
 import { db } from '../src/db/index.ts';
-import { employees, rfpAnswerSources, rfpAnswers, rfpQuestions, rfpReviews } from '../src/db/schema.ts';
+import { employees, rfps, rfpAnswerSources, rfpAnswers, rfpQuestions, rfpReviews } from '../src/db/schema.ts';
 import { seed } from '../src/seed.ts';
 import { deriveQuestionState } from '../src/services/rfp-state.ts';
 import { buildPdf } from '../src/ingest/extract/pdfBytes.ts';
@@ -121,6 +121,24 @@ describe('RFP create / read API', () => {
     const missing = await app.inject({ method: 'GET', url: '/api/rfps/999999999', cookies: ada.cookie });
     expect(missing.statusCode).toBe(404);
     expect(missing.json().error.code).toBe('RFP_NOT_FOUND');
+  });
+
+  it('caps the RFP list at 100, newest first', async () => {
+    const rows = Array.from({ length: 101 }, (_, i) => ({
+      title: `Bulk ${i}`,
+      sourceKind: 'paste',
+      status: 'confirmed',
+      createdBy: ada.id,
+    }));
+    await db().insert(rfps).values(rows);
+    try {
+      const res = await app.inject({ method: 'GET', url: '/api/rfps?mine=0', cookies: ada.cookie });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().rfps).toHaveLength(100);
+      expect(res.json().rfps[0].title).toBe('Bulk 100');
+    } finally {
+      await db().delete(rfps).where(like(rfps.title, 'Bulk %'));
+    }
   });
 
   it('returns the latest answer, sources and reviews on GET', async () => {

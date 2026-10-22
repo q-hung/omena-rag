@@ -243,10 +243,12 @@ export async function answerQuestion(
     validCitationCount: normalised.sources.length,
     gaps: generated.output.gaps,
   });
+  // The model's prose is unsupported when the final status is INSUFFICIENT (SC3-3): keep only the fixed text.
+  const insufficient = ruled.evidenceStatus === 'INSUFFICIENT_EVIDENCE';
   await saveAnswer({
     questionId,
     token,
-    text: normalised.text,
+    text: insufficient ? INSUFFICIENT_TEXT : normalised.text,
     gaps: generated.output.gaps,
     modelEvidenceStatus: generated.output.evidence_status,
     evidenceStatus: ruled.evidenceStatus,
@@ -255,7 +257,7 @@ export async function answerQuestion(
     promptVersion: built.promptVersion || RFP_PROMPT_VERSION,
     retrievalMode: cfg.RETRIEVAL_MODE,
     passages,
-    cited: new Map(normalised.sources.map((s) => [s.chunkId, s.citationNumber])),
+    cited: insufficient ? new Map() : new Map(normalised.sources.map((s) => [s.chunkId, s.citationNumber])),
   });
 }
 
