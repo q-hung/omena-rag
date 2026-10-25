@@ -1,0 +1,10 @@
+Business continuity
+
+Recovery objectives
+The recovery point objective (RPO) is 1 hour: in a disaster, at most the last hour of data may be lost. The recovery time objective (RTO) is 4 hours: service is restored within 4 hours of a declared disaster.
+
+Backups
+The primary database is backed up continuously. Full backups are taken daily and kept for 35 days. Backups are stored in a different region from the primary database.
+
+Testing
+Restoring from backup is tested every quarter. Results are reviewed by the engineering lead.

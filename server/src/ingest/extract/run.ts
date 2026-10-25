@@ -3,7 +3,7 @@ import { extractMarkdown, type MarkdownSection } from './markdown.ts';
 import { extractPdf, type PdfPage } from './pdf.ts';
 
 export type ExtractResult = {
-  kind: 'pdf' | 'md';
+  kind: 'pdf' | 'md' | 'txt';
   pages: PdfPage[];
   sections: MarkdownSection[];
   warnings: string[];
@@ -20,5 +20,10 @@ export async function extractInProcess(bytes: Buffer, filename: string): Promise
     const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
     return { kind: 'md', pages: [], sections: extractMarkdown(text), warnings: [], pageCount: 0 };
   }
-  throw new Error('Only PDF and Markdown files can be indexed.');
+  if (ext === '.txt') {
+    const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes).trim();
+    const sections = text ? [{ heading: '', path: '', text }] : [];
+    return { kind: 'txt', pages: [], sections, warnings: [], pageCount: 0 };
+  }
+  throw new Error('Only PDF, Markdown and text files can be indexed.');
 }

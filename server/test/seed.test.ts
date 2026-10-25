@@ -87,16 +87,21 @@ describe('seed', () => {
   it('queues the §6.4 knowledge base and leaves refund-policy-v3 unseeded', async () => {
     const rows = await db().select().from(documents).orderBy(asc(documents.title));
     expect(rows.map((r) => r.title)).toEqual([
+      'Access control',
       'Billing FAQ',
+      'Business continuity',
+      'Data retention and deletion',
       'Failed payment retries',
       'Payment methods and regions',
       'Plan comparison',
       'Refund policy',
+      'Security overview',
       'SSO setup guide',
+      'Subprocessors',
       'Webhooks developer guide',
     ]);
     const versions = await db().select().from(documentVersions);
-    expect(versions).toHaveLength(7);
+    expect(versions).toHaveLength(12);
     expect(versions.every((v) => v.indexingStatus === 'queued')).toBe(true);
     expect(versions.some((v) => v.originalFilename === 'refund-policy-v3.md')).toBe(false);
   });

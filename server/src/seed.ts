@@ -102,6 +102,11 @@ const KB_DOCS = [
   { file: 'sso-setup-guide.pdf', title: 'SSO setup guide', category: 'Security', days: -93, note: 'First version.' },
   { file: 'webhooks-developer-guide.md', title: 'Webhooks developer guide', category: 'Developer', days: -93, note: 'Added troubleshooting.' },
   { file: 'failed-payment-retries.pdf', title: 'Failed payment retries', category: 'Billing', days: -1, note: 'First version.' },
+  { file: 'security-overview.md', title: 'Security overview', category: 'Security', days: -60, note: 'First version.' },
+  { file: 'data-retention-and-deletion.md', title: 'Data retention and deletion', category: 'Compliance', days: -60, note: 'First version.' },
+  { file: 'access-control.md', title: 'Access control', category: 'Security', days: -60, note: 'First version.' },
+  { file: 'business-continuity.txt', title: 'Business continuity', category: 'Company', days: -60, note: 'First version.' },
+  { file: 'subprocessors.md', title: 'Subprocessors', category: 'Compliance', days: -60, note: 'First version.' },
 ] as const;
 
 /** §6.4: queue every seeded version. refund-policy-v3.md is not seeded. */

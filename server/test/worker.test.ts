@@ -24,11 +24,11 @@ beforeAll(async () => {
 afterAll(async () => {});
 
 describe('indexing worker', () => {
-  it('indexes the §6.4 fixtures: 6 ready (SSO warned) and 1 failed', async () => {
+  it('indexes the §6.4 fixtures: 11 ready (SSO warned) and 1 failed', async () => {
     const versions = await db().select().from(documentVersions);
     const docs = await db().select().from(documents);
-    expect(docs).toHaveLength(7);
-    expect(versions.filter((v) => v.indexingStatus === 'ready')).toHaveLength(6);
+    expect(docs).toHaveLength(12);
+    expect(versions.filter((v) => v.indexingStatus === 'ready')).toHaveLength(11);
     const failed = versions.filter((v) => v.indexingStatus === 'failed');
     expect(failed).toHaveLength(1);
     expect(failed[0]!.indexingError).toBe("No page has a text layer. OCR isn't supported.");
