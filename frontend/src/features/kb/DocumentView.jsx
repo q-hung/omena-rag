@@ -61,7 +61,7 @@ export default function DocumentView({ app, doc: dd }) {
             <div className="flex flex-col gap-6 rounded-xl border border-hairline bg-white shadow-xs px-10 py-8">
               <div className="flex flex-wrap items-center gap-6 font-mono text-xs text-secondary">
                 <span>v{vObj.v}</span>
-                <span>{vObj.format === 'pdf' ? `PDF · ${vObj.pages} pages` : 'Markdown'}</span>
+                <span>{vObj.format === 'pdf' ? `PDF · ${vObj.pages} pages` : vObj.format === 'txt' ? 'Text' : 'Markdown'}</span>
                 <span>Effective {fmtDate(vObj.eff)}</span>
                 <span>Uploaded {vObj.up}</span>
                 <a

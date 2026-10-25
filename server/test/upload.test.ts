@@ -71,6 +71,27 @@ describe('upload API', () => {
     expect(response.json().error.code).toBe('INVALID_FILE');
   });
 
+  it('rejects a .txt that is not UTF-8', async () => {
+    const response = await post(
+      '/api/documents',
+      { title: 'Bad text', category: 'Company', effectiveDate: utcToday() },
+      { name: 'bad.txt', bytes: Buffer.from([0x52, 0xff, 0xfe]) },
+    );
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('INVALID_FILE');
+  });
+
+  it('accepts a valid .txt as text/plain', async () => {
+    const response = await post(
+      '/api/documents',
+      { title: 'Continuity', category: 'Company', effectiveDate: utcToday(), note: 'First version.' },
+      md('continuity.txt', 'RPO is 1 hour.\n'),
+    );
+    expect(response.statusCode).toBe(201);
+    const [version] = await db().select().from(documentVersions).where(eq(documentVersions.originalFilename, 'continuity.txt'));
+    expect(version?.mimeType).toBe('text/plain');
+  });
+
   it('accepts a valid .md with no leading signature', async () => {
     const response = await post(
       '/api/documents',

@@ -55,4 +55,10 @@ describe('extractors', () => {
     expect(result.sections[0]!.text).toContain('# not a heading');
     expect(result.sections.map((s) => s.heading)).not.toContain('not a heading');
   });
+
+  it('extracts a .txt as one section with no heading', async () => {
+    const result = await extract(Buffer.from('First line.\n\n# not a heading\n', 'utf8'), 'plain.txt');
+    expect(result.kind).toBe('txt');
+    expect(result.sections).toEqual([{ heading: '', path: '', text: 'First line.\n\n# not a heading' }]);
+  });
 });

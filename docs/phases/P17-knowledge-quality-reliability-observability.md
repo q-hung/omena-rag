@@ -11,7 +11,7 @@ _none_
 Tasks: TASK-10…12
 
 
-### TASK-10 — Knowledge ingestion for RFPs: `.txt`, batching fix, fixtures
+### [x] TASK-10 — Knowledge ingestion for RFPs: `.txt`, batching fix, fixtures
 
 **Goal**
 
@@ -30,10 +30,10 @@ The seeded KB is SubPilot product docs; an RFP demo needs security/compliance co
 
 **Acceptance criteria**
 
-- [ ] `.txt` upload with invalid UTF-8 → 400; valid `.txt` → `ready` with chunks
+- [x] `.txt` upload with invalid UTF-8 → 400; valid `.txt` → `ready` with chunks
 - [x] B05 checks: stub returning fewer vectors than chunks → version `failed`, no chunks; a document with more chunks than the batch size → several `embed_document` rows, each chunk its own vector
-- [ ] `pnpm seed && pnpm worker --once` → all new fixtures `ready`
-- [ ] `upload.test.ts`, `extract.test.ts`, `worker.test.ts` extended
+- [x] `pnpm seed && pnpm worker --once` → all new fixtures `ready`
+- [x] `upload.test.ts`, `extract.test.ts`, `worker.test.ts` extended
 
 **Dependencies**
 

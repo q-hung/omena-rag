@@ -50,7 +50,7 @@ function VersionDialog({ app, doc, onClose }) {
 
   const submit = async () => {
     if (!file) {
-      return setError('Choose a PDF or Markdown file.');
+      return setError('Choose a PDF, Markdown or text file.');
     }
     if (file.size > LIMIT) {
       return setError('Files must be 3 MB or smaller');
@@ -83,9 +83,9 @@ function VersionDialog({ app, doc, onClose }) {
           <FileText size={20} />
           <span className="flex flex-1 flex-col gap-0.5">
             <span className="text-sm font-semibold">{file ? file.name : 'Choose a file'}</span>
-            <span className="text-xs text-secondary">PDF or Markdown · 3 MB or smaller</span>
+            <span className="text-xs text-secondary">PDF, Markdown or text · 3 MB or smaller</span>
           </span>
-          <input type="file" accept=".pdf,.md,.markdown,application/pdf,text/markdown,text/plain" className="sr-only" onChange={pick} />
+          <input type="file" accept=".pdf,.md,.markdown,.txt,application/pdf,text/markdown,text/plain" className="sr-only" onChange={pick} />
         </label>
         {!doc && (
           <>

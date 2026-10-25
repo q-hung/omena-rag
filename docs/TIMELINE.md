@@ -14,7 +14,7 @@ The only place for status. One row per phase, in build order. A phase file owns 
 | [P14](phases/P14-walking-skeleton-one-question-end-to-end.md) | RFP walking skeleton (TASK-02–05) | done (TASK-02–05) | — |
 | [P15](phases/P15-multi-question-rfp-processing.md) | RFP extraction + worker (TASK-06–07) | done (TASK-06–07) | — |
 | [P16](phases/P16-review-and-feedback.md) | RFP review + feedback (TASK-08–09) | done (TASK-08–09) | — |
-| [P17](phases/P17-knowledge-quality-reliability-observability.md) | `.txt`, B05, processing view, hybrid (TASK-10–12) | not started | — |
+| [P17](phases/P17-knowledge-quality-reliability-observability.md) | `.txt`, B05, processing view, hybrid (TASK-10–12) | TASK-10 done; TASK-11–12 not started | — |
 | [P18](phases/P18-evaluation-and-demo-readiness.md) | RFP eval, export, demo (TASK-13–16) | not started | — |
 | [P19](phases/P19-rag-observability.md) | RAG tracing, logging, health (TASK-17–21) | proposed, not approved | — |
 

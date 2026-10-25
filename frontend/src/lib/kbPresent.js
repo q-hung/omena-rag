@@ -4,7 +4,7 @@ function presentVersion(v) {
   return {
     id: v.id,
     v: v.versionNumber,
-    format: v.mimeType?.includes('pdf') ? 'pdf' : 'md',
+    format: v.mimeType?.includes('pdf') ? 'pdf' : v.mimeType === 'text/plain' ? 'txt' : 'md',
     pages: v.pageCount,
     eff: v.effectiveAt,
     up: v.uploadedAt ? fmtDateTime(v.uploadedAt) : '',

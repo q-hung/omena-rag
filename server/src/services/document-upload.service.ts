@@ -21,22 +21,23 @@ export function inspectFile(filename: string, bytes: Buffer): { mimeType: string
     }
     return { mimeType: 'application/pdf' };
   }
-  if (ext === '.md' || ext === '.markdown') {
+  if (ext === '.md' || ext === '.markdown' || ext === '.txt') {
+    const label = ext === '.txt' ? 'Text files' : 'Markdown';
     let text: string;
     try {
       text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
     } catch {
-      throw badRequest('INVALID_FILE', 'Markdown must be valid UTF-8.');
+      throw badRequest('INVALID_FILE', `${label} must be valid UTF-8.`);
     }
     if (text.includes('\0')) {
-      throw badRequest('INVALID_FILE', 'Markdown cannot contain NUL bytes.');
+      throw badRequest('INVALID_FILE', `${label} cannot contain NUL bytes.`);
     }
     if (text.length > MD_CHAR_LIMIT) {
-      throw badRequest('INVALID_FILE', `Markdown cannot exceed ${MD_CHAR_LIMIT.toLocaleString()} characters.`);
+      throw badRequest('INVALID_FILE', `${label} cannot exceed ${MD_CHAR_LIMIT.toLocaleString()} characters.`);
     }
-    return { mimeType: 'text/markdown' };
+    return { mimeType: ext === '.txt' ? 'text/plain' : 'text/markdown' };
   }
-  throw badRequest('INVALID_FILE', 'Only PDF and Markdown files are accepted.');
+  throw badRequest('INVALID_FILE', 'Only PDF, Markdown and text files are accepted.');
 }
 
 export function parseEffectiveDate(value: string | undefined): string {
