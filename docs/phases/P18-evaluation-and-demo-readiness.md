@@ -1,6 +1,6 @@
 # P18 · Evaluation and demo readiness (V3 M6)
 
-Status: TASK-13 code done, live baseline run open; TASK-14–16 not started
+Status: TASK-13 done; TASK-14–16 not started
 Depends on: P16, P17
 Requirements: REQ_V3 §12, §14
 Recheck when changed (downstream): —
@@ -11,7 +11,7 @@ _none_
 Tasks: TASK-13…16
 
 
-### TASK-13 (code done, live run open) — RFP golden set, `pnpm eval:rfp` and feedback report
+### [x] TASK-13 — RFP golden set, `pnpm eval:rfp` and feedback report
 
 **Goal**
 
@@ -32,12 +32,36 @@ Without numbers, prompt and retrieval changes are guesses. Feedback is only usef
 
 - [x] `rfp-score.ts` unit tests (stub data): hit/miss, confusion matrix, forbidden-pattern match
 - [x] `pnpm eval:rfp` refuses `LLM_PROVIDER=stub`, prints the estimate first
-- [ ] `LLM_PROVIDER=gemini pnpm eval:rfp` report pasted here; SC3-1, SC3-2, SC3-3 met (or the gap recorded with a follow-up)
+- [x] `LLM_PROVIDER=gemini pnpm eval:rfp` report pasted here; SC3-1, SC3-2, SC3-3 met (or the gap recorded with a follow-up)
 - [x] `pnpm rfp:feedback` prints counts per verdict and accepted-after-edit (tested in `rfp-eval.test.ts` with real reviews; run it against your own DB to read the manual reviews)
 
 **Result (code):** `server/eval/rfp-golden.json` (R01–R13: 5 HIGH, 3 PARTIAL, 5 INSUFFICIENT incl. one injection; AES-256, SOC 2, RPO/RTO exact tokens), `eval/rfp-score.ts` (pure), `eval/rfp-run.ts`, `services/rfp-feedback.service.ts` + `scripts/rfp-feedback.ts`; helpers in `eval/run.ts` are now exported and reused; `liveEvalGuard` takes the command name. The run reads answers, sources and cost/p95 through `getRfp` and `getRfpProcessing` (TASK-11). Tests: `server/test/rfp-eval.test.ts`. Checked end to end with the stub provider (runner completes, fails targets as expected).
 
-**Live baseline (open):** `LLM_PROVIDER=gemini pnpm eval:rfp`, paste the report here, and record any SC3-1..3 gap with a follow-up. TASK-12 (hybrid) is decided on that report.
+**Live baseline (29 Oct 2026, `gemini-3.1-flash-lite`, `RETRIEVAL_MODE=vector`, `RETRIEVAL_MIN_SCORE=0.5`, D=2026-10-02):** SC3-1, SC3-2 and SC3-3 met. Estimate $0.0666, actual $0.0110.
+
+```
+Report
+  Retrieval hit rate:     100.0% (8/8)   (SC3-1 >= 80%)
+  Status accuracy:        100.0% (13/13)   (SC3-2 >= 70%)
+  INSUFFICIENT as HIGH:   0   (SC3-2 must be 0)
+  Forbidden-pattern hits: 0   (SC3-3 must be 0)
+  Server downgrades:      0
+  Removed citations:      0
+  Failures:               0
+  Cost:                   $0.0110   (28 provider calls, 2 failed)
+  p95 call latency:       15.51 s
+
+Confusion (rows expected, columns got)    HIGH  PARTIAL  INSUFFICIENT  FAILED
+  HIGH_EVIDENCE                             5      0         0           0
+  PARTIAL_EVIDENCE                          0      3         0           0
+  INSUFFICIENT_EVIDENCE                     0      0         5           0
+```
+
+Per case: R01–R13 all got the expected status; R01–R08 hit their expected document; the injection case (R13) and the other four unanswerable cases returned the fixed insufficient text.
+
+Notes for the follow-ups:
+- 2 of 28 provider calls failed and were retried; no question failed. The 15.5 s p95 is per call and is inflated by those retries and backoff. It is not the SC3-5 measure (20 questions within 5 minutes).
+- 100% on a 13-case set is a floor check, not proof. Hybrid (TASK-12) has no exact-token miss to fix here: the AES-256, SOC 2 and RPO/RTO cases all hit. Keep the default `vector` unless a larger set shows misses.
 
 **Dependencies**
 
