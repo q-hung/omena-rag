@@ -1,6 +1,6 @@
 # P17 · Knowledge quality, reliability, observability (V3 M5)
 
-Status: not started
+Status: TASK-10, TASK-11 done; TASK-12 optional, not started
 Depends on: P13 (TASK-10 any time); P15 for TASK-11
 Requirements: REQ_V3 §10; V3-D2, D3, D8
 Recheck when changed (downstream): P18
@@ -45,7 +45,7 @@ M
 
 ---
 
-### TASK-11 — Per-RFP processing view (observability)
+### [x] TASK-11 — Per-RFP processing view (observability)
 
 **Goal**
 
@@ -63,9 +63,9 @@ When an answer is bad or missing, the first question is "what happened in the pi
 
 **Acceptance criteria**
 
-- [ ] After a 3-question run with one stub failure, the endpoint reports per-question attempts, error code, retrieved/cited counts and one row per provider call with latency
-- [ ] Captured worker logs contain the ids and counts but none of the question strings (SEC-11 style test)
-- [ ] `server/test/rfp-processing.test.ts`
+- [x] After a 3-question run with one stub failure, the endpoint reports per-question attempts, error code, retrieved/cited counts and one row per provider call with latency
+- [x] Captured worker logs contain the ids and counts but none of the question strings (SEC-11 style test)
+- [x] `server/test/rfp-processing.test.ts`
 
 **Dependencies**
 

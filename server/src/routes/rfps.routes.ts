@@ -4,6 +4,7 @@ import type { Config } from '../config/config.ts';
 import { regenerateQuestion, type RfpAnswerDeps } from '../services/rfp-answer.service.ts';
 import { badRequest } from '../errors.ts';
 import { editRfpAnswer, reviewRfpAnswer } from '../services/rfp-review.service.ts';
+import { getRfpProcessing } from '../services/rfp-processing.service.ts';
 import { queueQuestions } from '../services/rfp-queue.service.ts';
 import { confirmRfp, createRfp, createRfpFromSource, getRfp, listRfps, reextract, replaceQuestions } from '../services/rfp.service.ts';
 
@@ -101,6 +102,10 @@ export function registerRfps(app: App, config: Config, deps?: RfpAnswerDeps): vo
 
   app.get('/api/rfps/:id', { schema: { params: idParam } }, async (request) => {
     return getRfp(request.params.id, request.employeeId!);
+  });
+
+  app.get('/api/rfps/:id/processing', { schema: { params: idParam } }, async (request) => {
+    return getRfpProcessing(request.params.id);
   });
 
   app.patch('/api/rfp-answers/:id', { schema: { params: idParam, body: editBody } }, async (request) => {

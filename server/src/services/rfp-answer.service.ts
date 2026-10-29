@@ -72,7 +72,12 @@ export type RfpAnswerDeps = {
   retrieve?: typeof retrieve;
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
+  /** OBS-02 sink for the worker's per-question line; defaults to JSON on stdout. */
+  workerLog?: (line: Record<string, unknown>) => void;
 };
+
+/** What the worker logs about a finished question (OBS-02). */
+export type AnswerOutcome = { retrievedCount: number; evidenceStatus: EvidenceStatus };
 
 const PURPOSE: CallPurpose = 'app';
 
@@ -164,7 +169,7 @@ export async function answerQuestion(
   questionId: number,
   token: string,
   deps: RfpAnswerDeps & { config: Config; employeeId: number },
-): Promise<void> {
+): Promise<AnswerOutcome> {
   const cfg = deps.config;
   const now = deps.now ?? Date.now;
   const deadline = now() + REQUEST_DEADLINE_MS;
@@ -220,7 +225,7 @@ export async function answerQuestion(
       passages: [],
       cited: new Map(),
     });
-    return;
+    return { retrievedCount: 0, evidenceStatus: ruled.evidenceStatus };
   }
 
   const built = buildRfpPrompt({ question: question.text, section: question.section, passages });
@@ -259,6 +264,7 @@ export async function answerQuestion(
     passages,
     cited: insufficient ? new Map() : new Map(normalised.sources.map((s) => [s.chunkId, s.citationNumber])),
   });
+  return { retrievedCount: passages.length, evidenceStatus: ruled.evidenceStatus };
 }
 
 async function paidRfpGenerate(

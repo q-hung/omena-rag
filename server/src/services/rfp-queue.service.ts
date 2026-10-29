@@ -45,14 +45,20 @@ export async function claimQuestion() {
         for update skip locked
         limit 1
       )
-      returning id, generation_token, rfp_id
+      returning id, generation_token, rfp_id, attempts
     `),
   );
   if (!row) {
     return null;
   }
   const [rfp] = rowsOf(await db().execute(sql`select created_by from rfps where id = ${Number(row.rfp_id)}`));
-  return { id: Number(row.id), token: String(row.generation_token), employeeId: Number(rfp!.created_by) };
+  return {
+    id: Number(row.id),
+    token: String(row.generation_token),
+    employeeId: Number(rfp!.created_by),
+    rfpId: Number(row.rfp_id),
+    attempt: Number(row.attempts),
+  };
 }
 
 /** §7.1 step 6: a stuck `processing` question is re-queued, or failed after MAX_ATTEMPTS. The token is cleared so the old holder can't save. */
@@ -71,13 +77,30 @@ export async function failStaleQuestions(): Promise<number> {
   return rows.length;
 }
 
-/** Runs one claimed question. Returns true when the daily budget stopped it (PROC-03). */
+/** Runs one claimed question and logs one allow-listed line (OBS-02, SEC-11). Returns true when the daily budget stopped it (PROC-03). */
 export async function processQuestion(
-  claimed: { id: number; token: string; employeeId: number },
+  claimed: { id: number; token: string; employeeId: number; rfpId?: number; attempt?: number },
   deps: RfpAnswerDeps = {},
 ): Promise<boolean> {
+  const log = deps.workerLog ?? ((line) => console.log(JSON.stringify(line)));
+  const started = Date.now();
+  const line = (status: string, extra: Record<string, unknown>) =>
+    log({
+      msg: 'rfp question processed',
+      rfpId: claimed.rfpId ?? null,
+      questionId: claimed.id,
+      status,
+      attempt: claimed.attempt ?? null,
+      latencyMs: Date.now() - started,
+      ...extra,
+    });
   try {
-    await answerQuestion(claimed.id, claimed.token, { ...deps, config: loadConfig(), employeeId: claimed.employeeId });
+    const outcome = await answerQuestion(claimed.id, claimed.token, {
+      ...deps,
+      config: loadConfig(),
+      employeeId: claimed.employeeId,
+    });
+    line('done', { ...outcome, errorCode: null });
     return false;
   } catch (error) {
     if (error instanceof AppError && error.code === 'LOCK_TAKEN') {
@@ -87,6 +110,8 @@ export async function processQuestion(
       console.error('rfp question failed unexpectedly', claimed.id, (error as Error)?.message);
     }
     await failQuestion(claimed.id, claimed.token, error);
+    const errorCode = error instanceof ProviderError || error instanceof AppError ? error.code : 'ERROR';
+    line('failed', { retrievedCount: null, evidenceStatus: null, errorCode });
     return error instanceof AppError && error.code === 'budget_reached';
   }
 }
