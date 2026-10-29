@@ -10,6 +10,8 @@
     "seed": "node scripts/seed.ts",
     "worker": "node src/worker.ts",
     "eval": "node eval/run.ts",
+    "eval:rfp": "node eval/rfp-run.ts",
+    "rfp:feedback": "node scripts/rfp-feedback.ts",
     "smoke-embed": "node scripts/smoke-embed.ts"
   },
   "devDependencies": {

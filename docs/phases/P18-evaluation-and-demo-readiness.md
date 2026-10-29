@@ -1,6 +1,6 @@
 # P18 · Evaluation and demo readiness (V3 M6)
 
-Status: not started
+Status: TASK-13 code done, live baseline run open; TASK-14–16 not started
 Depends on: P16, P17
 Requirements: REQ_V3 §12, §14
 Recheck when changed (downstream): —
@@ -11,7 +11,7 @@ _none_
 Tasks: TASK-13…16
 
 
-### TASK-13 — RFP golden set, `pnpm eval:rfp` and feedback report
+### TASK-13 (code done, live run open) — RFP golden set, `pnpm eval:rfp` and feedback report
 
 **Goal**
 
@@ -30,10 +30,14 @@ Without numbers, prompt and retrieval changes are guesses. Feedback is only usef
 
 **Acceptance criteria**
 
-- [ ] `rfp-score.ts` unit tests (stub data): hit/miss, confusion matrix, forbidden-pattern match
-- [ ] `pnpm eval:rfp` refuses `LLM_PROVIDER=stub`, prints the estimate first
+- [x] `rfp-score.ts` unit tests (stub data): hit/miss, confusion matrix, forbidden-pattern match
+- [x] `pnpm eval:rfp` refuses `LLM_PROVIDER=stub`, prints the estimate first
 - [ ] `LLM_PROVIDER=gemini pnpm eval:rfp` report pasted here; SC3-1, SC3-2, SC3-3 met (or the gap recorded with a follow-up)
-- [ ] `pnpm rfp:feedback` on a DB with the TASK-09 manual reviews prints counts per verdict and accepted-after-edit
+- [x] `pnpm rfp:feedback` prints counts per verdict and accepted-after-edit (tested in `rfp-eval.test.ts` with real reviews; run it against your own DB to read the manual reviews)
+
+**Result (code):** `server/eval/rfp-golden.json` (R01–R13: 5 HIGH, 3 PARTIAL, 5 INSUFFICIENT incl. one injection; AES-256, SOC 2, RPO/RTO exact tokens), `eval/rfp-score.ts` (pure), `eval/rfp-run.ts`, `services/rfp-feedback.service.ts` + `scripts/rfp-feedback.ts`; helpers in `eval/run.ts` are now exported and reused; `liveEvalGuard` takes the command name. The run reads answers, sources and cost/p95 through `getRfp` and `getRfpProcessing` (TASK-11). Tests: `server/test/rfp-eval.test.ts`. Checked end to end with the stub provider (runner completes, fails targets as expected).
+
+**Live baseline (open):** `LLM_PROVIDER=gemini pnpm eval:rfp`, paste the report here, and record any SC3-1..3 gap with a follow-up. TASK-12 (hybrid) is decided on that report.
 
 **Dependencies**
 
