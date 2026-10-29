@@ -51,6 +51,12 @@ export async function getRfpProcessing(rfpId: number) {
     `),
   );
 
+  const callsByQuestion = new Map<number, typeof calls>();
+  for (const c of calls) {
+    const key = Number(c.rfp_question_id);
+    callsByQuestion.set(key, [...(callsByQuestion.get(key) ?? []), c]);
+  }
+
   return {
     totals: {
       calls: Number(totals!.calls),
@@ -70,8 +76,7 @@ export async function getRfpProcessing(rfpId: number) {
       retrievalMode: q.retrieval_mode == null ? null : String(q.retrieval_mode),
       retrievedCount: Number(q.retrieved_count),
       citedCount: Number(q.cited_count),
-      calls: calls
-        .filter((c) => Number(c.rfp_question_id) === Number(q.id))
+      calls: (callsByQuestion.get(Number(q.id)) ?? [])
         .map((c) => ({
           id: Number(c.id),
           kind: String(c.kind),

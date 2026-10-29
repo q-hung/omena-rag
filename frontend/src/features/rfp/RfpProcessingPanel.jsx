@@ -6,11 +6,33 @@ export default function RfpProcessingPanel({ rfpId, refreshKey }) {
   const [open, setOpen] = useState(false);
   const [data, setData] = useState(null);
 
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setData(null);
+  }, [rfpId]);
+
   useEffect(() => {
     if (!open) {
       return;
     }
-    api(`/rfps/${rfpId}/processing`).then(setData).catch(() => setData(null));
+    // `live` drops a slow response that was overtaken by a newer poll or another RFP.
+    let live = true;
+    api(`/rfps/${rfpId}/processing`)
+      .then((d) => {
+        if (live) {
+          setData(d);
+          setFailed(false);
+        }
+      })
+      .catch(() => {
+        if (live) {
+          setFailed(true);
+        }
+      });
+    return () => {
+      live = false;
+    };
   }, [open, rfpId, refreshKey]);
 
   const t = data?.totals;
@@ -54,7 +76,8 @@ export default function RfpProcessingPanel({ rfpId, refreshKey }) {
               ))}
             </tbody>
           </table>
-          {!data && <p className="py-2 text-xs text-secondary">Loading…</p>}
+          {failed && <p className="py-2 text-xs text-negative">Could not load processing data.</p>}
+          {!data && !failed && <p className="py-2 text-xs text-secondary">Loading…</p>}
         </div>
       )}
     </section>

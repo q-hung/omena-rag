@@ -84,16 +84,22 @@ export async function processQuestion(
 ): Promise<boolean> {
   const log = deps.workerLog ?? ((line) => console.log(JSON.stringify(line)));
   const started = Date.now();
-  const line = (status: string, extra: Record<string, unknown>) =>
-    log({
-      msg: 'rfp question processed',
-      rfpId: claimed.rfpId ?? null,
-      questionId: claimed.id,
-      status,
-      attempt: claimed.attempt ?? null,
-      latencyMs: Date.now() - started,
-      ...extra,
-    });
+  // A failing log sink must never change question state, so it is contained here.
+  const line = (status: string, extra: Record<string, unknown>) => {
+    try {
+      log({
+        msg: 'rfp question processed',
+        rfpId: claimed.rfpId ?? null,
+        questionId: claimed.id,
+        status,
+        attempt: claimed.attempt ?? null,
+        latencyMs: Date.now() - started,
+        ...extra,
+      });
+    } catch (error) {
+      console.error('rfp worker log failed', claimed.id, (error as Error)?.message);
+    }
+  };
   try {
     const outcome = await answerQuestion(claimed.id, claimed.token, {
       ...deps,
