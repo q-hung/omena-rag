@@ -6,6 +6,7 @@ import {
   citesOf, EVIDENCE_LABEL, EVIDENCE_TIP, EVIDENCE_TONE, FILTER_LABEL, QUESTION_STATE_LABEL, QUESTION_STATE_TONE, REVIEW_FILTERS,
 } from '../../lib/rfp';
 import RfpDraftView from './RfpDraftView';
+import RfpProcessingPanel from './RfpProcessingPanel';
 import RfpReviewPanel from './RfpReviewPanel';
 import DraftText from '../workspace/DraftText';
 import EvidenceCard from '../workspace/EvidenceCard';
@@ -152,6 +153,7 @@ export default function RfpWorkspaceView({ app }) {
           )}
         </section>
       </div>
+      <RfpProcessingPanel rfpId={rfp.id} refreshKey={`${p.done}-${p.failed}-${p.queued}-${p.processing}`} />
     </>
   );
 }
