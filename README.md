@@ -40,7 +40,7 @@ Taken in stub mode, so the answers are scripted and the UI says **SIMULATED AI**
 
 ## Stack
 
-- **server/**: Node 26 locally (native TypeScript, strip-only); Docker image is Node 26. Fastify, Drizzle ORM, PostgreSQL 16 + pgvector, Zod, Luxon (UTC dates, server only), Vitest
+- **server/**: Node 26 everywhere: local, CI and Docker (native TypeScript, strip-only; pinned in `.nvmrc`). Fastify, Drizzle ORM, PostgreSQL 16 + pgvector, Zod, Luxon (UTC dates, server only), Vitest
 - **frontend/**: React 18, Vite, Tailwind 4, React Router (plain JS)
 - **LLM**: Google Gemini (`gemini-3.1-flash-lite`, `gemini-embedding-2`), or a deterministic stub
 - pnpm workspace; Docker Compose (`db`, `api`, `worker`)
@@ -63,7 +63,7 @@ Sign in as `ada@omena.example` or `rei@omena.example` /
 
 ## Local development
 
-Prerequisites: Node 26, pnpm, Docker.
+Prerequisites: Node 26 (see `.nvmrc`; `nvm use` or `fnm use`), pnpm, Docker.
 
 ```bash
 cp .env.example .env
