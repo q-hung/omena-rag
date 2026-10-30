@@ -1,7 +1,7 @@
 # Demo image: api and worker share this build. Frontend is baked in; Node runs the TS sources.
-FROM node:22-bookworm-slim AS build
+FROM node:26-bookworm-slim AS build
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@11.24.0 --activate
+RUN npm install -g pnpm@11.24.0
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY frontend/package.json frontend/
 COPY server/package.json server/
@@ -9,9 +9,9 @@ RUN pnpm install --frozen-lockfile
 COPY frontend frontend
 RUN pnpm --filter frontend build
 
-FROM node:22-bookworm-slim
+FROM node:26-bookworm-slim
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@11.24.0 --activate
+RUN npm install -g pnpm@11.24.0
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY frontend/package.json frontend/
 COPY server/package.json server/

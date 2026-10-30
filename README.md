@@ -40,7 +40,7 @@ Taken in stub mode, so the answers are scripted and the UI says **SIMULATED AI**
 
 ## Stack
 
-- **server/**: Node 26 locally (native TypeScript, strip-only); Docker image is Node 22. Fastify, Drizzle ORM, PostgreSQL 16 + pgvector, Zod, Luxon (UTC dates, server only), Vitest
+- **server/**: Node 26 locally (native TypeScript, strip-only); Docker image is Node 26. Fastify, Drizzle ORM, PostgreSQL 16 + pgvector, Zod, Luxon (UTC dates, server only), Vitest
 - **frontend/**: React 18, Vite, Tailwind 4, React Router (plain JS)
 - **LLM**: Google Gemini (`gemini-3.1-flash-lite`, `gemini-embedding-2`), or a deterministic stub
 - pnpm workspace; Docker Compose (`db`, `api`, `worker`)
