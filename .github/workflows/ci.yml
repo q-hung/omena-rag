@@ -44,10 +44,10 @@ jobs:
         with:
           version: 11.24.0
 
-      # Same major as the Docker image.
+      # Version comes from .nvmrc, shared with the Docker image.
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
