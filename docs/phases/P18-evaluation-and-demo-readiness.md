@@ -1,6 +1,6 @@
 # P18 · Evaluation and demo readiness (V3 M6)
 
-Status: TASK-13 done; TASK-14–16 not started
+Status: TASK-13, TASK-14 done; TASK-15–16 not started
 Depends on: P16, P17
 Requirements: REQ_V3 §12, §14
 Recheck when changed (downstream): —
