@@ -72,6 +72,9 @@ export default function RfpWorkspaceView({ app }) {
         {rfp.ownedByMe && (
           <Button size="sm" disabled={p.pending + p.failed === 0} onClick={() => r.generateAll(rfp.id)}>Generate all</Button>
         )}
+        <Button size="sm" variant="secondary" title="Accepted answers only; the rest export as Not answered"
+          onClick={() => { window.location.href = `/api/rfps/${rfp.id}/export?format=md`; }}>Export .md</Button>
+        <Button size="sm" variant="secondary" onClick={() => { window.location.href = `/api/rfps/${rfp.id}/export?format=csv`; }}>Export .csv</Button>
         <Button size="sm" variant="secondary" onClick={() => navigate('/rfps')}>All RFPs</Button>
       </div>
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(240px,0.8fr)_minmax(440px,1.7fr)_minmax(300px,1fr)]">

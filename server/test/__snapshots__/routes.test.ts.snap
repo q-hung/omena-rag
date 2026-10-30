@@ -27,6 +27,7 @@ exports[`route inventory > matches the committed printRoutes snapshot 1`] = `
 │       ├── /confirm (POST)
 │       ├── /generate (POST)
 │       ├── /extract (POST)
+│       ├── /export (GET, HEAD)
 │       └── /processing (GET, HEAD)
 ├── /api/rfp-answers/:id (PATCH)
 │   └── /reviews (POST)

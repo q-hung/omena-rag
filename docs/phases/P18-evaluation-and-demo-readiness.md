@@ -73,7 +73,7 @@ M
 
 ---
 
-### TASK-14 — Export accepted answers
+### [x] TASK-14 — Export accepted answers
 
 **Goal**
 
@@ -90,10 +90,12 @@ The output of RFP work is a document to paste into the issuer's form. Exporting 
 
 **Acceptance criteria**
 
-- [ ] Export contains accepted `final_text` without `[n]` markers, in question order; an unreviewed draft never appears
-- [ ] CSV with commas, quotes and newlines in answers round-trips through a standard parser in the test
-- [ ] Readable by any employee; unauthenticated → 401
-- [ ] `server/test/rfp-export.test.ts`
+- [x] Export contains accepted `final_text` without `[n]` markers, in question order; an unreviewed draft never appears
+- [x] CSV with commas, quotes and newlines in answers round-trips through a standard parser in the test
+- [x] Readable by any employee; unauthenticated → 401
+- [x] `server/test/rfp-export.test.ts`
+
+**Result:** `services/rfp-export.service.ts` (`exportRfp`), route in `rfps.routes.ts`, **Export .md** / **Export .csv** buttons in `RfpWorkspaceView`. A question is exported only when its latest answer's latest review is `accepted`; a later review or a regenerate makes it "Not answered". The sources line lists only the citations the final text still contains (`Title vN, heading, p. n`). CSV cells starting with `= + - @` get a leading apostrophe (spreadsheet formula injection). Filename is `rfp-<id>.md|csv`, never the title. Tests: `server/test/rfp-export.test.ts`; `csv-parse` added as a server devDependency for the round-trip test only.
 
 **Dependencies**
 
