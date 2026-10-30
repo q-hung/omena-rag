@@ -4,6 +4,7 @@ import type { Config } from '../config/config.ts';
 import { regenerateQuestion, type RfpAnswerDeps } from '../services/rfp-answer.service.ts';
 import { badRequest } from '../errors.ts';
 import { editRfpAnswer, reviewRfpAnswer } from '../services/rfp-review.service.ts';
+import { exportRfp } from '../services/rfp-export.service.ts';
 import { getRfpProcessing } from '../services/rfp-processing.service.ts';
 import { queueQuestions } from '../services/rfp-queue.service.ts';
 import { confirmRfp, createRfp, createRfpFromSource, getRfp, listRfps, reextract, replaceQuestions } from '../services/rfp.service.ts';
@@ -103,6 +104,19 @@ export function registerRfps(app: App, config: Config, deps?: RfpAnswerDeps): vo
   app.get('/api/rfps/:id', { schema: { params: idParam } }, async (request) => {
     return getRfp(request.params.id, request.employeeId!);
   });
+
+  app.get(
+    '/api/rfps/:id/export',
+    { schema: { params: idParam, querystring: z.object({ format: z.enum(['md', 'csv']).default('md') }) } },
+    async (request, reply) => {
+      const file = await exportRfp(request.params.id, request.query.format);
+      return reply
+        .header('Content-Type', file.mimeType)
+        .header('Content-Disposition', `attachment; filename="${file.filename}"`)
+        .header('X-Content-Type-Options', 'nosniff')
+        .send(file.body);
+    },
+  );
 
   app.get('/api/rfps/:id/processing', { schema: { params: idParam } }, async (request) => {
     return getRfpProcessing(request.params.id);
