@@ -1,6 +1,6 @@
 # P20 · Compiled TypeScript instead of Node strip-only mode
 
-Status: not started (proposed, scope not yet approved)
+Status: not started (approved 30 Oct 2026, prioritized ahead of P18 TASK-15/16 and P19)
 Depends on: P10 (layering), P11 (eval entrypoints). Independent of P13–P19; can run any time, but not in parallel with a phase that adds new entrypoint scripts.
 Requirements: none in REQ_V2/REQ_V3. Operational change.
 Recheck when changed (downstream): P19 (new files must follow the build layout)
