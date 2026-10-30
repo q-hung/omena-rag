@@ -176,9 +176,9 @@ export function estimateEvalCostUsd(
   return index + queries + gens + judges;
 }
 
-export function liveEvalGuard(provider: string): string | null {
+export function liveEvalGuard(provider: string, command = 'pnpm eval'): string | null {
   if (provider === 'stub') {
-    return 'pnpm eval refuses stub mode. Set LLM_PROVIDER=gemini.';
+    return `${command} refuses stub mode. Set LLM_PROVIDER=gemini.`;
   }
   return null;
 }

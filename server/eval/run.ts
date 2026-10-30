@@ -54,14 +54,14 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const KB_DIR = join(HERE, '../fixtures/kb');
 const PROMPT_CHARS = 24_000;
 
-function evalDatabaseUrl(appUrl: string): string {
+export function evalDatabaseUrl(appUrl: string): string {
   if (process.env.EVAL_DATABASE_URL) {
     return process.env.EVAL_DATABASE_URL;
   }
   return appUrl.replace(/\/[^/?#]+([?#].*)?$/, '/jarvis_eval$1');
 }
 
-function dbNameOf(url: string): string {
+export function dbNameOf(url: string): string {
   const name = url.replace(/^[a-z]+:\/\/[^/]+\//, '').replace(/[?#].*$/, '');
   if (!/^[a-z][a-z0-9_]*$/.test(name)) {
     throw new Error(`Invalid eval database name: ${name}`);
@@ -69,7 +69,7 @@ function dbNameOf(url: string): string {
   return name;
 }
 
-async function ensureEvalDatabase(fromUrl: string, evalUrl: string): Promise<void> {
+export async function ensureEvalDatabase(fromUrl: string, evalUrl: string): Promise<void> {
   const name = dbNameOf(evalUrl);
   const admin = new pg.Client({ connectionString: fromUrl });
   await admin.connect();
@@ -83,7 +83,7 @@ async function ensureEvalDatabase(fromUrl: string, evalUrl: string): Promise<voi
   }
 }
 
-async function kbBytes(): Promise<number> {
+export async function kbBytes(): Promise<number> {
   const files = await readdir(KB_DIR);
   let n = 0;
   for (const file of files) {
@@ -92,7 +92,7 @@ async function kbBytes(): Promise<number> {
   return n;
 }
 
-function pct(n: number, d: number): string {
+export function pct(n: number, d: number): string {
   if (!d) {
     return 'n/a';
   }
