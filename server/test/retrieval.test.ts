@@ -106,6 +106,17 @@ describe('retrieval', () => {
     expect(hits.some((p) => p.text.startsWith('hidden'))).toBe(false);
   });
 
+  it('breaks equal scores by chunk id, whatever the physical row order', async () => {
+    for (let i = 0; i < 10; i++) {
+      await addDoc(`tie-${i}`, axis(9));
+    }
+    // An update moves the row to the end of the heap; the result must not follow it.
+    await db().update(documentChunks).set({ text: 'active tie-0' }).where(eq(documentChunks.text, 'active tie-0'));
+
+    const hits = await retrieve(axis(9), { model: MODEL, minScore: 0.5 });
+    expect(hits.map((p) => p.title)).toEqual(Array.from({ length: 8 }, (_, i) => `tie-${i}`));
+  });
+
   it('treats zero rows as a valid result', async () => {
     expect(await retrieve(axis(7), { model: MODEL, minScore: 0.99 })).toEqual([]);
   });
