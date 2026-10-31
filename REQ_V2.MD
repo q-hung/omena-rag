@@ -1,4 +1,4 @@
-# Jarvis — Product Support Copilot · Requirements v2.1
+# Omena — Product Support Copilot · Requirements v2.1
 
 Draft v2.1 · 3 Oct 2026 · supersedes REQ v2 (2 Oct 2026).
 Visual reference: `frontend/`. Where it and this document disagree, this document wins. Phase status and tasks: `docs/TIMELINE.md`.
@@ -9,7 +9,7 @@ Requirement IDs (`AREA-NN`) are stable. Each requirement has acceptance criteria
 
 ## 1. Product goal and scope
 
-Omena is a fictional SaaS company. Its product, **SubPilot**, is a subscription-management platform. **Jarvis** is Omena's internal Product Support Copilot. An employee selects a fictional customer account, asks a support question, and gets an answer draft that combines:
+Omena is a fictional SaaS company. Its product, **SubPilot**, is a subscription-management platform. **Omena** is Omena's internal Product Support Copilot. An employee selects a fictional customer account, asks a support question, and gets an answer draft that combines:
 
 - **structured facts** about that account from PostgreSQL (plan, features, payments, webhooks), and
 - **unstructured knowledge** from the knowledge base (KB): Markdown and text-based PDF documents.
@@ -28,13 +28,13 @@ The employee inspects both kinds of evidence separately, edits the draft, copies
 - One company, one KB, no multi-tenancy. English only.
 - Every KB document may be quoted internally. There is no internal/external content split.
 - Desktop only (≥ 1280 px).
-- Account data is seeded and read-only at runtime. Nothing in Jarvis writes to account tables.
+- Account data is seeded and read-only at runtime. Nothing in Omena writes to account tables.
 
 **In scope (MVP):** employee login; account selection; question → answer with structured facts and document citations; four response outcomes; clarification; history; edit, copy, save reviewed answer; KB upload, versioning, archive, delete; cost controls; golden-set evaluation.
 
 **Out of scope (MVP):**
 - Customer logins, a customer portal, customer question submission, and anything sent to customers (email, chat, publication)
-- Roles other than `employee`; SSO for Jarvis itself
+- Roles other than `employee`; SSO for Omena itself
 - Free follow-up questions inside a conversation (only clarification replies; see §15 OPT-6)
 - Model-selected tool calling (§15 OPT-1)
 - Editing account data, or any write path to account tables
@@ -42,7 +42,7 @@ The employee inspects both kinds of evidence separately, edits the draft, copies
 - Scheduled activation of future-dated versions
 - Streaming, an evaluation UI, multilingual answers, notifications
 
-**Terminology.** *Account* = a fictional SubPilot customer business, stored as data. *Employee* = an Omena staff user of Jarvis. *Subscribers* = an account's own end customers. *Answer* = one generated response. *Reviewed answer* = an answer an employee saved after review.
+**Terminology.** *Account* = a fictional SubPilot customer business, stored as data. *Employee* = an Omena staff user of Omena. *Subscribers* = an account's own end customers. *Answer* = one generated response. *Reviewed answer* = an answer an employee saved after review.
 
 ---
 
@@ -56,7 +56,7 @@ The 3 Oct 2026 inspection (mock frontend, no server) is obsolete: the MVP is bui
 | `TASKS_V2.md` | Written against REQ v2 (portal, publication, C1–C20) | Regenerated from §17 (T00–T29). C-items still relevant are folded into this document (§18). |
 | `CLAUDE.md`, `AGENTS.md` | Said employees "approve publication to customers" | Updated to the internal-copilot flow (TASKS I7). |
 | `docs/DESIGN.md` | Described the portal architecture | Rewritten as the v2.1 system design. |
-| Clickable prototype (`TASKS_PROTOTYPE.md`, merged to `main`) | Every §12 screen on simulated data: `hooks/useJarvis.js`, `data/jarvis.js`, rules in `lib/model.js` | Production work reuses its components and ports its rules (§12.3). |
+| Clickable prototype (`TASKS_PROTOTYPE.md`, merged to `main`) | Every §12 screen on simulated data: `hooks/useOmena.js`, `data/omena.js`, rules in `lib/model.js` | Production work reuses its components and ports its rules (§12.3). |
 | ORM / validation | REQ v2, TASKS and old notes all name **Drizzle**. No Knex reference exists in the repo. Old notes name **zod**; REQ v2 relied on Fastify JSON schema | See DEC-1 and DEC-2 (§14). |
 
 ---
@@ -84,11 +84,11 @@ Authentication details are in SEC-01–SEC-04.
 
 1. Log in.
 2. Select an account (the account is fixed for the conversation).
-3. Enter a support question. Jarvis generates an answer synchronously.
+3. Enter a support question. Omena generates an answer synchronously.
 4. Read the answer; inspect **Account facts** and **Document evidence** in separate panels.
 5. Depending on the outcome:
    - `answer` / `insufficient_evidence`: edit, copy, or save as a reviewed answer;
-   - `clarification_required`: reply to the clarification; Jarvis generates again with the same account and conversation;
+   - `clarification_required`: reply to the clarification; Omena generates again with the same account and conversation;
    - `out_of_scope`: start a new question.
 6. Regenerate at any time before saving.
 
@@ -612,7 +612,7 @@ Expected spend (Oct 2026 list prices, Flash-Lite tier): ≈ $0.003–0.007 per g
 ## 12. UI
 
 ### 12.1 Navigation
-Sidebar: **Ask** (account selector + workspace), **History**, **Knowledge base**. Header product name: **Jarvis**. Signed-in employee at the bottom.
+Sidebar: **Ask** (account selector + workspace), **History**, **Knowledge base**. Header product name: **Omena**. Signed-in employee at the bottom.
 
 ### 12.2 Ask workspace (three panes)
 
@@ -636,7 +636,7 @@ The prototype already made these moves (the old `InboxView`, `QuestionPanel`, `D
 | `features/workspace/EvidencePanel.jsx`, `WorkspaceView.jsx` | Kept, wired to the API |
 | `features/kb/*`, `features/login/LoginView.jsx` | Kept, wired to the API and real login |
 | `components/ui/*`, `Sidebar`, `DemoBanner` | Kept; `DemoBanner` shows **SIMULATED AI** only in stub mode |
-| `hooks/useJarvis.js`, `data/jarvis.js` | Deleted once the API is wired (T26). Account data and scripts move to `server/fixtures/` |
+| `hooks/useOmena.js`, `data/omena.js` | Deleted once the API is wired (T26). Account data and scripts move to `server/fixtures/` |
 | `lib/model.js` | Rules move to the server (`rag/`, `context/`); only display helpers (labels, tones) stay |
 
 - **UI-01 (Must)** Every element in §12.2 exists and is driven by the API. *AC:* scenario walkthroughs S1–S6 (§13.1) succeed in the browser with the stub provider.
@@ -691,7 +691,7 @@ E16–E20 use short, token-heavy questions where vector search is weakest. They 
 - **EVAL-01 (Must)** `pnpm eval` seeds an eval DB with D = 2026-10-02, indexes with Gemini, applies v3 before E13, and prints the report. It refuses to run with `LLM_PROVIDER=stub` and prints the estimated cost first; it refuses if the remaining daily budget is below the estimate.
   *AC:* SC-1, SC-2, SC-4 met; results pasted into the relevant task.
 
-### 13.3 Automated tests (stub provider, Vitest, `jarvis_test` DB)
+### 13.3 Automated tests (stub provider, Vitest, `omena_test` DB)
 
 - **Auth:** wrong password 401, 6th login 429, expired session 401, no raw token in `sessions`, foreign Origin 403; AUTH-02 ownership (403 `NOT_OWNER` on reply, regenerate, edit, save); WF-04 Ask list contains only my conversations.
 - **Context:** CTX-02–CTX-05; PRM-01; SIG-01 thresholds; ANS-09 topic derivation.
@@ -742,7 +742,7 @@ Tests for JDG-02–JDG-05 use a stubbed judge in Vitest and never call Gemini.
 | Repo | pnpm workspace: `frontend/` (existing, JS) and `server/` (TypeScript). Remove `frontend/package-lock.json`; update `.claude/launch.json` to pnpm |
 | Frontend | React, Vite, Tailwind, React Router (`/login`, `/ask`, `/history`, `/kb/*`). `fetch` + hooks, no state library. Poll indexing status every 3 s while a version is queued/processing. VSup design tokens copied into the Tailwind theme |
 | Backend | Node.js LTS + TypeScript, Fastify, Drizzle (DEC-1), zod (DEC-2), `pgvector` npm package |
-| Database | Postgres 16+ with pgvector ≥ 0.8 (`pgvector/pgvector:pg16`); `jarvis` and `jarvis_test` databases |
+| Database | Postgres 16+ with pgvector ≥ 0.8 (`pgvector/pgvector:pg16`); `omena` and `omena_test` databases |
 | Worker | Same codebase, separate entrypoint (`server/src/worker.ts`) and container |
 | PDF | `pdfjs-dist` |
 | LLM | `@google/genai`, server side only. `LLM_PROVIDER=stub|gemini`. **Stub mode** returns deterministic embeddings and the scripted results in `server/fixtures/scripts.ts` (moved from the prototype); `GET /api/me` reports `simulated: true`, the UI shows the **SIMULATED AI** banner and suggested questions, and `pnpm eval` refuses to run. Unscripted questions get a labelled "Simulated: no scripted answer" `insufficient_evidence` result. Tests always use stub mode |
@@ -773,7 +773,7 @@ Tests for JDG-02–JDG-05 use a stubbed judge in Vitest and never call Gemini.
 | DEC-5 | Embedding text formats (`title: … \| text: …`, `task: search result \| query: …`) for `gemini-embedding-2` | **Verified 3 Oct 2026** against `@google/genai` 2.26.0 and the Gemini embeddings / thinking docs. Embedding model stays `gemini-embedding-2`. `outputDimensionality: 768` is a recommended truncation of the native 3072-d vector (auto-normalised). Embedding-2 does **not** take `taskType`; put the task in the text: documents `title: {title} \| text: {content}` (`title: none` if missing), queries `task: search result \| query: {content}`. Lowest thinking is `thinkingConfig.thinkingBudget: 0`. Formats stay behind `formatDocumentForEmbedding` / `formatQueryForEmbedding`. **T27 (4 Oct 2026):** generation model calibrated to `gemini-3.1-flash-lite` — cheapest Flash-Lite this API key can call. `gemini-2.5-flash-lite` returns 404 for new users; `gemini-3.5-flash-lite` rejects `thinkingBudget: 0`. Prices $0.25 / $1.50 per million tokens. |
 | DEC-6 | Saveable outcomes | `answer` and `insufficient_evidence` |
 | DEC-7 | Future-dated versions | Rejected |
-| DEC-8 | Name "Jarvis" | Internal tool only, which is now the whole product |
+| DEC-8 | Name "Omena" | Internal tool only, which is now the whole product |
 
 ---
 

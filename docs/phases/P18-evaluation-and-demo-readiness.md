@@ -24,7 +24,7 @@ Without numbers, prompt and retrieval changes are guesses. Feedback is only usef
 **Implementation**
 
 - `server/eval/rfp-golden.json` per RFP-EVAL-01 (12–15 cases against TASK-10 fixtures + existing KB).
-- `server/eval/rfp-run.ts`: reuse `liveEvalGuard`, `budgetGuard`, seeding into `jarvis_eval` from `run.ts`; create one RFP via the service, `runWorker({ once: true })`, score: hit rate (any expected document in `rfp_answer_sources`), status accuracy + confusion matrix, server downgrades (`model_evidence_status ≠ evidence_status`), removed citations, forbidden patterns, failures, cost, p95 (from `provider_calls`). Pure scoring in `server/eval/rfp-score.ts`.
+- `server/eval/rfp-run.ts`: reuse `liveEvalGuard`, `budgetGuard`, seeding into `omena_eval` from `run.ts`; create one RFP via the service, `runWorker({ once: true })`, score: hit rate (any expected document in `rfp_answer_sources`), status accuracy + confusion matrix, server downgrades (`model_evidence_status ≠ evidence_status`), removed citations, forbidden patterns, failures, cost, p95 (from `provider_calls`). Pure scoring in `server/eval/rfp-score.ts`.
 - `server/scripts/rfp-feedback.ts` (`pnpm rfp:feedback`) per RFP-EVAL-03 — SQL only.
 - Root scripts `eval:rfp`, `rfp:feedback`.
 

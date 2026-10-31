@@ -19,13 +19,13 @@ jobs:
       db:
         image: pgvector/pgvector:pg16
         env:
-          POSTGRES_USER: jarvis
-          POSTGRES_PASSWORD: jarvis
-          POSTGRES_DB: jarvis_test
+          POSTGRES_USER: omena
+          POSTGRES_PASSWORD: omena
+          POSTGRES_DB: omena_test
         ports:
           - 5433:5432
         options: >-
-          --health-cmd "pg_isready -U jarvis -d jarvis_test"
+          --health-cmd "pg_isready -U omena -d omena_test"
           --health-interval 2s
           --health-timeout 3s
           --health-retries 30
@@ -33,7 +33,7 @@ jobs:
     env:
       # Stub provider only: CI never calls Gemini, so no API key is needed (§13.3).
       LLM_PROVIDER: stub
-      TEST_DATABASE_URL: postgres://jarvis:jarvis@localhost:5433/jarvis_test
+      TEST_DATABASE_URL: postgres://omena:omena@localhost:5433/omena_test
 
     steps:
       - uses: actions/checkout@v4

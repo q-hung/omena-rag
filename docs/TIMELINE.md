@@ -1,4 +1,4 @@
-# Jarvis timeline
+# Omena timeline
 
 The only place for status. One row per phase, in build order. A phase file owns its tasks and acceptance checks. Requirement text stays in `REQ_V2.MD` (Ask / History / KB) and `REQ_V3.MD` (RFP); code cites their `§n` and IDs, so don't renumber them. Open defects: `BUGS.md`.
 

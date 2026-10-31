@@ -4,8 +4,8 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { asBrowser, buildTestApp } from './helpers/app.ts';
 
-const dir = mkdtempSync(join(tmpdir(), 'jarvis-spa-'));
-writeFileSync(join(dir, 'index.html'), '<!doctype html><title>Jarvis</title>');
+const dir = mkdtempSync(join(tmpdir(), 'omena-spa-'));
+writeFileSync(join(dir, 'index.html'), '<!doctype html><title>Omena</title>');
 
 let app: Awaited<ReturnType<typeof buildTestApp>>;
 const prev = process.env.STATIC_DIR;
@@ -30,7 +30,7 @@ describe('SPA fallback', () => {
     const response = await app.inject({ method: 'GET', url: '/ask' });
     expect(response.statusCode).toBe(200);
     expect(response.headers['content-security-policy']).toMatch(/default-src 'self'/);
-    expect(response.body).toContain('Jarvis');
+    expect(response.body).toContain('Omena');
   });
 
   it('keeps /api 401 for anonymous callers', async () => {

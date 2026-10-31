@@ -4,7 +4,7 @@ export default function Sidebar({ items, user, onSignOut }) {
       <div className="flex items-center gap-3 px-2 pb-8">
         <span className="grid size-8 place-items-center rounded-lg bg-accent text-sm font-bold">J</span>
         <div className="flex flex-col">
-          <div className="text-base font-bold leading-tight">Jarvis</div>
+          <div className="text-base font-bold leading-tight">Omena</div>
           <div className="text-xs text-night-muted">Support Copilot</div>
         </div>
       </div>

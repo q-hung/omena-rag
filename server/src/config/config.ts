@@ -31,7 +31,7 @@ const schema = z
     APP_ORIGIN: z.string().url().default('http://localhost:8080'),
     SESSION_HOURS: z.coerce.number().positive().default(12),
 
-    SEED_EMPLOYEE_PASSWORD: z.string().min(1).default('jarvis-demo'),
+    SEED_EMPLOYEE_PASSWORD: z.string().min(1).default('omena-demo'),
 
     // SEC-11 exception: raw Gemini requests/responses written to files here. Local development only.
     LLM_DEBUG_DIR: z.string().min(1).optional(),

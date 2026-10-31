@@ -197,7 +197,7 @@ async function pendingClarification(tx: Tx, conversationId: number) {
     ? await tx.select().from(answers).where(eq(answers.turnId, lastTurn.id)).orderBy(desc(answers.id)).limit(1)
     : [];
   if (!lastTurn || latest?.outcome !== 'clarification_required') {
-    throw conflict('NOT_AWAITING_CLARIFICATION', 'Reply only when Jarvis has asked for clarification.');
+    throw conflict('NOT_AWAITING_CLARIFICATION', 'Reply only when Omena has asked for clarification.');
   }
   return { lastTurn, pending: latest };
 }

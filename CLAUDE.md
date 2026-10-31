@@ -2,7 +2,7 @@
 
 ## Project
 
-Jarvis is an internal Product Support Copilot for Omena, a fictional
+Omena is an internal Product Support Copilot for Omena, a fictional
 SaaS company. It answers employees' questions about the SubPilot
 product by combining account facts from PostgreSQL with passages
 from the knowledge base.

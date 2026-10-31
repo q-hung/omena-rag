@@ -2,7 +2,7 @@ export function multipart(
   fields: Record<string, string>,
   file?: { name: string; bytes: Buffer; type?: string },
 ) {
-  const boundary = '----JarvisTestBoundary';
+  const boundary = '----OmenaTestBoundary';
   const chunks: Buffer[] = [];
   const push = (value: string | Buffer) => chunks.push(typeof value === 'string' ? Buffer.from(value) : value);
   for (const [name, value] of Object.entries(fields)) {

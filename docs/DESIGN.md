@@ -1,4 +1,4 @@
-# Jarvis — System Design (v2.1)
+# Omena — System Design (v2.1)
 
 Status: draft · 3 Oct 2026 · implements `REQ_V2.MD` v2.1 (cited as §n and by
 requirement ID) and the spec issues I1–I7 (all approved; old task list: `git show c1c8a33:TASKS_V2.md`). If this file

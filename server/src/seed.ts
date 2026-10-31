@@ -129,7 +129,7 @@ export type SeedOptions = { date?: string; password?: string };
 export async function seed(db: Db, options: SeedOptions = {}): Promise<{ date: string }> {
   const date = options.date ?? utcToday();
   await resetDatabase(db);
-  const staff = await seedEmployees(db, options.password ?? process.env.SEED_EMPLOYEE_PASSWORD ?? 'jarvis-demo');
+  const staff = await seedEmployees(db, options.password ?? process.env.SEED_EMPLOYEE_PASSWORD ?? 'omena-demo');
   await seedAccountData(db, date);
   await seedKnowledgeBase(date, staff[0]!.id);
   return { date };

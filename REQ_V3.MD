@@ -1,4 +1,4 @@
-# Jarvis — RFP Workspace · Requirements v3.0
+# Omena — RFP Workspace · Requirements v3.0
 
 Draft v3.0 · 4 Oct 2026 · extends `REQ_V2.MD` v2.1. It does not replace it.
 REQ_V2 still governs the Ask / History / Knowledge base features. This document adds an **RFP workspace** on the same stack, the same knowledge base and the same LLM, budget and security plumbing.
@@ -47,7 +47,7 @@ These points in REQ_V2 / `CLAUDE.md` conflict with the V3 goal. **V3-D1–D8 app
 
 | # | Conflict | Where | Resolution |
 |---|---|---|---|
-| V3-D1 | `CLAUDE.md` defines Jarvis as a support copilot over account facts; V3 adds an RFP workflow with no account facts | `CLAUDE.md`, REQ_V2 §1 | Additive module. `CLAUDE.md` / `AGENTS.md` name REQ_V3 and TASKS_V3 as the sources for the RFP workspace. Ask stays as is |
+| V3-D1 | `CLAUDE.md` defines Omena as a support copilot over account facts; V3 adds an RFP workflow with no account facts | `CLAUDE.md`, REQ_V2 §1 | Additive module. `CLAUDE.md` / `AGENTS.md` name REQ_V3 and TASKS_V3 as the sources for the RFP workspace. Ask stays as is |
 | V3-D2 | REQ_V2 §1 excludes file types other than PDF and Markdown | REQ_V2 §1, IDX-01 | Add `.txt` (same strict UTF-8 / no NUL / ≤ 300,000 chars rules as Markdown; extracted as one heading-less section, then split by the existing chunker at paragraph boundaries) |
 | V3-D3 | KB categories are fixed by a DB `CHECK`; none fits company/compliance content | REQ_V2 KB-02 | Add `Company` and `Compliance` to the list |
 | V3-D4 | Generation is synchronous in REQ_V2 (§7.1). A 30-question RFP would take minutes | REQ_V2 §7.1 | RFP questions are processed by the **existing worker** (§7). A single-question regenerate stays synchronous and calls the same service |

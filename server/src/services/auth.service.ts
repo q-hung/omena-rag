@@ -7,7 +7,7 @@ import { employees, sessions } from '../db/schema.ts';
 import { tooManyRequests, unauthorized } from '../errors.ts';
 
 // AUTH-01, SEC-01, SEC-02.
-export const SESSION_COOKIE = 'jarvis_session';
+export const SESSION_COOKIE = 'omena_session';
 export const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
 
 // Verifying against a throwaway hash keeps an unknown email as slow as a wrong password.
