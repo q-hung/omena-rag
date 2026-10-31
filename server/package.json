@@ -4,7 +4,9 @@
   "type": "module",
   "engines": { "node": ">=26" },
   "scripts": {
-    "dev": "node --watch src/api.ts",
+    "dev": "pnpm build && pnpm run --parallel \"/^dev:/\"",
+    "dev:tsc": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "dev:api": "node --watch --enable-source-maps dist/src/api.js",
     "typecheck": "tsc --noEmit",
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "test": "vitest run",

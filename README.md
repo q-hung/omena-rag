@@ -40,7 +40,7 @@ Taken in stub mode, so the answers are scripted and the UI says **SIMULATED AI**
 
 ## Stack
 
-- **server/**: Node 26 everywhere: local, CI and Docker (native TypeScript, strip-only; pinned in `.nvmrc`). Fastify, Drizzle ORM, PostgreSQL 16 + pgvector, Zod, Luxon (UTC dates, server only), Vitest
+- **server/**: Node 26 everywhere: local, CI and Docker (compiled with `tsc`; pinned in `.nvmrc`). Fastify, Drizzle ORM, PostgreSQL 16 + pgvector, Zod, Luxon (UTC dates, server only), Vitest
 - **frontend/**: React 18, Vite, Tailwind 4, React Router (plain JS)
 - **LLM**: Google Gemini (`gemini-3.1-flash-lite`, `gemini-embedding-2`), or a deterministic stub
 - pnpm workspace; Docker Compose (`db`, `api`, `worker`)
@@ -77,7 +77,8 @@ pnpm dev
 ```
 
 `db` is Postgres on port 5433 (`jarvis` and `jarvis_test`). `pnpm worker --once`
-indexes the seed set. `pnpm dev` starts the API on :8080 and Vite on :5173.
+indexes the seed set. `pnpm dev` builds the server, then runs `tsc --watch` and the API (restarts on
+source edits) on :8080 beside Vite on :5173.
 
 Open **http://localhost:5173**. `.env` sets `APP_ORIGIN=http://localhost:5173`;
 other origins are rejected.
@@ -204,5 +205,5 @@ Notes:
 
 - Vitest does not typecheck. Run `pnpm build` before committing.
 - Server test files share one database and run serially.
-- Node runs `.ts` files directly in strip-only mode. That rules out enums,
-  constructor parameter properties and top-level `return` in scripts.
+- The server is compiled with `tsc`, so any TypeScript syntax works. Prod and
+  `pnpm dev` run the emitted `server/dist`.

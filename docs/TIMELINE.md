@@ -17,10 +17,10 @@ The only place for status. One row per phase, in build order. A phase file owns 
 | [P17](phases/P17-knowledge-quality-reliability-observability.md) | `.txt`, B05, processing view, hybrid (TASK-10–12) | TASK-10, TASK-11 done; TASK-12 (optional) not started | — |
 | [P18](phases/P18-evaluation-and-demo-readiness.md) | RFP eval, export, demo (TASK-13–16) | TASK-13, TASK-14 done; TASK-15–16 not started | — |
 | [P19](phases/P19-rag-observability.md) | RAG tracing, logging, health (TASK-17–21) | proposed, not approved | recheck (P20) |
-| [P20](phases/P20-typescript-build.md) | Compile TS, drop Node strip-only mode (TASK-22–23) | TASK-22 done; TASK-23 next | — |
+| [P20](phases/P20-typescript-build.md) | Compile TS, drop Node strip-only mode (TASK-22–23) | done | — |
 
 Context shared by P13–P18: [RFP-CONTEXT.md](phases/RFP-CONTEXT.md) (architecture, strategy, parallelism rules).
-**Next:** P20 TASK-23 (dev workflow, drop strip-only rules; no other entrypoint-adding branch in parallel). Then P18 TASK-15 (optional) or TASK-16 (TASK-13 baseline: all SC3 targets met, no exact-token misses, so P17 TASK-12 hybrid stays optional and the default stays `vector`; P16 done; milestone 2 browser check pending). P11 T39 only needs a live Gemini baseline run pasted into the task; it touches no V3 files.
+**Next:** P18 TASK-15 (optional) or TASK-16 (TASK-13 baseline: all SC3 targets met, no exact-token misses, so P17 TASK-12 hybrid stays optional and the default stays `vector`; P16 done; milestone 2 browser check pending). P11 T39 only needs a live Gemini baseline run pasted into the task; it touches no V3 files.
 
 ## Changing an earlier phase
 

@@ -1,6 +1,6 @@
 # P20 · Compiled TypeScript instead of Node strip-only mode
 
-Status: TASK-22 done, TASK-23 not started (approved 30 Oct 2026, prioritized ahead of P18 TASK-15/16 and P19)
+Status: TASK-22, TASK-23 done (approved 30 Oct 2026, prioritized ahead of P18 TASK-15/16 and P19)
 Depends on: P10 (layering), P11 (eval entrypoints). Independent of P13–P19; can run any time, but not in parallel with a phase that adds new entrypoint scripts.
 Requirements: none in REQ_V2/REQ_V3. Operational change.
 Recheck when changed (downstream): P19 (new files must follow the build layout)
@@ -62,10 +62,11 @@ One shared helper in `src/lib/` finds the server root (nearest `package.json` ab
   - [x] `pnpm test`, `pnpm lint`, `pnpm check:layers` green; no behavior change
 - **Result (31 Oct 2026):** dev workflow option A assumed (TASK-23 applies it). `tsconfig.json` stays the typecheck config (`pnpm typecheck`, includes tests); `tsconfig.build.json` emits `dist` without tests (build is about 1 s). More `import.meta` path users than the table listed (`eval/score.ts`, `judge.ts`, `rfp-score.ts`, `eval/run.ts`, `scripts/write-kb-pdfs.ts`); all now use `SERVER_ROOT`. The image copies only `drizzle`, `fixtures/kb` and `dist` (no `.ts`; `server/eval` is dockerignored). Checked: image has no `.ts`; api and worker run from `dist`; migrate, seed, worker and an Ask (login, then `answer_ready`) from `dist` on `jarvis_eval` with the stub; stack trace shows `config.ts:62`. `server/test/build.test.ts` emits to `node_modules/.cache` and runs the extract child from JS (fails if the child path regresses).
 
-### TASK-23 — Dev workflow, restrictions lifted, docs
+### [x] TASK-23 — Dev workflow, restrictions lifted, docs
 - **Goal:** one documented way to develop, and the strip-only rules gone.
 - **Implementation:** apply the dev option chosen above to `server` `dev` script and root `pnpm dev`. Remove the strip-only rules from HANDOFF and README ("native TypeScript, strip-only"). Do not rewrite existing code to use enums or parameter properties; only the ban is lifted. Revisit whether Node must stay at 26 (`.nvmrc`, `engines`, Dockerfile) once Node no longer parses TS; keep the single pin either way.
 - **Acceptance:**
-  - [ ] `pnpm dev` rebuilds and restarts the API on a source edit
-  - [ ] README and HANDOFF no longer mention strip-only; run commands are accurate
-  - [ ] A constructor parameter property compiles and runs from `dist` (temporary check, not committed)
+  - [x] `pnpm dev` rebuilds and restarts the API on a source edit
+  - [x] README and HANDOFF no longer mention strip-only; run commands are accurate
+  - [x] A constructor parameter property compiles and runs from `dist` (temporary check, not committed)
+- **Result (31 Oct 2026):** option A. `pnpm dev` (server) = `pnpm build && pnpm run --parallel "/^dev:/"` (`dev:tsc`, `dev:api`); no new dependency. Checked: a source edit rebuilt and restarted the API (log shows `Restarting 'dist/src/api.js'`, `/api/me` still 401). A throwaway enum and constructor parameter property compiled and ran from `dist` (6, 1), then removed. Node stays pinned at 26: it is aligned in `.nvmrc`, CI, Docker and `engines`, and lowering it would be churn for no gain. The worker is not watched.
