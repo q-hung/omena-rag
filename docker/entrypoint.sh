@@ -1,4 +1,4 @@
 #!/bin/sh
 set -e
-node server/src/db/migrate.ts
+node server/dist/src/db/migrate.js
 exec "$@"

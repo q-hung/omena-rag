@@ -1,9 +1,9 @@
 import { writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
+import { SERVER_ROOT } from '../src/lib/paths.ts';
 import { buildPdf } from '../src/ingest/extract/pdfBytes.ts';
 
-const dir = join(dirname(fileURLToPath(import.meta.url)), '../fixtures/kb');
+const dir = join(SERVER_ROOT, 'fixtures/kb');
 
 await writeFile(
   join(dir, 'sso-setup-guide.pdf'),

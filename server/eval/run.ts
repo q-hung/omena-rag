@@ -1,7 +1,7 @@
 import '../src/config/env.ts';
 import { readdir, readFile, stat } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
+import { SERVER_ROOT } from '../src/lib/paths.ts';
 import { desc, eq, sql } from 'drizzle-orm';
 import pg from 'pg';
 import { loadConfig } from '../src/config/config.ts';
@@ -50,8 +50,7 @@ import {
 const JUDGE_CHARS = 4_000;
 const CALIBRATION_CHUNK = 10;
 
-const HERE = dirname(fileURLToPath(import.meta.url));
-const KB_DIR = join(HERE, '../fixtures/kb');
+const KB_DIR = join(SERVER_ROOT, 'fixtures/kb');
 const PROMPT_CHARS = 24_000;
 
 export function evalDatabaseUrl(appUrl: string): string {

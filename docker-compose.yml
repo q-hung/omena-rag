@@ -44,7 +44,7 @@ services:
 
   worker:
     build: .
-    command: ['node', 'server/src/worker.ts']
+    command: ['node', '--enable-source-maps', 'server/dist/src/worker.js']
     environment:
       DATABASE_URL: postgres://jarvis:jarvis@db:5432/jarvis
       APP_ORIGIN: http://localhost:8080

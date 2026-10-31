@@ -1,11 +1,11 @@
 import { spawn } from 'node:child_process';
-import { join } from 'node:path';
+import { extname, join } from 'node:path';
 import type { ExtractResult } from './extract/run.ts';
 
 export type { ExtractResult } from './extract/run.ts';
 
 export const EXTRACT_TIMEOUT_MS = 60_000;
-const CHILD = join(import.meta.dirname, 'extract-child.ts');
+const CHILD = join(import.meta.dirname, `extract-child${extname(import.meta.filename)}`);
 
 export async function extract(
   bytes: Buffer,

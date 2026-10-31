@@ -39,6 +39,7 @@ Internal Product Support Copilot. Status: `docs/TIMELINE.md`. Requirements: `REQ
 Local (Vite on :5173):
 
 ```bash
+pnpm build        # server -> server/dist (db:migrate, seed, worker, eval* run dist; rebuild after server edits)
 pnpm db:migrate && pnpm seed && pnpm worker --once
 pnpm dev          # API :8080, UI http://localhost:5173
 pnpm worker       # leave running to index uploads
@@ -84,7 +85,7 @@ Live generation model: `gemini-3.1-flash-lite`. `RETRIEVAL_MIN_SCORE=0.5`.
 - S6 (replace Refund policy with v3) is a manual stub walkthrough; v3 is not seeded.
 - Smoke-embed and `pnpm eval` against Gemini are manual; CI never calls Gemini.
 - GEN-04 is tested with a shortened deadline (400 ms), not a 90 s hang.
-- Node 26 strip-only mode: no constructor parameter properties; no top-level `return` in `.ts` scripts. The Docker image uses Node 26 (`.nvmrc` is the single pin); the same TypeScript sources run there.
+- Node 26 strip-only mode: no constructor parameter properties; no top-level `return` in `.ts` scripts. The Docker image uses Node 26 (`.nvmrc` is the single pin); the image runs the compiled `server/dist` (P20 TASK-22: `tsc -p tsconfig.build.json`, source maps on, data files resolved via `SERVER_ROOT` in `src/lib/paths.ts`). `pnpm dev` still runs the sources until TASK-23.
 - Live E04 often answers both payments instead of `choose_record`; E09 often answers instead of `insufficient_evidence`. Golden-set targets still hold.
 - RFP intake (P15 TASK-06): `.txt` KB upload works (P17 TASK-10); RFP intake still takes only `.pdf`/`.md` files, paste covers text. A `.md` upload keeps its raw text (headings drive sections). An unindented continuation line must start lowercase, otherwise it is read as a new line. PDF blank-page warnings are not stored.
 - RFP worker (P15 TASK-07): one question at a time per worker, no parallelism inside a worker. After `budget_reached` a worker stops claiming questions until the next UTC day (restart or **Generate all** re-queues the failed one; the others stay `queued`). A stale `processing` question (> 2 min) is re-queued up to 3 attempts, then `failed`/`stale`. UI polls every 3 s while anything is queued/processing. Manual check (milestone 2): confirm `server/fixtures/rfp/sample-rfp-acme.md` (11 answerable questions, 2 with no evidence; `vendor-security-questionnaire.md` is the extraction fixture), Generate all, watch chips move without reload; not yet done in a browser.
