@@ -195,10 +195,12 @@ LLM_PROVIDER=gemini pnpm eval
 `pnpm build` compiles the server to `server/dist` (it also typechecks) and
 builds the frontend; `pnpm typecheck` checks without emitting. `db:migrate`,
 `seed`, `worker`, `eval*` and `rfp:feedback` run the compiled JS, so rebuild
-after editing server code. `pnpm check:layers` fails if a route imports `db/` or `drizzle-orm`
-(see [CLAUDE.md](CLAUDE.md)). `pnpm lint` (Biome) requires `{}` on every
-`if`/`else`/loop body. CI runs both. Pass a test file name to run one server test file, as in the last
-command.
+after editing server code.
+
+`pnpm check:layers` fails if a route imports `db/` or `drizzle-orm` (see
+[CLAUDE.md](CLAUDE.md)). `pnpm lint` (Biome) requires `{}` on every
+`if`/`else`/loop body. CI runs both. Pass a test file name to run one server
+test file, as in the last command.
 
 Notes:
 

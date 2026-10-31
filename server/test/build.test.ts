@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -8,7 +8,9 @@ const root = join(import.meta.dirname, '..');
 let outDir: string;
 
 beforeAll(() => {
-  outDir = mkdtempSync(join(root, 'node_modules/.cache/build-test-'));
+  const cache = join(root, 'node_modules/.cache');
+  mkdirSync(cache, { recursive: true });
+  outDir = mkdtempSync(join(cache, 'build-test-'));
   const tsc = spawnSync('pnpm', ['exec', 'tsc', '-p', 'tsconfig.build.json', '--outDir', outDir], { cwd: root, encoding: 'utf8' });
   expect(tsc.status, tsc.stdout + tsc.stderr).toBe(0);
 }, 60_000);
