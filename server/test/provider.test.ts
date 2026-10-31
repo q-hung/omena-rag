@@ -11,7 +11,7 @@ import { embedText, stubProvider } from '../src/llm/stub.ts';
 
 const deadline = () => Date.now() + 15_000;
 const cfg = loadConfig({
-  DATABASE_URL: 'postgres://jarvis:jarvis@localhost:5433/jarvis_test',
+  DATABASE_URL: 'postgres://omena:omena@localhost:5433/omena_test',
   LLM_PROVIDER: 'gemini',
   GEMINI_API_KEY: 'test-key',
 });

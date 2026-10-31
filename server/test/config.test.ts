@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { loadConfig } from '../src/config/config.ts';
 
-const base = { DATABASE_URL: 'postgres://jarvis:jarvis@localhost:5433/jarvis' };
+const base = { DATABASE_URL: 'postgres://omena:omena@localhost:5433/omena' };
 
 describe('config', () => {
   it('defaults to the stub provider and needs no key', () => {

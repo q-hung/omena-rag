@@ -157,7 +157,7 @@ describe('eval', () => {
   });
 
   it('JDG-01: without judgeCount the estimate matches T27', () => {
-    const cfg = loadConfig({ DATABASE_URL: 'postgres://jarvis:jarvis@localhost:5433/jarvis' });
+    const cfg = loadConfig({ DATABASE_URL: 'postgres://omena:omena@localhost:5433/omena' });
     const base = { indexChars: 10_000, queryChars: 400, generateChars: 24_000, generateCount: 16 };
     expect(estimateEvalCostUsd(cfg, { ...base, judgeCount: 0 })).toBe(estimateEvalCostUsd(cfg, base));
     expect(estimateEvalCostUsd(cfg, { ...base, judgeCount: 14 })).toBeGreaterThan(estimateEvalCostUsd(cfg, base));

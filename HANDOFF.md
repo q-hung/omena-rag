@@ -1,4 +1,4 @@
-# Jarvis handoff
+# Omena handoff
 
 Internal Product Support Copilot. Status: `docs/TIMELINE.md`. Requirements: `REQ_V2.MD`, `REQ_V3.MD`.
 
@@ -6,7 +6,7 @@ Internal Product Support Copilot. Status: `docs/TIMELINE.md`. Requirements: `REQ
 
 | Area | Where |
 |---|---|
-| Auth | `POST /api/auth/login`, cookie `jarvis_session` |
+| Auth | `POST /api/auth/login`, cookie `omena_session` |
 | Accounts | `GET /api/accounts`, `GET /api/accounts/:id/facts` |
 | Provider | `server/src/llm/` — `createProvider(config)`; `generate` (Ask) and `generateStructured<T>({prompt, schema, jsonSchema, kind, stubKind?}, deadline)` (any zod shape) |
 | RFP prompt / schema | `server/src/rag/rfp-prompt.ts` (`buildRfpPrompt`, `RFP_PROMPT_VERSION='rfp-v2'`), `server/src/llm/rfp-schema.ts` (REQ_V3 §7.4) |
@@ -24,7 +24,7 @@ Internal Product Support Copilot. Status: `docs/TIMELINE.md`. Requirements: `REQ
 | History | `GET /api/conversations?accountId&state&mine&signal&topic` |
 | RFPs | `POST /api/rfps`: JSON `{title, questions:[…]}` (1–50) → `confirmed` + `pending`; JSON `{title, text}` or multipart `{title, file}` (`.pdf`/`.md`, 3 MB) → `extractQuestions` (`services/rfp-extract.ts`) → `draft` (PDF failure → `extraction_failed` + `extractionError`); `PUT /api/rfps/:id/questions {questions}` (draft only, creator only, else 409/403); `POST /api/rfps/:id/confirm` (≥ 1 question, else 409); `POST /api/rfps/:id/extract {text?}` re-run (draft / extraction_failed); `GET /api/rfps?mine=1` (default mine); `GET /api/rfps/:id` with `ownedByMe`, `reviewState` (REQ_V3 §4.4 `deriveQuestionState`); `POST /api/rfps/:id/generate[?force=1]` (creator only, confirmed only) queues `pending`+`failed` (+`done` with force) → worker; `GET /api/rfps/:id` returns `progress` counts; `PATCH /api/rfp-answers/:id {editedText}` (REV-01; every `[n]` must be a citation of the answer, else 400 `UNKNOWN_CITATION`); `POST /api/rfp-answers/:id/reviews {verdict, note?, flaggedCitations?}` (REV-02; appends a row; 403 non-creator, 409 `NOT_LATEST` / `GENERATION_IN_PROGRESS` / `EMPTY_TEXT`, 400 bad `wrong_evidence`); both return the RFP. `GET /api/rfps/:id` adds per question `reviewHistory` (all answers' reviews) and per latest answer `sourceStale`; `GET /api/rfps` adds `progress {total, generated, accepted, failed}` from `RFP_STATE_SQL` (`services/rfp-state.ts`, tested against `deriveQuestionState`); `POST /api/rfp-questions/:id/regenerate` (creator only, confirmed only, synchronous, also the per-question Retry) → `answerQuestion` |
 | Eval | `server/eval/run.ts`, `server/eval/golden.json` — `pnpm eval` |
-| RFP eval (P18 TASK-13) | `server/eval/rfp-golden.json` (R01–R13), `eval/rfp-score.ts` (pure scoring, SC3-1..3), `eval/rfp-run.ts` — `LLM_PROVIDER=gemini pnpm eval:rfp` (refuses stub, prints the estimate, seeds `jarvis_eval`, one RFP through the real worker, report + confusion matrix + every answer). `pnpm rfp:feedback` (`services/rfp-feedback.service.ts`, SQL only): latest review per answer, accepted as-is vs after edit, wrong-evidence citations by document, acceptance by evidence status. Tests: `server/test/rfp-eval.test.ts` |
+| RFP eval (P18 TASK-13) | `server/eval/rfp-golden.json` (R01–R13), `eval/rfp-score.ts` (pure scoring, SC3-1..3), `eval/rfp-run.ts` — `LLM_PROVIDER=gemini pnpm eval:rfp` (refuses stub, prints the estimate, seeds `omena_eval`, one RFP through the real worker, report + confusion matrix + every answer). `pnpm rfp:feedback` (`services/rfp-feedback.service.ts`, SQL only): latest review per answer, accepted as-is vs after edit, wrong-evidence citations by document, acceptance by evidence status. Tests: `server/test/rfp-eval.test.ts` |
 | Docker | `Dockerfile`, `docker-compose.yml` (`db`, `api`, `worker`), `STATIC_DIR` SPA |
 | RFP UI | `frontend/src/features/rfp/` — `RfpNewView` (`/rfps/new`), `RfpDraftView` (draft mode of `/rfps/:id`), `RfpWorkspaceView` (confirmed), `RfpProcessingPanel` (collapsible table under the workspace, OBS-03) |
 | RFP export (P18 TASK-14) | `GET /api/rfps/:id/export?format=md\|csv` (default md; any signed-in employee): accepted answers only (latest answer's latest review is `accepted`), `[n]` markers stripped, sources line from the stored snapshot (only citations still in the final text), others "Not answered"; attachment + `nosniff`; CSV cells starting `= + - @` are apostrophe-prefixed. UI: Export .md / .csv buttons in the workspace header. Test: `server/test/rfp-export.test.ts` (`csv-parse` devDependency) |
@@ -43,7 +43,7 @@ pnpm build        # server -> server/dist (db:migrate, seed, worker, eval* run d
 pnpm db:migrate && pnpm seed && pnpm worker --once
 pnpm dev          # API :8080, UI http://localhost:5173
 pnpm worker       # leave running to index uploads
-LLM_PROVIDER=gemini pnpm eval   # seeds jarvis_eval, calls Gemini
+LLM_PROVIDER=gemini pnpm eval   # seeds omena_eval, calls Gemini
 ```
 
 Full demo (SPA on :8080):
@@ -54,7 +54,7 @@ docker compose exec api pnpm seed
 # open http://localhost:8080
 ```
 
-Login: `ada@omena.example` or `rei@omena.example` / `jarvis-demo` (from `SEED_EMPLOYEE_PASSWORD`). Local: open **5173** only — `APP_ORIGIN` rejects other ports. Compose sets `APP_ORIGIN=http://localhost:8080`.
+Login: `ada@omena.example` or `rei@omena.example` / `omena-demo` (from `SEED_EMPLOYEE_PASSWORD`). Local: open **5173** only — `APP_ORIGIN` rejects other ports. Compose sets `APP_ORIGIN=http://localhost:8080`.
 
 ```bash
 pnpm test

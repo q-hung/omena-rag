@@ -1,4 +1,4 @@
-# Jarvis
+# Omena
 
 Internal Product Support Copilot for Omena (fictional SaaS). Employees pick a
 customer account, ask a question about the SubPilot product, and get an answer
@@ -59,7 +59,7 @@ Open **http://localhost:8080**. Compose sets `APP_ORIGIN` to that origin. Migrat
 run on API start; the worker indexes seeded documents in the background.
 
 Sign in as `ada@omena.example` or `rei@omena.example` /
-`jarvis-demo` (or `SEED_EMPLOYEE_PASSWORD` from `.env`).
+`omena-demo` (or `SEED_EMPLOYEE_PASSWORD` from `.env`).
 
 ## Local development
 
@@ -76,7 +76,7 @@ pnpm worker --once
 pnpm dev
 ```
 
-`db` is Postgres on port 5433 (`jarvis` and `jarvis_test`). `pnpm worker --once`
+`db` is Postgres on port 5433 (`omena` and `omena_test`). `pnpm worker --once`
 indexes the seed set. `pnpm dev` starts the API on :8080 and Vite on :5173.
 
 Open **http://localhost:5173**. `.env` sets `APP_ORIGIN=http://localhost:5173`;
@@ -101,7 +101,7 @@ Keep `pnpm worker` running if you upload documents. Sample files to upload are i
 `pnpm --filter server smoke-embed` checks Gemini connectivity and prints the
 embedding dimension.
 
-`LLM_PROVIDER=gemini pnpm eval` seeds `jarvis_eval` (D = 2026-10-02), indexes
+`LLM_PROVIDER=gemini pnpm eval` seeds `omena_eval` (D = 2026-10-02), indexes
 with Gemini, and scores the golden set. It refuses stub mode and prints the
 cost estimate first. CI never calls Gemini.
 
@@ -119,8 +119,8 @@ See [.env.example](.env.example). The full schema is in
 
 | Variable | Default | Notes |
 |---|---|---|
-| `DATABASE_URL` | `postgres://jarvis:jarvis@localhost:5433/jarvis` | Compose overrides to `db:5432` |
-| `TEST_DATABASE_URL` | `…/jarvis_test` | Tests truncate this database |
+| `DATABASE_URL` | `postgres://omena:omena@localhost:5433/omena` | Compose overrides to `db:5432` |
+| `TEST_DATABASE_URL` | `…/omena_test` | Tests truncate this database |
 | `LLM_PROVIDER` | `stub` | `stub` or `gemini` |
 | `GEMINI_API_KEY` | none | Required for `gemini` |
 | `GENERATION_MODEL` | `gemini-3.1-flash-lite` | |
@@ -172,7 +172,7 @@ server/
   eval/           golden set and `pnpm eval`
   fixtures/kb/    Seed knowledge-base documents (md + pdf)
   scripts/        seed, smoke-embed
-  test/           Vitest (integration tests against jarvis_test)
+  test/           Vitest (integration tests against omena_test)
 frontend/
   src/features/   login, workspace (Ask), kb, history
   src/hooks/      useAsk, useDocuments, useSession, …

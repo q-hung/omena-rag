@@ -57,7 +57,7 @@ export function evalDatabaseUrl(appUrl: string): string {
   if (process.env.EVAL_DATABASE_URL) {
     return process.env.EVAL_DATABASE_URL;
   }
-  return appUrl.replace(/\/[^/?#]+([?#].*)?$/, '/jarvis_eval$1');
+  return appUrl.replace(/\/[^/?#]+([?#].*)?$/, '/omena_eval$1');
 }
 
 export function dbNameOf(url: string): string {
@@ -75,7 +75,7 @@ export async function ensureEvalDatabase(fromUrl: string, evalUrl: string): Prom
   try {
     const found = await admin.query('select 1 from pg_database where datname = $1', [name]);
     if (!found.rowCount) {
-      await admin.query(`create database ${name} owner jarvis`);
+      await admin.query(`create database ${name} owner omena`);
     }
   } finally {
     await admin.end();

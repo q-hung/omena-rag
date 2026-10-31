@@ -1,7 +1,7 @@
 <!DOCTYPE html>
-<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Jarvis RAG: kỹ thuật đã dùng và còn thiếu</title>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Omena RAG: kỹ thuật đã dùng và còn thiếu</title>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet"><style>body{font:15px/1.55 system-ui,-apple-system,sans-serif;max-width:1100px;margin:2rem auto;padding:0 1rem;background:#f5f5f5;color:#2d3142}h1{font-weight:600}h2{margin-top:2.4rem;border-top:1px solid #bfc0c0;padding-top:1rem}table{border-collapse:collapse;width:100%;font-size:14px;background:#fff}td,th{border:1px solid #d5d6d8;padding:6px 9px;text-align:left;vertical-align:top}th{background:#ececec}code{background:#ececec;padding:0 3px;font-size:.9em}.box{overflow-x:auto;background:#f5f5f5;border:1px solid #d5d6d8;padding:8px;margin:12px 0}.box svg{display:block;min-width:1280px;width:1280px}.note{background:#fff;border-left:3px solid #bf4520;padding:8px 12px;margin:12px 0}</style></head><body>
-<h1>Jarvis RAG: kỹ thuật đã dùng và còn thiếu</h1>
+<h1>Omena RAG: kỹ thuật đã dùng và còn thiếu</h1>
 <p>Dựa trên việc đọc code của app (không phải tài liệu mô tả). Phần "còn thiếu" là những thứ tôi không tìm thấy trong code; tôi chưa đọc từng dòng của mọi file, nên hãy kiểm tra lại trước khi nói với người khác rằng một thứ hoàn toàn không có.</p>
 <div class="note"><b>Sửa một chỗ tôi nói trước đó:</b> tôi từng nói app thiếu đo faithfulness. Điều này sai. Thư mục <code>server/eval</code> có LLM-as-judge chấm từng câu (supported, partial, unsupported), có hiệu chuẩn bằng nhãn người, và tính support rate. Cái còn thiếu là chỉ số xếp hạng retrieval và độ lớn của bộ test.</div>
 <h2>1. Đã dùng</h2>

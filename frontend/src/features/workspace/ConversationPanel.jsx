@@ -233,7 +233,7 @@ function Answer({ app, conv, a, full, readOnly }) {
       )}
       {a.outcome === 'clarification_required' && locked && (
         <div className={`flex max-w-[72ch] flex-col gap-3 px-6 py-5 ${CARD}`}>
-          <div className="eyebrow">JARVIS NEEDS MORE INFORMATION</div>
+          <div className="eyebrow">OMENA NEEDS MORE INFORMATION</div>
           {(a.questions ?? []).map((q) => <DraftText key={q} text={q} boxed={false} {...textProps} />)}
         </div>
       )}
@@ -255,7 +255,7 @@ function Answer({ app, conv, a, full, readOnly }) {
 
       {a.outcome === 'out_of_scope' && !readOnly ? (
         <div className="flex max-w-[72ch] items-center gap-3 border-t border-hairline pt-3">
-          <span className="flex-1 text-sm text-secondary">Jarvis answers questions about SubPilot only.</span>
+          <span className="flex-1 text-sm text-secondary">Omena answers questions about SubPilot only.</span>
           <Button size="sm" onClick={w.newQuestion}>New question</Button>
         </div>
       ) : (
@@ -303,7 +303,7 @@ function ReplyBox({ app, conv, a }) {
 
   return (
     <div className={`flex max-w-[72ch] flex-col gap-4 px-6 py-5 ${CARD}`}>
-      <div className="eyebrow">JARVIS NEEDS MORE INFORMATION</div>
+      <div className="eyebrow">OMENA NEEDS MORE INFORMATION</div>
       {choose.map((c, i) => (
         <fieldset key={c.prompt} className="flex flex-col gap-2">
           <legend className="text-sm font-semibold">{c.prompt}</legend>

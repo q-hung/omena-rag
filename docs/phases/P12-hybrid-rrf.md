@@ -19,7 +19,7 @@ Retrieval only (§7.7). Prompt, normaliser and UI are unchanged. Independent of 
   - `server/src/retrieve.ts`: lexical list (top 20, `websearch_to_tsquery` with `&` → `|`, `ts_rank_cd`) and vector list (top 20, cosine ≥ `RETRIEVAL_MIN_SCORE`), both with the RET-01 joins. Pure `rrf(lists, k = 60)` returns the top 8; ties break by chunk id.
   - Config: `RETRIEVAL_MODE=vector|hybrid`, default `vector`. Vector mode keeps the T19 query unchanged. Stub mode keeps token overlap.
   - `answer_sources.score` stores the fused score in hybrid mode.
-  - Vitest: HYB-02 (pure `rrf`); HYB-01 and HYB-03 against `jarvis_test` with the lexical SQL (no embeddings needed); HYB-04.
+  - Vitest: HYB-02 (pure `rrf`); HYB-01 and HYB-03 against `omena_test` with the lexical SQL (no embeddings needed); HYB-04.
 - **Result (7 Oct 2026):** `drizzle/0004_hybrid_search.sql` (generated column + GIN). `rag/retrieve.ts`: `rrf()`, `loadHybrid`, `loadByLexical`; `RETRIEVAL_MODE` in config, passed from `generate.service.ts`. Path is `rag/retrieve.ts` after M10. Fused score flows to `answer_sources.score` unchanged. Tests HYB-01–04 in `retrieval.test.ts`; full server suite 203/203 in vector mode.
 - **Verify:** `pnpm --filter server test retrieve` passes; `RETRIEVAL_MODE=vector pnpm test` is green with no test changes.
 

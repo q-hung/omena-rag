@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Jarvis RAG Internals</title>
+<title>Omena RAG Internals</title>
 <style>
 :root{--bg:#fafaf8;--fg:#1c1c1a;--mut:#6b6b66;--card:#fff;--line:#e2e1dc;--acc:#0b6bcb;--acc2:#e8f1fb;--ok:#1a7f4b;--bad:#b3261e;--warn:#9a6700;--code:#f3f2ee}
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#151514;--fg:#ecebe6;--mut:#9a9992;--card:#1e1e1c;--line:#34332f;--acc:#6ab0f3;--acc2:#1c2a3a;--ok:#4cc38a;--bad:#f2766e;--warn:#e3b341;--code:#262522}}
@@ -54,7 +54,7 @@ input,select{font:inherit;font-size:13.5px;padding:5px 8px;border-radius:6px;bor
 <body>
 <div class="wrap">
 <nav>
-  <h1>Jarvis RAG internals</h1><small>For engineers on call</small>
+  <h1>Omena RAG internals</h1><small>For engineers on call</small>
   <div style="height:12px"></div>
   <a href="#overview" data-t="overview">Overview</a>
   <a href="#ask" data-t="ask">Ask data flow</a>
@@ -341,7 +341,7 @@ function stepper(stepsEl,bodyEl,data){
 }
 
 stepper('askSteps','askBody',[
- {s:'Request',tags:[['','API']],t:'POST /api/conversations',b:'Route validates with zod, checks the session cookie (<code>jarvis_session</code>) and origin (<code>APP_ORIGIN</code>), then calls the service. Handlers stay thin: no db or drizzle imports.',f:'routes/conversations.routes.ts, plugins/auth.ts, plugins/security.ts'},
+ {s:'Request',tags:[['','API']],t:'POST /api/conversations',b:'Route validates with zod, checks the session cookie (<code>omena_session</code>) and origin (<code>APP_ORIGIN</code>), then calls the service. Handlers stay thin: no db or drizzle imports.',f:'routes/conversations.routes.ts, plugins/auth.ts, plugins/security.ts'},
  {s:'T1: take lease',tx:1,tags:[['db','DB txn']],t:'Create conversation, take the generation lease',b:'One short transaction: insert conversation, lock its row, check the employee quota (50 first attempts per UTC day), set <code>generation_token</code>, insert turn 1. Regenerate and reply do the same after <code>FOR UPDATE</code> on the existing row and fail with 409 if the lease is live.',code:'UPDATE conversations SET generation_token=$tok, generation_started_at=now()\n WHERE id=$id AND (generation_token IS NULL OR generation_started_at &lt; now()-2min)',f:'generate.service.ts: createConversation / regenerateConversation / replyConversation, takeLock'},
  {s:'Account snapshot',tags:[['db','DB read-only']],t:'Build the account facts',b:'A <code>read only</code> transaction assembles facts (plan, payments, webhooks, features) with every derived value precomputed (days, amounts). The model never does arithmetic. Any DB failure becomes <code>503 account_data_unavailable</code>, never an empty result that looks like "no data".',f:'account-context.service.ts (CTX-05)'},
  {s:'Embed query',tags:[['net','Network'],['db','ledger']],t:'Retrieval query to vector',b:'Query = turn 1 + latest reply + selected fact values. Formatted as <code>task: search result | query: ...</code>, embedded through <code>paidAttempt</code> (reserve, call, reconcile). Deadline for the whole request is 90 s.',f:'generate.service.ts runOutsideTxn, llm/format.ts, llm/budget.ts'},

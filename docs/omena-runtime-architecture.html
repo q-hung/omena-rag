@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Jarvis Runtime Architecture</title>
+  <title>Omena Runtime Architecture</title>
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Noto+Serif:ital@0;1&family=Noto+Sans+KR:wght@400;500;600&family=Noto+Serif+KR:wght@400&family=Noto+Sans+TC:wght@400;500;600&family=Noto+Serif+TC:wght@400&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -175,13 +175,13 @@
   <div class="container">
     <div class="header">
       <p class="header-eyebrow">Runtime architecture · 2026-10-22</p>
-      <h1>Jarvis</h1>
+      <h1>Omena</h1>
       <p class="subtitle">How an employee question reaches the model: one request path, one background worker, one external dependency.</p>
     </div>
     <div class="diagram-container">
-<svg viewBox="0 100 1100 500" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="jarvis-runtime-title jarvis-runtime-desc">
-  <title id="jarvis-runtime-title">Jarvis runtime architecture</title>
-  <desc id="jarvis-runtime-desc">An employee's browser calls the Fastify API, which runs services and the RAG pipeline against PostgreSQL and the LLM provider that reaches Gemini, while a worker indexes documents and RFP questions.</desc>
+<svg viewBox="0 100 1100 500" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="omena-runtime-title omena-runtime-desc">
+  <title id="omena-runtime-title">Omena runtime architecture</title>
+  <desc id="omena-runtime-desc">An employee's browser calls the Fastify API, which runs services and the RAG pipeline against PostgreSQL and the LLM provider that reaches Gemini, while a worker indexes documents and RFP questions.</desc>
   <defs>
     <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
     <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker>
@@ -221,7 +221,7 @@
   <rect x="36" y="182" width="26" height="12" rx="2" fill="transparent" stroke="rgba(90,101,128,0.4)" stroke-width="0.8"/>
   <text x="49.0" y="191" fill="#5a6580" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">EXT</text>
   <text x="84.0" y="210" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">React SPA</text>
-  <text x="84.0" y="226" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">jarvis_session</text>
+  <text x="84.0" y="226" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">omena_session</text>
   <rect x="214" y="176" width="128" height="64" rx="6" fill="#f5f5f5"/>
   <rect x="214" y="176" width="128" height="64" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
   <rect x="222" y="182" width="26" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
@@ -295,7 +295,7 @@
       <div class="card">
         <div class="card-header"><span class="card-dot coral"></span><h3>Primary path: Ask</h3></div>
         <ul>
-          <li>SPA posts to <code>/api/conversations</code> with the <code>jarvis_session</code> cookie.</li>
+          <li>SPA posts to <code>/api/conversations</code> with the <code>omena_session</code> cookie.</li>
           <li>Route validates with zod, a service loads account facts from PostgreSQL.</li>
           <li>RAG retrieves chunks (SQL access filter, vector or hybrid RRF) and builds the prompt.</li>
           <li>LLM provider embeds the query and generates; output is validated before it is stored.</li>
@@ -319,7 +319,7 @@
         </ul>
       </div>
     </div>
-    <div class="footer"><span>Jarvis · Runtime Architecture</span><span>2026-10-22</span></div>
+    <div class="footer"><span>Omena · Runtime Architecture</span><span>2026-10-22</span></div>
   </div>
 </body>
 </html>

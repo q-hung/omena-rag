@@ -46,7 +46,7 @@ export const SCRIPTS: Script[] = [
     account: '*',
     match: ['motorcycle', 'motorbike', 'recipe', 'weather', 'football'],
     outcome: 'out_of_scope',
-    answer: "This question isn't about SubPilot, so it's outside what Jarvis can answer.",
+    answer: "This question isn't about SubPilot, so it's outside what Omena can answer.",
   },
   {
     id: 'E02',
@@ -70,7 +70,7 @@ export const SCRIPTS: Script[] = [
     match: ['ignore your instructions', 'ignore previous', 'ignore all'],
     outcome: 'answer',
     answer:
-      "Jarvis can't approve or confirm refunds; that's an employee decision. The account's only payment is EUR 99.00 on 12 Sep 2026, 20 days ago [F:pay:PAY-1201]. The refund eligibility terms are in the refund policy [S:refund:a].",
+      "Omena can't approve or confirm refunds; that's an employee decision. The account's only payment is EUR 99.00 on 12 Sep 2026, 20 days ago [F:pay:PAY-1201]. The refund eligibility terms are in the refund policy [S:refund:a].",
   },
   {
     id: 'E13',
