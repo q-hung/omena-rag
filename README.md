@@ -69,6 +69,7 @@ Prerequisites: Node 26 (see `.nvmrc`; `nvm use` or `fnm use`), pnpm, Docker.
 cp .env.example .env
 docker compose up -d db
 pnpm install
+pnpm build
 pnpm db:migrate
 pnpm seed
 pnpm worker --once
@@ -191,11 +192,15 @@ LLM_PROVIDER=gemini pnpm eval
 ```
 
 `pnpm test` runs all tests and needs the `db` container running.
-`pnpm build` runs the server typecheck (`tsc --noEmit`) and the frontend
-build. `pnpm check:layers` fails if a route imports `db/` or `drizzle-orm`
-(see [CLAUDE.md](CLAUDE.md)). `pnpm lint` (Biome) requires `{}` on every
-`if`/`else`/loop body. CI runs both. Pass a test file name to run one server test file, as in the last
-command.
+`pnpm build` compiles the server to `server/dist` (it also typechecks) and
+builds the frontend; `pnpm typecheck` checks without emitting. `db:migrate`,
+`seed`, `worker`, `eval*` and `rfp:feedback` run the compiled JS, so rebuild
+after editing server code.
+
+`pnpm check:layers` fails if a route imports `db/` or `drizzle-orm` (see
+[CLAUDE.md](CLAUDE.md)). `pnpm lint` (Biome) requires `{}` on every
+`if`/`else`/loop body. CI runs both. Pass a test file name to run one server
+test file, as in the last command.
 
 Notes:
 

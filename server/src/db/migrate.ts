@@ -1,11 +1,12 @@
 import '../config/env.ts';
 import { fileURLToPath } from 'node:url';
-import { resolve } from 'node:path';
+import { join } from 'node:path';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { sql } from 'drizzle-orm';
+import { SERVER_ROOT } from '../lib/paths.ts';
 import { makeDb } from './index.ts';
 
-const migrationsFolder = resolve(import.meta.dirname, '../../drizzle');
+const migrationsFolder = join(SERVER_ROOT, 'drizzle');
 
 export async function runMigrations(connectionString: string): Promise<void> {
   const { pool, db } = makeDb(connectionString);

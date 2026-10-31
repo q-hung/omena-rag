@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
+import { SERVER_ROOT } from '../src/lib/paths.ts';
 import { z } from 'zod';
 import { EVIDENCE_STATUSES } from '../src/db/schema.ts';
 import { matchesForbidden } from './score.ts';
@@ -55,7 +55,7 @@ export function loadRfpGoldenSync(raw: unknown): RfpGoldenCase[] {
 }
 
 export async function loadRfpGolden(
-  path = join(dirname(fileURLToPath(import.meta.url)), 'rfp-golden.json'),
+  path = join(SERVER_ROOT, 'eval/rfp-golden.json'),
 ): Promise<RfpGoldenCase[]> {
   return loadRfpGoldenSync(JSON.parse(await readFile(path, 'utf8')));
 }

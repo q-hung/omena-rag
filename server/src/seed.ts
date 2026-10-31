@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
+import { SERVER_ROOT } from './lib/paths.ts';
 import { hash } from '@node-rs/argon2';
 import { sql } from 'drizzle-orm';
 import { SEED_EMPLOYEES, seedAccounts } from '../fixtures/accounts.ts';
@@ -92,7 +92,7 @@ export async function seedAccountData(db: Db, d: string): Promise<void> {
   }
 }
 
-const KB_DIR = join(dirname(fileURLToPath(import.meta.url)), '../fixtures/kb');
+const KB_DIR = join(SERVER_ROOT, 'fixtures/kb');
 
 const KB_DOCS = [
   { file: 'plan-comparison.md', title: 'Plan comparison', category: 'Plans', days: -93, note: 'Added webhook endpoint limit.' },

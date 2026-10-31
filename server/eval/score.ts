@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
+import { SERVER_ROOT } from '../src/lib/paths.ts';
 import { z } from 'zod';
 import type { Config } from '../src/config/config.ts';
 import { estimateCostUsd } from '../src/llm/budget.ts';
@@ -61,7 +61,7 @@ export function loadGoldenSync(raw: unknown): GoldenCase[] {
   return cases;
 }
 
-export async function loadGolden(path = join(dirname(fileURLToPath(import.meta.url)), 'golden.json')): Promise<GoldenCase[]> {
+export async function loadGolden(path = join(SERVER_ROOT, 'eval/golden.json')): Promise<GoldenCase[]> {
   return loadGoldenSync(JSON.parse(await readFile(path, 'utf8')));
 }
 

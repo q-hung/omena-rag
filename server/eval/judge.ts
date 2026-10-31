@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
+import { SERVER_ROOT } from '../src/lib/paths.ts';
 import { z } from 'zod';
 import type { Config } from '../src/config/config.ts';
 import { AppError } from '../src/errors.ts';
@@ -72,7 +72,7 @@ export function judgeGuard(cfg: Config): string | null {
 }
 
 export async function loadJudgeLabels(
-  path = join(dirname(fileURLToPath(import.meta.url)), 'judge-labels.json'),
+  path = join(SERVER_ROOT, 'eval/judge-labels.json'),
 ): Promise<JudgeLabelItem[]> {
   const items = z.array(judgeLabelItemSchema).parse(JSON.parse(await readFile(path, 'utf8')));
   if (items.length < 30) {

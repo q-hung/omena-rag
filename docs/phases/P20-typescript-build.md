@@ -1,6 +1,6 @@
 # P20 · Compiled TypeScript instead of Node strip-only mode
 
-Status: not started (approved 30 Oct 2026, prioritized ahead of P18 TASK-15/16 and P19)
+Status: TASK-22 done, TASK-23 not started (approved 30 Oct 2026, prioritized ahead of P18 TASK-15/16 and P19)
 Depends on: P10 (layering), P11 (eval entrypoints). Independent of P13–P19; can run any time, but not in parallel with a phase that adds new entrypoint scripts.
 Requirements: none in REQ_V2/REQ_V3. Operational change.
 Recheck when changed (downstream): P19 (new files must follow the build layout)
@@ -50,16 +50,17 @@ One shared helper in `src/lib/` finds the server root (nearest `package.json` ab
 
 ## Tasks
 
-### TASK-22 — Emit JS and run it in Docker
+### [x] TASK-22 — Emit JS and run it in Docker
 - **Goal:** prod runs compiled JS; no `.ts` at runtime.
 - **Implementation:** `server/tsconfig.json`: `noEmit` off, `outDir: dist`, `rootDir: .`, `rewriteRelativeImportExtensions: true` (keeps `./x.ts` imports valid in source, rewrites to `.js` on emit); drop `allowImportingTsExtensions` if the compiler no longer needs it. Separate `tsconfig.build.json` excluding `test` if tests should not ship. Scripts: `build` emits, a new `typecheck` keeps `tsc --noEmit`; `start`, `worker`, `db:migrate`, `seed`, `eval*` point at `dist/`. Apply the path fixes in "Build design" (child process, `.env`, migrations, seed, entrypoint, compose); add the server-root helper and a test that spawns the extract child from the emitted JS. Dockerfile: build stage runs the server build; final stage copies `server/dist` and installs prod deps only; `CMD` and `docker-compose.yml` `command` use `dist/*.js`. Update `check:layers` and Biome ignores for `dist`.
 - **Acceptance:**
-  - [ ] `pnpm build` emits `server/dist`; `dist` is git-ignored
-  - [ ] Docker image contains no `server/src/*.ts` and runs `api` and `worker` from `dist`
-  - [ ] `docker compose up` seeds and answers an Ask question end to end (same as P00–P09 delivery check)
-  - [ ] Migrate, seed, and the PDF/text extract child all work when run from `dist` (not only from `src`)
-  - [ ] Stack traces from `dist` show `.ts` source lines
-  - [ ] `pnpm test`, `pnpm lint`, `pnpm check:layers` green; no behavior change
+  - [x] `pnpm build` emits `server/dist`; `dist` is git-ignored
+  - [x] Docker image contains no `server/src/*.ts` and runs `api` and `worker` from `dist`
+  - [x] `docker compose up` seeds and answers an Ask question end to end (same as P00–P09 delivery check)
+  - [x] Migrate, seed, and the PDF/text extract child all work when run from `dist` (not only from `src`)
+  - [x] Stack traces from `dist` show `.ts` source lines
+  - [x] `pnpm test`, `pnpm lint`, `pnpm check:layers` green; no behavior change
+- **Result (31 Oct 2026):** dev workflow option A assumed (TASK-23 applies it). `tsconfig.json` stays the typecheck config (`pnpm typecheck`, includes tests); `tsconfig.build.json` emits `dist` without tests (build is about 1 s). More `import.meta` path users than the table listed (`eval/score.ts`, `judge.ts`, `rfp-score.ts`, `eval/run.ts`, `scripts/write-kb-pdfs.ts`); all now use `SERVER_ROOT`. The image copies only `drizzle`, `fixtures/kb` and `dist` (no `.ts`; `server/eval` is dockerignored). Checked: image has no `.ts`; api and worker run from `dist`; migrate, seed, worker and an Ask (login, then `answer_ready`) from `dist` on `jarvis_eval` with the stub; stack trace shows `config.ts:62`. `server/test/build.test.ts` emits to `node_modules/.cache` and runs the extract child from JS (fails if the child path regresses).
 
 ### TASK-23 — Dev workflow, restrictions lifted, docs
 - **Goal:** one documented way to develop, and the strip-only rules gone.

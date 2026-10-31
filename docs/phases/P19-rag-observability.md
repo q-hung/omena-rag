@@ -6,7 +6,7 @@ Requirements: defined below (`OBS2-*`); extends REQ_V2 SEC-11 and REQ_V3 §10 (O
 Recheck when changed (downstream): P18 (eval and demo read traces)
 
 ## Amendments received
-_none_
+- 31 Oct 2026 ← P20 TASK-22: the server is compiled to `server/dist`; new entrypoints and scripts run from `dist` (`package.json` scripts point there), and data files must be resolved with `SERVER_ROOT` (`src/lib/paths.ts`), not `import.meta`-relative paths.
 
 Tasks: TASK-17…21. Only TASK-17 adds a migration (it also carries `provider_calls.request_id`), so there is no journal conflict inside this phase. Any other phase that adds a migration must go before or after it, not in parallel.
 

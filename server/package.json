@@ -5,15 +5,17 @@
   "engines": { "node": ">=26" },
   "scripts": {
     "dev": "node --watch src/api.ts",
-    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "test": "vitest run",
-    "db:migrate": "node src/db/migrate.ts",
-    "seed": "node scripts/seed.ts",
-    "worker": "node src/worker.ts",
-    "eval": "node eval/run.ts",
-    "eval:rfp": "node eval/rfp-run.ts",
-    "rfp:feedback": "node scripts/rfp-feedback.ts",
-    "smoke-embed": "node scripts/smoke-embed.ts"
+    "db:migrate": "node --enable-source-maps dist/src/db/migrate.js",
+    "seed": "node --enable-source-maps dist/scripts/seed.js",
+    "start": "node --enable-source-maps dist/src/api.js",
+    "worker": "node --enable-source-maps dist/src/worker.js",
+    "eval": "node --enable-source-maps dist/eval/run.js",
+    "eval:rfp": "node --enable-source-maps dist/eval/rfp-run.js",
+    "rfp:feedback": "node --enable-source-maps dist/scripts/rfp-feedback.js",
+    "smoke-embed": "node --enable-source-maps dist/scripts/smoke-embed.js"
   },
   "devDependencies": {
     "@types/luxon": "^3.7.6",
