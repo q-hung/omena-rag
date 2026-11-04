@@ -176,7 +176,7 @@ async function loadByVector(queryEmbedding: number[], model: string, limit: numb
       join document_versions v on v.id = c.version_id
       join documents d on d.active_version_id = v.id and d.archived_at is null
       where c.embedding_model = ${model}
-      order by c.embedding <=> ${vec}::vector
+      order by c.embedding <=> ${vec}::vector, c.id
       limit ${limit}
     `),
   );
@@ -234,6 +234,7 @@ async function loadEligible(model: string) {
       join document_versions v on v.id = c.version_id
       join documents d on d.active_version_id = v.id and d.archived_at is null
       where c.embedding_model = ${model}
+      order by c.id
     `),
   );
 }
