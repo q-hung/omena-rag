@@ -30,6 +30,43 @@ changing code (for `Depends on` phases, only the parts your task touches). If yo
 "Changing an earlier phase". Report contradictions before implementing
 affected behavior. Do not silently expand the MVP.
 
+This file is the one guide for every coding tool (`AGENTS.md` only points here).
+File paths inside `docs/phases/*` are a historical record (many predate the M10
+layering); when they disagree with the code, the code wins.
+
+**Contract order of precedence** (higher wins; report a conflict, don't pick
+silently): `REQ_V2.MD` §17 / `REQ_V3.MD` → zod schemas in `server/src/routes/*.routes.ts`
+→ `server/test/__snapshots__/routes.test.ts.snap`. The API tables in `HANDOFF.md`
+describe the code and are not normative.
+
+## Commands
+
+```bash
+docker compose up -d db          # Postgres + pgvector on :5433 (needed by server tests)
+pnpm lint && pnpm check:layers && pnpm typecheck && pnpm build && pnpm test   # what CI runs
+pnpm --filter server test <name> # focused server tests, e.g. retrieval
+pnpm --filter frontend test <name>
+```
+
+Run, seed and worker commands: `HANDOFF.md` "Run". Server tests use one database per
+checkout (`omena_test_<hash>`, created on first run, never dropped automatically), so
+parallel worktrees don't wipe each other. Two test runs in the *same* checkout still
+share it: don't run them at once.
+
+## Parallel work: who edits what
+
+One owner at a time (don't edit while another task has it in flight; merge theirs first):
+`server/drizzle/*.sql` and `server/drizzle/meta/*` (one migration in flight),
+`server/src/db/schema.ts`, `pnpm-lock.yaml`, `docs/TIMELINE.md`, `HANDOFF.md`.
+In a parallel task, update only your own `docs/phases/Pnn-*.md`; put the TIMELINE and
+HANDOFF lines in the PR description for the integrator to apply.
+
+Append-only (small conflicts, fine to rebase): the `registerX(...)` lines and imports
+in `server/src/app.ts`.
+
+Generated, never hand-edit: `server/drizzle/meta/*`, `docs/REQ-INDEX.md`
+(`scripts/req-index.sh`), `server/dist`, `frontend/dist`.
+
 ## Server layers (M10)
 
 `server/src/` is layered. Keep new code in the right place:

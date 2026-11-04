@@ -56,6 +56,8 @@ docker compose exec api pnpm seed
 
 Login: `ada@omena.example` or `rei@omena.example` / `omena-demo` (from `SEED_EMPLOYEE_PASSWORD`). Local: open **5173** only — `APP_ORIGIN` rejects other ports. Compose sets `APP_ORIGIN=http://localhost:8080`.
 
+Server tests need the `db` service (`docker compose up -d db`, port 5433). Each checkout tests against its own database `<TEST_DATABASE_URL name>_<8-hex hash>` (`server/test/env.ts`), created on first run. Nothing drops them; remove leftovers from an old worktree yourself (`psql … -c 'DROP DATABASE "omena_test_1a2b3c4d"'`, list with `\l`). The `omena_eval` database used by `pnpm eval` is still shared.
+
 ```bash
 pnpm test
 pnpm --filter server test eval clarify edit review history-state conversations-list generate spa
