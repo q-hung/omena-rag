@@ -58,6 +58,9 @@ jobs:
 
       - run: pnpm build
 
+      # Also type-checks server/test, which the build config excludes.
+      - run: pnpm typecheck
+
       # M10 T37: routes stay thin — no Drizzle / db imports.
       - run: pnpm check:layers
 
